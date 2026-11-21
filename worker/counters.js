@@ -15,6 +15,7 @@ export const CNT_KINDS = ['wa_out', 'wa_fail', 'call', 'pay'];
 export const cntKey = (day, kind) => `cnt:${day}:${kind}`;
 export const cntMonthKey = (month, kind) => `cnt:m:${month}:${kind}`;
 const TTL = 400 * 86400;
+export const RETRY_CUT_S = 86400;   /* a past day whose audit read was cut: next try in a day */
 export const ilDay = ts => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date(ts));
 const addDays = (iso, n) => new Date(Date.parse(iso + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
 
@@ -81,7 +82,10 @@ export async function backfillCounters(env, d, { now = Date.now(), days = 30, pe
     const day = addDays(today, -i);
     if (await env.RATE.get('cnt:bf:' + day).catch(() => null)) continue;
     const r = await backfillDay(env, d, day).catch(e => ({ day, ok: false, why: String(e) }));
-    if (r.ok) await env.RATE.put('cnt:bf:' + day, '1', { expirationTtl: TTL });
+    /* 21/11: a day whose read was cut (02/11: 11,262 records written before the kind was kept beside the key) was
+       never marked, so it was read again in full on EVERY tick: about 24,000 KV reads every ten minutes. A cut day
+       is now tried again once a day, not 144 times. Its counters stay as the live bumps left them. */
+    await env.RATE.put('cnt:bf:' + day, r.ok ? '1' : 'cut', { expirationTtl: r.ok ? TTL : RETRY_CUT_S }).catch(() => {});
     out.push(r); done++;
   }
   for (const mo of [...new Set(out.filter(r => r.ok).map(r => r.day.slice(0, 7)))]) await recomputeMonth(env, mo).catch(() => {});
