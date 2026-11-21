@@ -28,8 +28,11 @@
     { c: 'es', n: 'Español', dir: 'ltr', loc: 'es-ES' },
     { c: 'yi', n: 'ייִדיש', dir: 'rtl', loc: 'yi' },
     { c: 'ar', n: 'العربية', dir: 'rtl', loc: 'ar' },
-    { c: 'ru', n: 'Русский', dir: 'ltr', loc: 'ru-RU' }
+    { c: 'ru', n: 'Русский', dir: 'ltr', loc: 'ru-RU' },
+    { c: 'am', n: 'አማርኛ', dir: 'ltr', loc: 'am' }
   ];
+  /* languages that live only in a dictionary file (assets/i18n/<code>.json), with no column in ROWS below */
+  var FILE_ONLY = { am: 1, pt: 1 };
   var IDX = { en: 1, fr: 2, es: 3, yi: 4, ar: 5, ru: 6 };
 
   var ROWS = [
@@ -246,6 +249,32 @@
     ['דלגו על הכל', 'Skip all', 'Tout passer', 'Omitir todo', 'איבערהיפּן אַלץ', 'تخطي الكل', 'Пропустить всё'],
     ['מצב תצוגה', 'Display mode', 'Mode d’affichage', 'Modo de visualización', 'אויסזען־מאָדוס', 'وضع العرض', 'Режим отображения'],
     ['תוכן הלוח', 'Board contents', 'Sommaire du tableau', 'Contenido del panel', 'אינהאַלט פֿונעם ברעט', 'محتوى اللوحة', 'Содержание панели'],
+    ["בוצע ✓", "Done ✓", "Fait ✓", "Hecho ✓", "געטאָן ✓", "تم ✓", "Готово ✓"],
+    ["תוצאות הסבב", "Round results", "Résultats de la série", "Resultados de la ronda", "רעזולטאַטן פֿון דער רונדע", "نتائج الجولة", "Итоги раунда"],
+    ["מצורפת תמונה", "Image attached", "Image jointe", "Imagen adjunta", "אַ בילד איז צוגעלייגט", "صورة مرفقة", "Изображение прикреплено"],
+    ["✓ נוסח אישי מאושר", "✓ Your wording is approved", "✓ Votre texte est approuvé", "✓ Su texto está aprobado", "✓ אײַער נוסח איז באַשטעטיקט", "✓ صيغتكم معتمدة", "✓ Ваш текст одобрен"],
+    ["ההזמנות כבר יצאו, הנוסח נעול.", "The invitations have already gone out, the wording is locked.", "Les invitations sont déjà parties, le texte est verrouillé.", "Las invitaciones ya se enviaron, el texto está bloqueado.", "די אײַנלאַדונגען זענען שוין אַרויס, דער נוסח איז פֿאַרשלאָסן.", "تم إرسال الدعوات، الصيغة مقفلة.", "Приглашения уже отправлены, текст зафиксирован."],
+    ["להזמנה. כך היא תיראה אצל המוזמנים.", "for the invitation. This is how guests will see it.", "pour l’invitation. Voici ce que verront les invités.", "para la invitación. Así la verán los invitados.", "פֿאַר דער אײַנלאַדונג. אַזוי וועלן די געסט זי זען.", "للدعوة. هكذا ستظهر لدى المدعوين.", "для приглашения. Так его увидят гости."],
+    ["ההזמנה הראשונה יצאה בנוסח הרגיל. מוזמנים שתוסיפו מעכשיו יקבלו את הנוסח שלכם. התזכורות הן הודעה נפרדת ולא משתנות.", "The first invitation went out with the regular wording. Guests you add from now on will get your wording. Reminders are a separate message and do not change.", "La première invitation est partie avec le texte habituel. Les invités ajoutés désormais recevront votre texte. Les rappels sont un message distinct et ne changent pas.", "La primera invitación salió con el texto habitual. Los invitados que añada a partir de ahora recibirán su texto. Los recordatorios son un mensaje aparte y no cambian.", "די ערשטע אײַנלאַדונג איז אַרויס מיטן געוויינטלעכן נוסח. געסט וואָס איר וועט צולייגן פֿון איצט וועלן באַקומען אײַער נוסח. די דערמאָנונגען זענען אַ באַזונדערע מעלדונג און בײַטן זיך נישט.", "الدعوة الأولى أُرسلت بالصيغة العادية. المدعوون الذين تضيفونهم من الآن سيستلمون صيغتكم. التذكيرات رسالة منفصلة ولا تتغير.", "Первое приглашение ушло с обычным текстом. Гости, которых вы добавите с этого момента, получат ваш текст. Напоминания — отдельное сообщение, они не меняются."],
+    ["חשבונית מס/קבלה אחת הופקה לאירוע.", "One tax invoice/receipt was issued for the event.", "Une facture/reçu a été émise pour l’événement.", "Se emitió una factura/recibo para el evento.", "איין שטײַער־חשבון/קבלה איז אַרויסגעגעבן געוואָרן פֿאַר דער שׂימחה.", "صدرت فاتورة ضريبية/إيصال واحد للمناسبة.", "Для события выставлен один счёт-фактура/чек."],
+    ["{n} חשבוניות מס/קבלה הופקו לאירוע.", "{n} tax invoices/receipts were issued for the event.", "{n} factures/reçus ont été émis pour l’événement.", "Se emitieron {n} facturas/recibos para el evento.", "{n} שטײַער־חשבונות/קבלות זענען אַרויסגעגעבן געוואָרן פֿאַר דער שׂימחה.", "صدرت {n} فواتير ضريبية/إيصالات للمناسبة.", "Для события выставлено счетов-фактур/чеков: {n}."],
+    ["מס׳ {n} · רכישה · {n}", "No. {n} · purchase · {n}", "N° {n} · achat · {n}", "N.º {n} · compra · {n}", "נומ׳ {n} · קויף · {n}", "رقم {n} · شراء · {n}", "№ {n} · покупка · {n}"],
+    ["מס׳ {n} · רכישה · ₪{n} · {n}", "No. {n} · purchase · ₪{n} · {n}", "N° {n} · achat · {n} ₪ · {n}", "N.º {n} · compra · ₪{n} · {n}", "נומ׳ {n} · קויף · ₪{n} · {n}", "رقم {n} · شراء · ₪{n} · {n}", "№ {n} · покупка · ₪{n} · {n}"],
+    ["מס׳ {n} · תוספת · ₪{n} · {n}", "No. {n} · add-on · ₪{n} · {n}", "N° {n} · supplément · {n} ₪ · {n}", "N.º {n} · extra · ₪{n} · {n}", "נומ׳ {n} · צוגאָב · ₪{n} · {n}", "رقم {n} · إضافة · ₪{n} · {n}", "№ {n} · дополнение · ₪{n} · {n}"],
+    ["המספר לא פעיל בוואטסאפ, או שהגדרות הפרטיות שלו חוסמות הודעות ממי שלא שמור אצלו באנשי הקשר", "The number is not active on WhatsApp, or its privacy settings block messages from senders not saved in its contacts", "Le numéro n’est pas actif sur WhatsApp, ou ses réglages de confidentialité bloquent les messages des expéditeurs absents de ses contacts", "El número no está activo en WhatsApp, o su configuración de privacidad bloquea mensajes de quien no está en sus contactos", "דער נומער איז נישט אַקטיוו אויף וואַטסאַפּ, אָדער זײַנע פּריוואַטקייט־אײַנשטעלונגען בלאָקירן מעלדונגען פֿון ווער ס׳איז נישט אין זײַנע קאָנטאַקטן", "الرقم غير نشط على واتساب، أو إعدادات الخصوصية لديه تحجب الرسائل ممن ليسوا في جهات اتصاله", "Номер не активен в WhatsApp, либо настройки приватности блокируют сообщения от тех, кого нет в контактах"],
+    ["וואטסאפ מגביל לאיש הקשר הזה הודעות מעסקים שלא שמורים אצלו", "WhatsApp limits messages to this contact from businesses not saved in their contacts", "WhatsApp limite pour ce contact les messages d’entreprises absentes de ses contacts", "WhatsApp limita para este contacto los mensajes de empresas que no tiene guardadas", "וואַטסאַפּ באַגרענעצט פֿאַר דעם קאָנטאַקט מעלדונגען פֿון געשעפֿטן וואָס זענען נישט בײַ אים פֿאַרשריבן", "واتساب يقيّد لهذه الجهة الرسائل من الأعمال غير المحفوظة لديها", "WhatsApp ограничивает для этого контакта сообщения от компаний, которых нет в его контактах"],
+    ["זה מצב זמני מצד וואטסאפ", "This is a temporary state on WhatsApp’s side", "C’est une situation temporaire du côté de WhatsApp", "Es una situación temporal por parte de WhatsApp", "דאָס איז אַ צײַטווײַליקער מצבֿ פֿון וואַטסאַפּס זײַט", "هذه حالة مؤقتة من جهة واتساب", "Это временное ограничение со стороны WhatsApp"],
+    ["וואטסאפ מגביל לאיש הקשר הזה הודעות מעסקים כרגע (מצב זמני מצד וואטסאפ)", "WhatsApp is currently limiting business messages to this contact (a temporary state on WhatsApp’s side)", "WhatsApp limite actuellement les messages d’entreprises pour ce contact (situation temporaire du côté de WhatsApp)", "WhatsApp limita por ahora los mensajes de empresas a este contacto (situación temporal por parte de WhatsApp)", "וואַטסאַפּ באַגרענעצט איצט געשעפֿט־מעלדונגען צו דעם קאָנטאַקט (אַ צײַטווײַליקער מצבֿ פֿון וואַטסאַפּס זײַט)", "واتساب يقيّد حاليًا رسائل الأعمال لهذه الجهة (حالة مؤقتة من جهة واتساب)", "WhatsApp сейчас ограничивает сообщения от компаний этому контакту (временно, со стороны WhatsApp)"],
+    ["הסרטון או התמונה לא נטענו אצל וואטסאפ באותו רגע", "The video or image did not load at WhatsApp at that moment", "La vidéo ou l’image ne s’est pas chargée chez WhatsApp à ce moment-là", "El vídeo o la imagen no se cargó en WhatsApp en ese momento", "דער ווידעאָ אָדער דאָס בילד האָט זיך נישט אָנגעלאָדן בײַ וואַטסאַפּ אין יענעם מאָמענט", "لم يُحمَّل الفيديو أو الصورة لدى واتساب في تلك اللحظة", "Видео или изображение не загрузилось в WhatsApp в тот момент"],
+    ["תקלה זמנית בחיבור לוואטסאפ מצידנו", "A temporary connection issue with WhatsApp on our side", "Un souci temporaire de connexion à WhatsApp de notre côté", "Un problema temporal de conexión con WhatsApp por nuestra parte", "אַ צײַטווײַליקע שטערונג אין דער פֿאַרבינדונג מיט וואַטסאַפּ פֿון אונדזער זײַט", "خلل مؤقت في الاتصال بواتساب من جهتنا", "Временный сбой соединения с WhatsApp на нашей стороне"],
+    ["וואטסאפ קיבל את ההודעה אבל לא מסר אותה לטלפון כבר יממה (טלפון כבוי, בלי קליטה או מספר לא פעיל)", "WhatsApp accepted the message but has not delivered it to the phone for a day (phone off, no reception or an inactive number)", "WhatsApp a accepté le message mais ne l’a pas remis au téléphone depuis un jour (téléphone éteint, sans réseau ou numéro inactif)", "WhatsApp aceptó el mensaje pero lleva un día sin entregarlo al teléfono (teléfono apagado, sin cobertura o número inactivo)", "וואַטסאַפּ האָט אָנגענומען די מעלדונג אָבער האָט זי שוין אַ מעת־לעת נישט איבערגעגעבן צום טעלעפֿאָן (אויסגעלאָשענער טעלעפֿאָן, אָן אָפּנעם אָדער אַ נישט־אַקטיווער נומער)", "استلم واتساب الرسالة لكنه لم يسلّمها إلى الهاتف منذ يوم (هاتف مغلق، بلا تغطية أو رقم غير نشط)", "WhatsApp принял сообщение, но уже сутки не доставил его на телефон (телефон выключен, нет сети или номер не активен)"],
+    ["וואטסאפ לא הצליח למסור את ההודעה", "WhatsApp could not deliver the message", "WhatsApp n’a pas pu remettre le message", "WhatsApp no pudo entregar el mensaje", "וואַטסאַפּ האָט נישט געקענט איבערגעבן די מעלדונג", "تعذّر على واتساب تسليم الرسالة", "WhatsApp не смог доставить сообщение"],
+    ["ננסה לשלוח שוב אוטומטית ב-{n}", "We will try to send again automatically on {n}", "Nous réessaierons automatiquement le {n}", "Lo intentaremos de nuevo automáticamente el {n}", "מיר וועלן פּרוּוון שיקן ווידער אויטאָמאַטיש דעם {n}", "سنحاول الإرسال مجددًا تلقائيًا في {n}", "Мы автоматически попробуем снова {n}"],
+    ["ננסה לשלוח שוב אוטומטית", "We will try to send again automatically", "Nous réessaierons automatiquement", "Lo intentaremos de nuevo automáticamente", "מיר וועלן פּרוּוון שיקן ווידער אויטאָמאַטיש", "سنحاول الإرسال مجددًا تلقائيًا", "Мы автоматически попробуем снова"],
+    ["ניסינו שלוש פעמים", "We tried three times", "Nous avons essayé trois fois", "Lo intentamos tres veces", "מיר האָבן געפּרוּווט דרײַ מאָל", "حاولنا ثلاث مرات", "Мы пробовали три раза"],
+    ["כדאי לשלוח להם את ההזמנה מהטלפון שלכם", "It is worth sending them the invitation from your own phone", "Mieux vaut leur envoyer l’invitation depuis votre téléphone", "Conviene enviarles la invitación desde su teléfono", "ס׳איז כּדאַי זיי צו שיקן די אײַנלאַדונג פֿון אײַער טעלעפֿאָן", "يُستحسن إرسال الدعوة لهم من هاتفكم", "Лучше отправить им приглашение со своего телефона"],
+    ["למה לא נמסר?", "Why was it not delivered?", "Pourquoi n’a-t-il pas été remis ?", "¿Por qué no se entregó?", "פֿאַרוואָס איז עס נישט איבערגעגעבן געוואָרן?", "لماذا لم تُسلَّم؟", "Почему не доставлено?"],
+    ["מה קורה עכשיו", "What happens now", "Et maintenant", "Qué pasa ahora", "וואָס געשעט איצט", "ماذا يحدث الآن", "Что дальше"],
     ['שפה', 'Language', 'Langue', 'Idioma', 'שפּראַך', 'اللغة', 'Язык']
   ];
 
@@ -258,6 +287,41 @@
   var MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
   var DATE_RE = /^יום (ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת), (\d{1,2}) ב(ינואר|פברואר|מרץ|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר) (\d{4})$/;
 
+  /* The full dictionaries (about 1,500 texts per language, every client screen) live in assets/i18n/<code>.json as
+     { Hebrew: translation }. They are fetched once, when the language is chosen. ROWS above stays the first word on
+     the board's own texts; the file covers everything else. A number inside a text is lifted out here too, so
+     "3 מגיעים" in the file also answers "7 מגיעים". */
+  var BASE = (function () { try { var cs = document.currentScript && document.currentScript.src; return cs ? cs.replace(/i18n\.js(\?.*)?$/, 'i18n/') : 'assets/i18n/'; } catch (e) { return 'assets/i18n/'; } })();
+  var EXTRA = Object.create(null), LOADING = Object.create(null);
+  function indexFile(obj) {
+    var exact = Object.create(null), norm = Object.create(null);
+    for (var he in obj) {
+      var v = obj[he]; if (typeof v !== 'string' || !v) continue;
+      exact[he] = v;
+      var nums = he.match(NUM); if (!nums) continue;
+      var tpl = v, ok = true;
+      for (var q = 0; q < nums.length; q++) { var at = tpl.indexOf(nums[q]); if (at < 0) { ok = false; break; } tpl = tpl.slice(0, at) + '\u0001' + q + '\u0002' + tpl.slice(at + nums[q].length); }
+      var nk = he.replace(NUM, '{n}');
+      if (ok && !norm[nk]) norm[nk] = tpl;
+    }
+    return { exact: exact, norm: norm };
+  }
+  function fromFile(he) {
+    var x = EXTRA[lang]; if (!x) return null;
+    if (x.exact[he]) return x.exact[he];
+    var nums = []; var key = he.replace(NUM, function (m) { nums.push(m); return '{n}'; });
+    if (!nums.length) return null;
+    var tpl = x.norm[key]; if (!tpl) return null;
+    return tpl.replace(/\u0001(\d+)\u0002/g, function (_, q) { return nums[Number(q)] != null ? nums[Number(q)] : ''; });
+  }
+  function loadFile(c, then) {
+    if (c === 'he' || EXTRA[c] || LOADING[c]) { if (EXTRA[c] && then) then(); return; }
+    LOADING[c] = 1;
+    fetch(BASE + c + '.json').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      LOADING[c] = 0; if (j && typeof j === 'object') { EXTRA[c] = indexFile(j); if (then) then(); }
+    }).catch(function () { LOADING[c] = 0; });
+  }
+
   var lang = 'he';
   function meta(c) { for (var i = 0; i < LANGS.length; i++) if (LANGS[i].c === c) return LANGS[i]; return LANGS[0]; }
 
@@ -265,8 +329,10 @@
   function tr(he) {
     if (lang === 'he' || !he || !HEB.test(he)) return null;
     var i = IDX[lang];
-    var row = DICT[he];
+    var row = i ? DICT[he] : null;
     if (row) return row[i];
+    var b0 = i ? withNumbers(he, i) : null; if (b0 != null) return b0;   /* the board's own rows first, numbers included */
+    var f0 = fromFile(he); if (f0 != null) return f0;
     var d = DATE_RE.exec(he);
     if (d) {
       try {
@@ -277,10 +343,28 @@
         return new Intl.DateTimeFormat(loc, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(dt);
       } catch (e) { return null; }
     }
+    var one = i ? withNumbers(he, i) : null;
+    if (one != null) return one;
+    /* a text built from several sentences (the "why was it not delivered" card): each sentence on its own; all or nothing */
+    var parts = he.split(/(?<=[.!?])\s+/);
+    if (parts.length < 2) return null;
+    var out = [];
+    for (var p = 0; p < parts.length; p++) {
+      var seg = parts[p], end = /[.!?]$/.test(seg) ? seg.slice(-1) : '', body = end ? seg.slice(0, -1) : seg;
+      if (!HEB.test(seg)) { out.push(seg); continue; }
+      var t = part(seg, i);
+      if (t == null) { t = part(body, i); if (t != null) t += end; }
+      if (t == null) return null;
+      out.push(t);
+    }
+    return out.join(' ');
+  }
+  function part(x, i) { return (i && DICT[x] && DICT[x][i]) || (i ? withNumbers(x, i) : null) || fromFile(x); }
+  function withNumbers(he, i) {
     var nums = [];
     var key = he.replace(NUM, function (m) { nums.push(m); return '{n}'; });
     if (!nums.length) return null;
-    row = DICT[key];
+    var row = DICT[key];
     if (!row) return null;
     var k = 0;
     return row[i].replace(/\{n\}/g, function () { return nums[k++] != null ? nums[k - 1] : ''; });
@@ -392,8 +476,9 @@
   }
   function picker() {
     var anchor = document.getElementById('themeTog');
-    if (!anchor || document.getElementById('langPick')) return;
-    var st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
+    if (document.getElementById('langPick') || !document.body) return;
+    var floating = !anchor || !!document.querySelector('[data-i18n-float]') || !/dashboard/.test(location.pathname);
+    var st = document.createElement('style'); st.textContent = CSS + (floating ? '.lng.flt{position:fixed;top:.6rem;left:.6rem;z-index:8000}.lng.flt .lng-b{background:var(--card,#fff);color:var(--ink,#111827);border-color:var(--bdr,#e5e7eb);box-shadow:0 2px 10px rgba(15,46,34,.12)}html[data-theme=dark] .lng.flt .lng-b{background:#141D19;color:#F3F4F6;border-color:#2B3440}@media print{.lng{display:none}}' : ''); document.head.appendChild(st);
     var w = document.createElement('div'); w.id = 'langPick'; w.className = 'lng'; w.setAttribute('data-noi18n', '');
     var b = document.createElement('button'); b.type = 'button'; b.className = 'lng-b'; b.setAttribute('aria-haspopup', 'menu'); b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-label', 'שפה · Language');
     b.innerHTML = GLOBE + '<span class="lng-n"></span><span class="car" aria-hidden="true">▾</span>';
@@ -415,12 +500,13 @@
       os[(i + (e.key === 'ArrowDown' ? 1 : os.length - 1)) % os.length].focus();
     });
     w.appendChild(b); w.appendChild(m);
-    anchor.parentNode.insertBefore(w, anchor);
+    if (floating) { w.classList.add('flt'); document.body.appendChild(w); } else anchor.parentNode.insertBefore(w, anchor);
     paintPicker();
   }
 
   function set(c) {
-    lang = IDX[c] || c === 'he' ? c : 'he';
+    lang = IDX[c] || FILE_ONLY[c] || c === 'he' ? c : 'he';
+    loadFile(lang, function () { if (lang === c) applyAll(); });
     try { localStorage.setItem('ishur_lang', lang); } catch (e) {}
     paintPicker();
     applyAll();
@@ -429,9 +515,10 @@
   function start() {
     var want = '';
     try { want = new URLSearchParams(location.search).get('lang') || localStorage.getItem('ishur_lang') || ''; } catch (e) {}
-    lang = IDX[want] ? want : 'he';
+    lang = IDX[want] || FILE_ONLY[want] ? want : 'he';
+    if (!meta(lang) || meta(lang).c !== lang) lang = 'he';
     picker();
-    if (lang !== 'he') applyAll();
+    if (lang !== 'he') { applyAll(); loadFile(lang, function () { applyAll(); }); }
     watch();
   }
 
