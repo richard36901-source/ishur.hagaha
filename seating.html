@@ -16,8 +16,9 @@
   :root{--green:#0F4C35;--green2:#0A3826;--green4:#F3F8F5;--gold:#A8853C;--ink:#111827;--ink2:#374151;--ink3:#6b7280;--bdr:#e5e7eb;--bdr2:rgba(15,76,53,.2);--bg2:#f9fafb;--card:#fff;--warn:#A8402F;--ease:cubic-bezier(.22,.9,.24,1)}
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
-  body{font-family:'Heebo',sans-serif;background:var(--bg2);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased;overflow:hidden;touch-action:none}
-  .top{display:flex;align-items:center;gap:.8rem;padding:.6rem 1rem;background:var(--card);border-bottom:1px solid var(--bdr);height:56px}
+  body{display:flex;flex-direction:column;font-family:'Heebo',sans-serif;background:var(--bg2);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased;overflow:hidden;touch-action:none}
+  .top{display:flex;align-items:center;gap:.8rem;padding:.6rem 1rem;background:var(--card);border-bottom:1px solid var(--bdr);min-height:56px;flex:none;flex-wrap:wrap;row-gap:.4rem}
+  .top .btn{white-space:nowrap}
   /* 21/11: on a phone the bar wraps instead of pushing "save" off screen (it did in Hebrew too) */
   @media (max-width:640px){.top{height:auto;min-height:56px;flex-wrap:wrap;row-gap:.4rem}}
   .top h1{font-family:'Rubik',sans-serif;font-size:1.05rem;font-weight:600}
@@ -31,7 +32,7 @@
   .btn.p.saving{background:var(--gold);opacity:1}
   .btn.p.dirty{background:var(--green)}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}.btn.p.saving{animation:pulse 1s infinite}
-  .lay{display:grid;grid-template-columns:300px 1fr;height:calc(100% - 56px)}
+  .lay{display:grid;grid-template-columns:300px 1fr;flex:1;min-height:0}
   @media (max-width:760px){.lay{grid-template-columns:1fr;grid-template-rows:auto 1fr}.side{max-height:38vh}}
   /* sidebar: the guest list, drag from here onto a table */
   .side{background:var(--card);border-inline-end:1px solid var(--bdr);display:flex;flex-direction:column;min-height:0}
@@ -118,7 +119,7 @@
     .top::-webkit-scrollbar{display:none}
     .top .btn{white-space:nowrap;padding:.3rem .7rem;font-size:.78rem;flex:none}
     .top h1{font-size:.92rem;white-space:nowrap}.top .sub{display:none}
-    .lay{grid-template-columns:210px 1fr;grid-template-rows:1fr;height:calc(100% - 44px)}
+    .lay{grid-template-columns:210px 1fr;grid-template-rows:1fr}
     .lay.noside{grid-template-columns:1fr}
     .side{max-height:none}
     .hint{display:none}
@@ -323,7 +324,7 @@
       '<div class="msg" id="stMsg" role="status" aria-live="polite"></div>' +
       '<div class="acts">' + (g && g.table ? '<button type="button" class="lnk" id="stUn">הסרה מהשולחן</button>' : '') + (grp ? '<button type="button" class="btn" id="stFlt">' + (grpFilter === grp ? 'הצגת כל האורחים' : 'הצגת הקבוצה ברשימה') + '</button>' : '') + '<span style="flex:1"></span><button type="button" class="btn" id="stX">סגירה</button></div></div>';
     document.body.appendChild(box);
-    var inp = box.querySelector('#stn'); setTimeout(function () { try { inp.focus(); } catch (e) {} }, 30);
+    var inp = box.querySelector('#stn'); [30, 260].forEach(function (ms) { setTimeout(function () { try { if (document.activeElement !== inp && document.body.contains(inp)) inp.focus(); } catch (e) {} }, ms); });
     function close() { box.remove(); }
     function go(name) {
       name = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 12);
