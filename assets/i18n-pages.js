@@ -1,6 +1,6 @@
-/* ishur.io · languages for the board's other pages (guest setup, schedule, budget, seating, checklist, table codes,
-   review): a copy of app/www/i18n.js (keep the two identical; app/scripts/i18n-check.mjs checks). The board home has
-   its own overlay, assets/i18n.js (another session), which this file does not touch.
+/* ishur.io · languages for the review page (feedback.html) opened inside the app: a copy of app/www/i18n.js (keep the
+   two identical; app/scripts/i18n-check.mjs checks). Every other client page uses the site overlay assets/i18n.js
+   (another session, 21/11), which this file does not touch; the two never run on the same page.
    The app's screens are written in Hebrew; this swaps every Hebrew text it knows for
    the chosen language: text, placeholder, title, aria-label, button values, the page title, confirm/alert, and anything
    a page adds later. A text that still has Hebrew after the swap (a guest's, venue's or event's name) is left as it is.
