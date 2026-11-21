@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="config.js?v=74"></script>
 <script src="assets/i18n.js?v=6" defer></script>
-<script src="assets/ux.js?v=4"></script>
+<script src="assets/ux.js?v=5"></script>
 <script src="assets/guard.js?v=22"></script>
 <style>
   :root{--green:#0F4C35;--green2:#0A3826;--green4:#F3F8F5;--gold:#A8853C;--ink:#111827;--ink2:#374151;--ink3:#6b7280;--bdr:#e5e7eb;--bdr2:rgba(15,76,53,.2);--bg2:#f9fafb;--card:#fff;--warn:#A8402F;--ease:cubic-bezier(.22,.9,.24,1)}
@@ -69,6 +69,32 @@
   .tbl .rz::after{content:'';position:absolute;inset:4px;border-radius:50%;background:var(--gold)}
   .tbl .x{position:absolute;top:-8px;left:-8px;width:20px;height:20px;border-radius:50%;background:var(--card);border:1.5px solid var(--bdr);font-size:.8rem;line-height:1;display:none;align-items:center;justify-content:center;cursor:pointer;color:var(--ink3)}
   .tbl:hover .x{display:flex}
+  /* 22/11 Richard: venue items (חופה, בר, במה, מטבח…) laid out with the tables; a shape, a name and a colour each */
+  .itm{position:absolute;cursor:grab;user-select:none;touch-action:none;z-index:1}
+  .itm .shp{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.1rem;text-align:center;padding:.3rem;
+    border:2px solid rgba(0,0,0,.12);box-shadow:0 3px 10px rgba(0,0,0,.07);overflow:hidden;pointer-events:none}
+  .itm.s-rect .shp{border-radius:10px}.itm.s-round .shp{border-radius:50%}
+  .itm.s-hex .shp{clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);border:0}
+  .itm.s-oct .shp{clip-path:polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%);border:0}
+  .itm .ie{font-size:1.15rem;line-height:1}.itm .il{font-weight:600;font-size:.82rem;line-height:1.2;overflow-wrap:anywhere}
+  .itm.sel .shp,.itm.drag .shp{outline:2.5px solid var(--gold);outline-offset:2px}
+  .itm.drag{z-index:4}
+  .itm .rz{position:absolute;right:-7px;bottom:-7px;width:18px;height:18px;border-radius:50%;background:var(--card);border:2px solid var(--gold);cursor:nwse-resize;touch-action:none;z-index:2}
+  .itm .rz::after{content:'';position:absolute;inset:4px;border-radius:50%;background:var(--gold)}
+  .itm .x{position:absolute;top:-8px;left:-8px;width:20px;height:20px;border-radius:50%;background:var(--card);border:1.5px solid var(--bdr);font-size:.8rem;line-height:1;display:none;align-items:center;justify-content:center;cursor:pointer;color:var(--ink3);z-index:2}
+  .itm:hover .x,.itm.sel .x{display:flex}
+  .tbl{z-index:2}
+  .kinds{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:.45rem}
+  .kinds button{font:inherit;font-size:.84rem;padding:.6rem .4rem;border:1.5px solid var(--bdr);border-radius:12px;background:var(--card);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:.2rem}
+  .kinds button span{font-size:1.3rem}
+  .kinds button:hover{border-color:var(--green)}
+  .pop .shapes,.pop .sw{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.45rem}
+  .pop .shapes button{font:inherit;font-size:.74rem;padding:.2rem .55rem;border:1.5px solid var(--bdr);border-radius:999px;background:var(--card);cursor:pointer}
+  .pop .shapes button.on{border-color:var(--green);background:var(--green4);color:var(--green2);font-weight:600}
+  .pop .sw button{width:24px;height:24px;border-radius:50%;border:2px solid rgba(0,0,0,.12);cursor:pointer;padding:0}
+  .pop .sw button.on{outline:2.5px solid var(--green);outline-offset:1px}
+  .pop .sw input[type=color]{width:28px;height:26px;border:0;padding:0;background:none;cursor:pointer}
+  .pop .del{margin-top:.6rem;font:inherit;font-size:.76rem;color:var(--warn);background:none;border:0;cursor:pointer;padding:0}
   .tbl.sel{border-color:var(--gold)}
   /* who sits at the selected table */
   .pop{position:absolute;z-index:8;background:var(--card);border:1.5px solid var(--gold);border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.14);padding:.6rem .7rem;min-width:190px;max-width:240px;font-size:.84rem}
@@ -114,6 +140,7 @@
   <button class="btn" id="tplBtn">תבניות</button>
   <button class="btn" id="addRound">+ שולחן עגול</button>
   <button class="btn" id="addRect">+ שולחן ארוך</button>
+  <button class="btn" id="addItem">+ חופה, בר, במה…</button>
   <button class="btn p ok" id="save" disabled>נשמר ✓</button>
 </header>
 <div class="lay">
@@ -149,6 +176,21 @@
   var flt = 'all';
   var STL = { confirmed: 'אישרו', pending: 'לא ענו', awaiting_call: 'לא ענו', declined: 'סירבו' };
   var tables = [];   /* {id, name, x, y, w, h, shape, cap} */
+  /* 22/11 Richard: "לבנות את כל המיקומים של הדברים החשובים באירוע" — venue items with a shape, a name and a colour.
+     They never take guests; saved with the plan (seatplan items). */
+  var items = [];    /* {id, kind, shape, label, color, x, y, w, h} */
+  var KINDS = {
+    chuppah: { n: 'חופה', e: '🌸', s: 'hex', c: '#f4d6dc', w: 150, h: 150 }, bar: { n: 'בר', e: '🍸', s: 'rect', c: '#d9c7a7', w: 200, h: 70 },
+    stage: { n: 'במה', e: '🎤', s: 'rect', c: '#cfd8e8', w: 260, h: 110 }, kitchen: { n: 'מטבח', e: '🍳', s: 'rect', c: '#e3e3e3', w: 180, h: 120 },
+    dance: { n: 'רחבת ריקודים', e: '💃', s: 'rect', c: '#efe6f7', w: 260, h: 200 }, dj: { n: 'עמדת DJ', e: '🎧', s: 'rect', c: '#d7ecf2', w: 120, h: 70 },
+    entrance: { n: 'כניסה', e: '🚪', s: 'rect', c: '#dcefe3', w: 120, h: 50 }, buffet: { n: 'מזנון', e: '🍽️', s: 'rect', c: '#f6e7cf', w: 220, h: 70 },
+    photo: { n: 'עמדת צילום', e: '📸', s: 'round', c: '#fde9c8', w: 110, h: 110 }, gifts: { n: 'שולחן מתנות', e: '🎁', s: 'rect', c: '#f3dbe6', w: 140, h: 70 },
+    other: { n: 'אחר', e: '✏️', s: 'rect', c: '#e8dcc0', w: 140, h: 100 }
+  };
+  var SHAPES = [['rect', 'מלבן'], ['round', 'עיגול'], ['hex', 'משושה'], ['oct', 'מתומן']];
+  var SWATCH = ['#f4d6dc', '#f3dbe6', '#efe6f7', '#cfd8e8', '#d7ecf2', '#dcefe3', '#e8f0c8', '#fde9c8', '#f6e7cf', '#d9c7a7', '#e3e3e3', '#374151'];
+  function inkOn(hex) { var n = parseInt(String(hex).slice(1), 16), r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255; return (r * 299 + g * 587 + b * 114) / 1000 < 140 ? '#fff' : '#111827'; }
+  function itemOf(id) { return items.filter(function (x) { return x.id === id; })[0]; }
   var groups = {};   /* guest id → label (משפחה, חברים, עבודה…) */
   var DEFAULT_GROUPS = ['משפחה', 'חברים', 'עבודה', 'שכנים'];
   var grpFilter = '';
@@ -222,7 +264,15 @@
   /* ── floor ── */
   function paintTables() {
     var floor = $('floor');
-    floor.querySelectorAll('.tbl').forEach(function (el) { el.remove(); });
+    floor.querySelectorAll('.tbl,.itm').forEach(function (el) { el.remove(); });
+    items.forEach(function (it) {
+      var k = KINDS[it.kind] || KINDS.other, el = document.createElement('div');
+      el.className = 'itm s-' + it.shape + (sel === it.id ? ' sel' : ''); el.dataset.id = it.id;
+      el.style.cssText = 'left:' + it.x + 'px;top:' + it.y + 'px;width:' + it.w + 'px;height:' + it.h + 'px';
+      el.innerHTML = '<div class="shp" style="background:' + it.color + ';color:' + inkOn(it.color) + '"><span class="ie">' + k.e + '</span><span class="il">' + esc(it.label) + '</span></div>' +
+        '<span class="rz" title="גררו להגדלה"></span><span class="x" title="הסרה">×</span>';
+      floor.appendChild(el);
+    });
     tables.forEach(function (t) {
       var cap = capOf(t), used = seatedAt(t);
       var el = document.createElement('div');
@@ -247,6 +297,7 @@
   }
   function paintPop() {
     var old = $('floor').querySelector('.pop'); if (old) old.remove();
+    var it = itemOf(sel); if (it) { paintItemPop(it); return; }
     var t = tables.filter(function (x) { return x.id === sel; })[0]; if (!t) return;
     var at = guests.filter(function (g) { return g.table === t.name; });
     var p = document.createElement('div'); p.className = 'pop';
@@ -264,6 +315,39 @@
     var t = { id: 'T' + Date.now(), name: String(n), shape: shape, x: 60 + (n % 5) * 150, y: 80 + Math.floor(n / 5) * 160, w: shape === 'round' ? 120 : 180, h: shape === 'round' ? 120 : 90 };
     tables.push(t); sel = t.id; markDirty(); paintTables();
   }
+  function paintItemPop(it) {
+    var p = document.createElement('div'); p.className = 'pop';
+    var fw = $('floor').clientWidth, room = it.x + it.w + 12 + 250 <= fw;   /* beside the item, on whichever side has room, never over it */
+    p.style.left = Math.max(8, room ? it.x + it.w + 12 : (it.x - 262 >= 0 ? it.x - 262 : Math.min(it.x, fw - 250))) + 'px';
+    p.style.top = Math.max(8, room || it.x - 262 >= 0 ? it.y : it.y + it.h + 12) + 'px';
+    p.innerHTML = '<div class="ph"><input id="inm" value="' + esc(it.label) + '" maxlength="24" placeholder="שם"></div>' +
+      '<div class="shapes">' + SHAPES.map(function (s) { return '<button type="button" data-shape="' + s[0] + '"' + (it.shape === s[0] ? ' class="on"' : '') + '>' + s[1] + '</button>'; }).join('') + '</div>' +
+      '<div class="sw">' + SWATCH.map(function (c) { return '<button type="button" data-color="' + c + '" style="background:' + c + '"' + (it.color === c ? ' class="on"' : '') + ' aria-label="' + c + '"></button>'; }).join('') +
+      '<input type="color" id="icol" value="' + it.color + '" title="צבע אחר"></div>' +
+      '<button type="button" class="del" id="idel">הסרה מהאולם</button>';
+    $('floor').appendChild(p);
+    p.querySelector('#inm').addEventListener('input', function (e) { it.label = e.target.value.slice(0, 24); var l = document.querySelector('.itm[data-id="' + it.id + '"] .il'); if (l) l.textContent = it.label; markDirty(); });
+    p.querySelectorAll('[data-shape]').forEach(function (b) { b.addEventListener('click', function () { it.shape = b.dataset.shape; if (it.shape !== 'rect' && it.shape !== 'oct') it.h = it.w = Math.max(it.w, it.h); markDirty(); paintTables(); }); });
+    p.querySelectorAll('[data-color]').forEach(function (b) { b.addEventListener('click', function () { it.color = b.dataset.color; markDirty(); paintTables(); }); });
+    p.querySelector('#icol').addEventListener('change', function (e) { if (/^#[0-9a-f]{6}$/i.test(e.target.value)) { it.color = e.target.value.toLowerCase(); markDirty(); paintTables(); } });
+    p.querySelector('#idel').addEventListener('click', function () { items = items.filter(function (x) { return x !== it; }); sel = null; markDirty(); paintTables(); });
+  }
+  function addItem(kind) {
+    var k = KINDS[kind] || KINDS.other, fl = $('floor'), n = items.length;
+    var it = { id: 'I' + Date.now() + n, kind: kind, shape: k.s, label: k.n, color: k.c, w: k.w, h: k.h,
+      x: Math.max(0, Math.round(fl.clientWidth / 2 - k.w / 2 + (n % 4) * 24)), y: Math.max(0, 40 + (n % 4) * 24) };
+    items.push(it); sel = it.id; markDirty(); paintTables();
+    if (kind === 'other') { var i = document.getElementById('inm'); if (i) { i.select(); i.focus(); } }
+  }
+  $('addItem').addEventListener('click', function () {
+    var box = document.createElement('div'); box.className = 'tplw';
+    box.innerHTML = '<div class="tpl"><h3>מה יש באולם?</h3><div class="kinds">' +
+      Object.keys(KINDS).map(function (k) { return '<button type="button" data-kind="' + k + '"><span>' + KINDS[k].e + '</span>' + KINDS[k].n + '</button>'; }).join('') +
+      '</div><p style="font-size:.78rem;color:var(--ink3);margin:.7rem 0 0">אחרי ההוספה גוררים למקום, ובלחיצה בוחרים צורה, צבע ושם.</p>' +
+      '<button class="btn" id="kx" style="width:100%;margin-top:.6rem">סגירה</button></div>';
+    document.body.appendChild(box);
+    box.addEventListener('click', function (e) { var b = e.target.closest('[data-kind]'); if (b) { box.remove(); addItem(b.dataset.kind); return; } if (e.target === box || e.target.id === 'kx') box.remove(); });
+  });
   /* layout templates: N tables placed in one click (Richard 21/10) */
   var TPL = {
     grid:  { label: 'אולם קלאסי', desc: 'עגולים בשורות', make: function (n, W) { var cols = Math.max(2, Math.floor((W - 60) / 150)), out = []; for (var i = 0; i < n; i++) out.push({ shape: 'round', x: 60 + (i % cols) * 150, y: 80 + Math.floor(i / cols) * 160, w: 120, h: 120 }); return out; } },
@@ -332,6 +416,13 @@
       ghost.style.left = e.clientX + 'px'; ghost.style.top = e.clientY + 'px';
       e.preventDefault(); return;
     }
+    var iEl = e.target.closest('.itm');
+    if (iEl) {
+      var it = itemOf(iEl.dataset.id); if (!it) return;
+      if (e.target.closest('.x')) { items = items.filter(function (x) { return x !== it; }); if (sel === it.id) sel = null; markDirty(); paintTables(); return; }
+      if (e.target.closest('.rz')) { drag = { kind: 'iresize', it: it, sx: e.clientX, sy: e.clientY, w: it.w, h: it.h }; e.preventDefault(); return; }
+      drag = { kind: 'item', it: it, ox: e.clientX - it.x, oy: e.clientY - it.y, moved: false, el: iEl }; iEl.classList.add('drag'); iEl.setPointerCapture && iEl.setPointerCapture(e.pointerId); e.preventDefault(); return;
+    }
     var rz = e.target.closest('.rz');
     if (rz) { var t = tables.filter(function (x) { return x.id === rz.parentNode.dataset.id; })[0]; drag = { kind: 'resize', t: t, sx: e.clientX, sy: e.clientY, w: t.w, h: t.h }; e.preventDefault(); return; }
     var xb = e.target.closest('.x');
@@ -366,6 +457,15 @@
       var fl = $('floor').getBoundingClientRect();
       drag.t.x = Math.max(0, Math.min(fl.width - drag.t.w, e.clientX - drag.ox)); drag.t.y = Math.max(0, Math.min(fl.height - drag.t.h, e.clientY - drag.oy));
       drag.el.style.left = drag.t.x + 'px'; drag.el.style.top = drag.t.y + 'px';
+    } else if (drag.kind === 'item') {
+      drag.moved = true;
+      var fl2 = $('floor').getBoundingClientRect();
+      drag.it.x = Math.round(Math.max(0, Math.min(fl2.width - drag.it.w, e.clientX - drag.ox))); drag.it.y = Math.round(Math.max(0, Math.min(fl2.height - drag.it.h, e.clientY - drag.oy)));
+      drag.el.style.left = drag.it.x + 'px'; drag.el.style.top = drag.it.y + 'px';
+    } else if (drag.kind === 'iresize') {
+      var iw = Math.max(40, Math.min(800, drag.w + e.clientX - drag.sx)), ih = Math.max(30, Math.min(800, drag.h + e.clientY - drag.sy));
+      if (drag.it.shape === 'round' || drag.it.shape === 'hex') ih = iw = Math.max(iw, ih);
+      drag.it.w = Math.round(iw); drag.it.h = Math.round(ih); paintTables();
     } else if (drag.kind === 'resize') {
       var dw = e.clientX - drag.sx, dh = e.clientY - drag.sy;
       if (drag.t.shape === 'round') { var s = Math.max(80, Math.min(320, drag.w + Math.max(dw, dh))); drag.t.w = s; drag.t.h = s; }
@@ -396,7 +496,12 @@
       drag.el.classList.remove('drag');
       if (drag.moved) markDirty(); else sel = (sel === drag.t.id ? null : drag.t.id);
       paintTables();
-    } else if (drag.kind === 'resize') { markDirty(); paintTables(); }
+    } else if (drag.kind === 'resize' || drag.kind === 'iresize') { markDirty(); paintTables(); }
+    else if (drag.kind === 'item') {
+      drag.el.classList.remove('drag');
+      if (drag.moved) markDirty(); else sel = (sel === drag.it.id ? null : drag.it.id);
+      paintTables();
+    }
     drag = null;
   });
   var origTable = {};
@@ -405,7 +510,7 @@
     var plan = tables.map(function (t) { return { name: t.name, shape: t.shape, x: t.x, y: t.y, w: t.w, h: t.h, cap: capOf(t) }; });
     if (saving) { clearTimeout(autoT); autoT = setTimeout(function () { $('save').click(); }, 800); return; }
     saving = true; $('save').disabled = true; setStatus('שומר…', 'saving');
-    var p1 = fetch(CFG.endpoint('seatplan'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, tables: plan, groups: groups }) }).then(function (r) { return r.json(); });
+    var p1 = fetch(CFG.endpoint('seatplan'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, tables: plan, groups: groups, items: items.map(function (it) { return { kind: it.kind, shape: it.shape, label: it.label, color: it.color, x: it.x, y: it.y, w: it.w, h: it.h }; }) }) }).then(function (r) { return r.json(); });
     var p2 = changed.length ? fetch(CFG.endpoint('seating'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, assignments: changed }) }).then(function (r) { return r.json(); }) : Promise.resolve({ ok: true });
     Promise.all([p1, p2]).then(function (rs) {
       saving = false;
@@ -441,6 +546,7 @@
       guests.forEach(function (g) { origTable[g.id] = g.table; });
       tables = ((p && p.tables) || []).map(function (t, i) { return { id: 'T' + i, name: t.name || String(i + 1), shape: t.shape, x: t.x, y: t.y, w: t.w, h: t.h, capManual: t.cap }; });
       groups = (p && p.groups && typeof p.groups === 'object') ? p.groups : {};
+      items = ((p && p.items) || []).map(function (it, i) { return { id: 'I' + i, kind: it.kind, shape: it.shape, label: it.label, color: it.color, x: it.x, y: it.y, w: it.w, h: it.h }; });
       /* tables named in the sheet but missing from the map get a spot */
       var known = {}; tables.forEach(function (t) { known[t.name] = 1; });
       guests.forEach(function (g) { if (g.table && !known[g.table]) { known[g.table] = 1; var n = tables.length; tables.push({ id: 'T' + Date.now() + n, name: g.table, shape: 'round', x: 60 + (n % 5) * 150, y: 80 + Math.floor(n / 5) * 160, w: 120, h: 120 }); } });
