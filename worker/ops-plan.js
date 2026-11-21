@@ -447,6 +447,8 @@ async function kjson(env, k) { try { return JSON.parse((await kget(env, k)) || '
 async function kput(env, k, v, ttl) { try { if (env.RATE) await env.RATE.put(k, JSON.stringify(v), ttl ? { expirationTtl: ttl } : undefined); return ''; } catch (e) { return String((e && e.message) || e).slice(0, 200); } }
 export const PLAN_KEY = p => 'plan:' + p;
 export const PLAN_DAY_KEY = day => 'plan:day:' + day;
+export const PAST_DAY_OPS = 2500;        /* KV reads per kind for one past day (was 1500: 16/11-19/11 have up to 1,750 delivery records and never fitted) */
+export const PAST_DAY_RETRY_S = 86400;   /* a past day that did not fit: next try in a day */
 export const PLAN_FRESH_MS = 30 * 60e3;
 const BOARD_MAX_MS = 30 * 60e3, BOARD_KEY = 'sendboard:all:3:0', SUBS_KEY = 'plan:subs';
 
@@ -474,10 +476,10 @@ async function subsNow(env, d, raw) {
 /* one past day's audit counts (sends per event+type, Shir's calls, Noa's lead sends) — cached once the day is over */
 async function pastDay(env, d, fns, day, { today, events, subTpl, clientId, budgetLeft }) {
   const hit = await kjson(env, PLAN_DAY_KEY(day));
-  if (hit && hit.final) return { ...hit, from_cache: true };
+  if (hit && (hit.final || hit.cut)) return { ...hit, from_cache: true };   /* cut: read today already and it did not fit; still reported as truncated */
   if (budgetLeft() <= 0) return null;
   const dd = day.replace(/-/g, '');
-  const q = kind => d.auditQueryEx(env, { from: dd, to: dd, kind, limit: 20000, budget: 1500 }).catch(() => ({ items: [], truncated: true }));
+  const q = kind => d.auditQueryEx(env, { from: dd, to: dd, kind, limit: 20000, budget: PAST_DAY_OPS }).catch(() => ({ items: [], truncated: true }));
   const [o, st, cl] = await Promise.all([q('wa_out'), q('wa_status'), q('call')]);
   const lead = { sent: 0, failed: 0 }, wm = {};
   for (const r of o.items || []) { const x = r.data || {}; if (String(x.phone_id || '') !== clientId || x.channel === 'sms') continue; if (r.ok) { lead.sent++; if (x.wamid) wm[x.wamid] = 1; } else lead.failed++; }
@@ -485,6 +487,10 @@ async function pastDay(env, d, fns, day, { today, events, subTpl, clientId, budg
   const truncated = !!(o.truncated || st.truncated || cl.truncated);
   const rec = { day, sends: fns.sendsByDay(o.items, st.items, { events, subTemplates: subTpl }).filter(s => s.day === day), calls: fns.callsByDay(cl.items).filter(c => c.day === day), lead, truncated, final: day < today && !truncated, at: new Date().toISOString() };
   if (rec.final) await kput(env, PLAN_DAY_KEY(day), rec, 40 * 86400);
+  /* 21/11: a past day that did not fit was never kept, so it was read again on every tick AND used up the per-tick
+     allowance of new days (01/11, 02/11 and 16/11 were re-read every ten minutes while 17/11-20/11 were never reached).
+     It is now kept for a day as it came back, still marked truncated, and tried again tomorrow. */
+  else if (day < today && truncated) await kput(env, PLAN_DAY_KEY(day), { ...rec, cut: true }, PAST_DAY_RETRY_S);
   return rec;
 }
 

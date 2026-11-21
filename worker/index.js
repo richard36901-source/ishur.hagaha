@@ -92,6 +92,7 @@ import { recordChange, recordDeploy } from './changes.js';   /* 03/11 change log
 import { fixedCostAction, buildIncomeDays, editEventCosts } from './ops-money.js';   /* 03/11 recurring fixed costs */
 import BUILD_INFO from './build-info.json' with { type: 'json' };   /* written by scripts/build-info.mjs at deploy */
 import { handleOps, brainFns, buildCapacity, buildSendLive, planFns } from './ops.js';
+import { readLogValues } from './calendar-log.js';   /* 21/11 the calendar's read of the message log, old days kept */
 import { precomputePlans } from './ops-plan.js';   /* 04/11 the סקירה plan, precomputed every tick into plan:<period> */
 import { handleRaffle } from './raffle.js';
 import { handleMondayWebhook, reconcileLeads } from './leads-sync.js';   /* 16/11 leads screen ⇄ monday */
@@ -11048,7 +11049,8 @@ async function buildCalendarMonth(env, month) {
   const names = await kvKeys(env, 'log:', 60000);
   const fromTs = Date.parse(mFirst + 'T00:00:00+03:00'), toTs = Date.parse(mLast + 'T23:59:59+03:00');
   const inMonth = names.filter(n => { const ts = Number(n.split(':').pop()); return ts >= fromTs && ts <= toTs; });
-  const vals = await Promise.all(inMonth.map(n => env.RATE.get(n).catch(() => null)));
+  /* 21/11: days older than three are read once and kept (calendar-log.js); it used to be one KV read per message of the month, every build */
+  const { vals } = await readLogValues(env, inMonth);
   inMonth.forEach((n, i) => {
     let v = null; try { v = JSON.parse(vals[i]); } catch {}
     if (!v || v.dir !== 'out') return;
