@@ -81,6 +81,31 @@
   .pop .pr button{font:inherit;font-size:.72rem;border:none;background:none;color:var(--warn);cursor:pointer}
   .pop .cap{display:flex;align-items:center;gap:.35rem;font-size:.76rem;color:var(--ink2);margin-top:.4rem}
   .pop .cap input{width:3.2rem;font:inherit;padding:.15rem .3rem;border:1px solid var(--bdr);border-radius:6px}
+  /* 22/11 the hall itself: chuppah, bar, stage, kitchen… any shape, any name, any of eight colours. They sit under the tables and take no guests. */
+  .tbl{z-index:2}
+  .obj{position:absolute;z-index:1;display:flex;align-items:center;justify-content:center;cursor:grab;user-select:none;touch-action:none;--oc:#A8853C;--ob:#F6EEDC;--ot:#5C4513}
+  .obj .sh{position:absolute;inset:0;background:var(--ob);border:2px solid var(--oc);border-radius:8px;pointer-events:none}
+  .obj.round .sh{border-radius:50%}
+  .obj.arch .sh{border-radius:50% 50% 8px 8px / 70% 70% 8px 8px}
+  .obj.diamond .sh,.obj.hex .sh{border:0;background:var(--oc)}
+  .obj.diamond .sh{clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+  .obj.hex .sh{clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
+  .obj.diamond .sh::after,.obj.hex .sh::after{content:'';position:absolute;inset:2px;background:var(--ob);clip-path:inherit}
+  .obj .on{position:relative;font-family:'Rubik',sans-serif;font-weight:600;font-size:.84rem;line-height:1.2;color:var(--ot);text-align:center;padding:.15rem .4rem;max-width:100%;overflow:hidden;overflow-wrap:anywhere;pointer-events:none}
+  .obj.drag{z-index:5;filter:drop-shadow(0 10px 18px rgba(0,0,0,.18))}
+  .obj.sel .sh{box-shadow:0 0 0 3px rgba(168,133,60,.35)}
+  .obj .orz{position:absolute;right:-7px;bottom:-7px;width:18px;height:18px;border-radius:50%;background:var(--card);border:2px solid var(--gold);cursor:nwse-resize;touch-action:none;display:none}
+  .obj .orz::after{content:'';position:absolute;inset:4px;border-radius:50%;background:var(--gold)}
+  .obj.sel .orz,.obj:hover .orz{display:block}
+  .pop .row{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.45rem;align-items:center}
+  .pop .row small{flex-basis:100%;color:var(--ink3);font-size:.72rem}
+  .pop .shp{font:inherit;font-size:.74rem;padding:.2rem .5rem;border:1.5px solid var(--bdr);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer}
+  .pop .shp.on{border-color:var(--green);background:var(--green4);color:var(--green2)}
+  .pop .sw{width:26px;height:26px;border-radius:8px;border:2px solid transparent;cursor:pointer;padding:0}
+  .pop .sw.on{outline:2px solid var(--ink);outline-offset:1px}
+  .pop .del{font:inherit;font-size:.76rem;border:none;background:none;color:var(--warn);cursor:pointer;margin-top:.5rem;padding:.2rem 0}
+  .pop input.onm{font:inherit;font-weight:600;width:100%;border:none;border-bottom:1px dashed var(--bdr);background:transparent;color:var(--ink);padding:.1rem 0}
+  .pop input.onm:focus{outline:none;border-color:var(--green)}
   .fab{position:absolute;bottom:1rem;inset-inline-start:1rem;display:flex;gap:.5rem;z-index:6}
   /* groups: a folder per label, draggable onto a table (Richard 21/10) */
   .grps{display:flex;gap:.35rem;flex-wrap:wrap;padding:.45rem .6rem .2rem}
@@ -114,6 +139,7 @@
   <button class="btn" id="tplBtn">תבניות</button>
   <button class="btn" id="addRound">+ שולחן עגול</button>
   <button class="btn" id="addRect">+ שולחן ארוך</button>
+  <button class="btn" id="addObj">+ חופה, בר, במה</button>
   <button class="btn p ok" id="save" disabled>נשמר ✓</button>
 </header>
 <div class="lay">
@@ -152,6 +178,22 @@
   var groups = {};   /* guest id → label (משפחה, חברים, עבודה…) */
   var DEFAULT_GROUPS = ['משפחה', 'חברים', 'עבודה', 'שכנים'];
   var grpFilter = '';
+  var items = [];    /* 22/11 the hall: {id, kind, label, shape, color, x, y, w, h}: chuppah, bar, stage… kept with the table map */
+  var selObj = null;
+  var KINDS = [
+    { k: 'chuppah',  label: 'חופה',          shape: 'rect',  color: 'gold',   w: 120, h: 120 },
+    { k: 'bar',      label: 'בר',            shape: 'rect',  color: 'blue',   w: 200, h: 60 },
+    { k: 'stage',    label: 'במה',           shape: 'arch',  color: 'purple', w: 240, h: 100 },
+    { k: 'dance',    label: 'רחבת ריקודים',  shape: 'rect',  color: 'gray',   w: 220, h: 200 },
+    { k: 'kitchen',  label: 'מטבח',          shape: 'rect',  color: 'gray',   w: 170, h: 80 },
+    { k: 'entrance', label: 'כניסה לאולם',   shape: 'rect',  color: 'green',  w: 130, h: 44 },
+    { k: 'dj',       label: 'עמדת די־ג׳יי',  shape: 'round', color: 'dark',   w: 90,  h: 90 },
+    { k: 'free',     label: '',              shape: 'rect',  color: 'pink',   w: 150, h: 100, title: 'צורה חופשית' }
+  ];
+  var SHAPES = [['rect', 'מלבן'], ['round', 'עיגול'], ['arch', 'קשת'], ['diamond', 'מעוין'], ['hex', 'משושה']];
+  /* line, fill, text: each pair readable on the light floor */
+  var COLORS = { gold: ['#A8853C', '#F6EEDC', '#5C4513'], green: ['#0F4C35', '#E3F0EA', '#0A3826'], blue: ['#2B5FA8', '#E3ECF8', '#1D4175'], purple: ['#6B4AA0', '#ECE6F6', '#48306F'],
+    pink: ['#B4487A', '#F8E5EE', '#7C2D52'], red: ['#A8402F', '#F7E4E0', '#742A1E'], gray: ['#6b7280', '#EEF0F2', '#374151'], dark: ['#1f2937', '#D9DCE1', '#111827'] };
   var dirty = false, sel = null;
   var SEAT_PX = 70;  /* one seat per ~70px of circumference → capacity grows as you stretch the table */
   function capOf(t) { if (t.capManual) return t.capManual; var per = t.shape === 'round' ? Math.PI * (t.w + t.h) / 2 : 2 * (t.w + t.h); return Math.max(2, Math.round(per / SEAT_PX)); }
@@ -245,8 +287,59 @@
     });
     paintPop();
   }
+  function paintObjs() {
+    var floor = $('floor');
+    floor.querySelectorAll('.obj').forEach(function (el) { el.remove(); });
+    items.forEach(function (o) {
+      var c = COLORS[o.color] || COLORS.gold;
+      var el = document.createElement('div');
+      el.className = 'obj ' + o.shape + (selObj === o.id ? ' sel' : '');
+      el.dataset.id = o.id;
+      el.style.cssText = 'left:' + o.x + 'px;top:' + o.y + 'px;width:' + o.w + 'px;height:' + o.h + 'px;--oc:' + c[0] + ';--ob:' + c[1] + ';--ot:' + c[2];
+      el.innerHTML = '<span class="sh"></span><span class="on">' + esc(o.label) + '</span><span class="orz" title="גררו להגדלה"></span>';
+      floor.appendChild(el);
+    });
+  }
+  function paintObjPop(o) {
+    var p = document.createElement('div'); p.className = 'pop';
+    p.style.left = Math.max(8, Math.min(o.x + o.w + 12, $('floor').clientWidth - 250)) + 'px'; p.style.top = Math.max(8, Math.min(o.y, $('floor').clientHeight - 250)) + 'px';
+    p.innerHTML = '<input class="onm" id="onm" maxlength="30" placeholder="מה כתוב עליו?" value="' + esc(o.label) + '">' +
+      '<div class="row"><small>צורה</small>' + SHAPES.map(function (sh) { return '<button type="button" class="shp' + (o.shape === sh[0] ? ' on' : '') + '" data-shape="' + sh[0] + '">' + sh[1] + '</button>'; }).join('') + '</div>' +
+      '<div class="row"><small>צבע</small>' + Object.keys(COLORS).map(function (k) { return '<button type="button" class="sw' + (o.color === k ? ' on' : '') + '" data-color="' + k + '" style="background:' + COLORS[k][1] + ';border-color:' + COLORS[k][0] + '" aria-label="צבע"></button>'; }).join('') + '</div>' +
+      '<button type="button" class="del" id="odel">הסרה מהאולם</button>';
+    $('floor').appendChild(p);
+    p.querySelector('#onm').addEventListener('input', function (e) { o.label = e.target.value.slice(0, 30); var lb = $('floor').querySelector('.obj[data-id="' + o.id + '"] .on'); if (lb) lb.textContent = o.label; markDirty(); });
+    p.addEventListener('click', function (e) {
+      var sh = e.target.closest('[data-shape]'), sw = e.target.closest('[data-color]');
+      if (sh) { o.shape = sh.dataset.shape; markDirty(); paintObjs(); paintPop(); }
+      else if (sw) { o.color = sw.dataset.color; markDirty(); paintObjs(); paintPop(); }
+      else if (e.target.id === 'odel') { items = items.filter(function (x) { return x !== o; }); selObj = null; markDirty(); paintObjs(); paintPop(); }
+    });
+  }
+  function addObj(kind) {
+    var K = KINDS.filter(function (x) { return x.k === kind; })[0] || KINDS[KINDS.length - 1];
+    var fl = $('floor'), n = items.length;
+    var o = { id: 'O' + Date.now() + n, kind: K.k, label: K.label, shape: K.shape, color: K.color, w: K.w, h: K.h,
+      x: Math.max(8, Math.min((fl.clientWidth || 600) - K.w - 8, Math.round((fl.clientWidth || 600) / 2 - K.w / 2) + (n % 4) * 18)),
+      y: Math.max(8, Math.min((fl.clientHeight || 500) - K.h - 8, 40 + (n % 4) * 18)) };
+    items.push(o); sel = null; selObj = o.id; markDirty(); paintTables(); paintObjs();
+    if (!K.label) { var inp = $('onm'); if (inp) inp.focus(); }
+  }
+  $('addObj').addEventListener('click', function () {
+    var box = document.createElement('div'); box.className = 'tplw';
+    box.innerHTML = '<div class="tpl"><h3>מה מוסיפים לאולם?</h3><p style="margin:0;font-size:.82rem;color:var(--ink3)">אחרי ההוספה גוררים למקום, מושכים את הנקודה הזהובה לגודל, ובלחיצה משנים שם, צורה וצבע.</p>' +
+      '<div class="opts" style="grid-template-columns:repeat(2,1fr)">' + KINDS.map(function (K) { return '<div class="opt" data-k="' + K.k + '"><b>' + (K.title || K.label) + '</b></div>'; }).join('') + '</div>' +
+      '<button class="btn" id="objX" style="width:100%">ביטול</button></div>';
+    document.body.appendChild(box);
+    box.addEventListener('click', function (e) {
+      if (e.target === box || e.target.id === 'objX') { box.remove(); return; }
+      var o = e.target.closest('.opt'); if (o) { box.remove(); addObj(o.dataset.k); }
+    });
+  });
   function paintPop() {
     var old = $('floor').querySelector('.pop'); if (old) old.remove();
+    var ob = items.filter(function (x) { return x.id === selObj; })[0];
+    if (ob && !sel) { paintObjPop(ob); return; }
     var t = tables.filter(function (x) { return x.id === sel; })[0]; if (!t) return;
     var at = guests.filter(function (g) { return g.table === t.name; });
     var p = document.createElement('div'); p.className = 'pop';
@@ -262,7 +355,7 @@
   function addTable(shape) {
     var n = tables.length + 1;
     var t = { id: 'T' + Date.now(), name: String(n), shape: shape, x: 60 + (n % 5) * 150, y: 80 + Math.floor(n / 5) * 160, w: shape === 'round' ? 120 : 180, h: shape === 'round' ? 120 : 90 };
-    tables.push(t); sel = t.id; markDirty(); paintTables();
+    tables.push(t); sel = t.id; if (selObj) { selObj = null; paintObjs(); } markDirty(); paintTables();
   }
   /* layout templates: N tables placed in one click (Richard 21/10) */
   var TPL = {
@@ -342,9 +435,13 @@
       else removeIt();
       return;
     }
+    var orz = e.target.closest('.orz');
+    if (orz) { var ro = items.filter(function (x) { return x.id === orz.parentNode.dataset.id; })[0]; if (ro) { drag = { kind: 'oresize', o: ro, sx: e.clientX, sy: e.clientY, w: ro.w, h: ro.h }; e.preventDefault(); } return; }
+    var oEl = e.target.closest('.obj');
+    if (oEl) { var o2 = items.filter(function (x) { return x.id === oEl.dataset.id; })[0]; if (o2) { drag = { kind: 'obj', o: o2, ox: e.clientX - o2.x, oy: e.clientY - o2.y, moved: false, el: oEl }; oEl.classList.add('drag'); oEl.setPointerCapture && oEl.setPointerCapture(e.pointerId); e.preventDefault(); } return; }
     var tEl = e.target.closest('.tbl');
     if (tEl) { var t2 = tables.filter(function (x) { return x.id === tEl.dataset.id; })[0]; drag = { kind: 'table', t: t2, ox: e.clientX - t2.x, oy: e.clientY - t2.y, moved: false, el: tEl }; tEl.classList.add('drag'); tEl.setPointerCapture && tEl.setPointerCapture(e.pointerId); e.preventDefault(); return; }
-    if (e.target.closest('.floor') && !e.target.closest('.pop') && !e.target.closest('.fab')) { sel = null; paintTables(); }
+    if (e.target.closest('.floor') && !e.target.closest('.pop') && !e.target.closest('.fab')) { sel = null; if (selObj) { selObj = null; paintObjs(); } paintTables(); }
   });
   document.addEventListener('pointermove', function (e) {
     if (!drag) return;
@@ -366,6 +463,15 @@
       var fl = $('floor').getBoundingClientRect();
       drag.t.x = Math.max(0, Math.min(fl.width - drag.t.w, e.clientX - drag.ox)); drag.t.y = Math.max(0, Math.min(fl.height - drag.t.h, e.clientY - drag.oy));
       drag.el.style.left = drag.t.x + 'px'; drag.el.style.top = drag.t.y + 'px';
+    } else if (drag.kind === 'obj') {
+      if (Math.abs(e.clientX - drag.ox - drag.o.x) + Math.abs(e.clientY - drag.oy - drag.o.y) > 3) drag.moved = true;
+      if (!drag.moved) return;
+      var fo = $('floor').getBoundingClientRect();
+      drag.o.x = Math.round(Math.max(0, Math.min(fo.width - drag.o.w, e.clientX - drag.ox))); drag.o.y = Math.round(Math.max(0, Math.min(fo.height - drag.o.h, e.clientY - drag.oy)));
+      drag.el.style.left = drag.o.x + 'px'; drag.el.style.top = drag.o.y + 'px';
+    } else if (drag.kind === 'oresize') {
+      drag.o.w = Math.round(Math.max(40, Math.min(900, drag.w + (e.clientX - drag.sx)))); drag.o.h = Math.round(Math.max(30, Math.min(900, drag.h + (e.clientY - drag.sy))));
+      var re = $('floor').querySelector('.obj[data-id="' + drag.o.id + '"]'); if (re) { re.style.width = drag.o.w + 'px'; re.style.height = drag.o.h + 'px'; }
     } else if (drag.kind === 'resize') {
       var dw = e.clientX - drag.sx, dh = e.clientY - drag.sy;
       if (drag.t.shape === 'round') { var s = Math.max(80, Math.min(320, drag.w + Math.max(dw, dh))); drag.t.w = s; drag.t.h = s; }
@@ -395,8 +501,14 @@
     } else if (drag.kind === 'table') {
       drag.el.classList.remove('drag');
       if (drag.moved) markDirty(); else sel = (sel === drag.t.id ? null : drag.t.id);
+      if (sel && selObj) { selObj = null; paintObjs(); }
       paintTables();
     } else if (drag.kind === 'resize') { markDirty(); paintTables(); }
+    else if (drag.kind === 'obj') {
+      drag.el.classList.remove('drag');
+      if (drag.moved) { markDirty(); selObj = drag.o.id; sel = null; } else { selObj = (selObj === drag.o.id ? null : drag.o.id); sel = null; }
+      paintObjs(); paintTables();
+    } else if (drag.kind === 'oresize') { markDirty(); selObj = drag.o.id; sel = null; paintObjs(); paintTables(); }
     drag = null;
   });
   var origTable = {};
@@ -405,7 +517,7 @@
     var plan = tables.map(function (t) { return { name: t.name, shape: t.shape, x: t.x, y: t.y, w: t.w, h: t.h, cap: capOf(t) }; });
     if (saving) { clearTimeout(autoT); autoT = setTimeout(function () { $('save').click(); }, 800); return; }
     saving = true; $('save').disabled = true; setStatus('שומר…', 'saving');
-    var p1 = fetch(CFG.endpoint('seatplan'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, tables: plan, groups: groups }) }).then(function (r) { return r.json(); });
+    var p1 = fetch(CFG.endpoint('seatplan'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, tables: plan, groups: groups, items: items.map(function (o) { return { kind: o.kind, label: o.label, shape: o.shape, color: o.color, x: o.x, y: o.y, w: o.w, h: o.h }; }) }) }).then(function (r) { return r.json(); });
     var p2 = changed.length ? fetch(CFG.endpoint('seating'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, assignments: changed }) }).then(function (r) { return r.json(); }) : Promise.resolve({ ok: true });
     Promise.all([p1, p2]).then(function (rs) {
       saving = false;
@@ -441,12 +553,13 @@
       guests.forEach(function (g) { origTable[g.id] = g.table; });
       tables = ((p && p.tables) || []).map(function (t, i) { return { id: 'T' + i, name: t.name || String(i + 1), shape: t.shape, x: t.x, y: t.y, w: t.w, h: t.h, capManual: t.cap }; });
       groups = (p && p.groups && typeof p.groups === 'object') ? p.groups : {};
+      items = ((p && Array.isArray(p.items)) ? p.items : []).map(function (o, i) { return { id: 'O' + i, kind: o.kind, label: String(o.label || ''), shape: o.shape, color: o.color, x: Number(o.x) || 0, y: Number(o.y) || 0, w: Number(o.w) || 140, h: Number(o.h) || 100 }; });
       /* tables named in the sheet but missing from the map get a spot */
       var known = {}; tables.forEach(function (t) { known[t.name] = 1; });
       guests.forEach(function (g) { if (g.table && !known[g.table]) { known[g.table] = 1; var n = tables.length; tables.push({ id: 'T' + Date.now() + n, name: g.table, shape: 'round', x: 60 + (n % 5) * 150, y: 80 + Math.floor(n / 5) * 160, w: 120, h: 120 }); } });
       if (!tables.length) { addTable('round'); addTable('round'); dirty = false; $('save').disabled = true; }
       var fl = $('floorLoad'); if (fl) fl.remove();
-      paintTables(); paintList();
+      paintObjs(); paintTables(); paintList();
     }).catch(function () { $('sub').textContent = 'לא הצלחנו לטעון את האירוע'; var fl = $('floorLoad'); if (fl) fl.textContent = 'לא הצלחנו לטעון'; });
   }
   load();

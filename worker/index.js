@@ -93,6 +93,7 @@ import { fixedCostAction, buildIncomeDays, editEventCosts } from './ops-money.js
 import BUILD_INFO from './build-info.json' with { type: 'json' };   /* written by scripts/build-info.mjs at deploy */
 import { handleOps, brainFns, buildCapacity, buildSendLive, planFns } from './ops.js';
 import { readLogValues } from './calendar-log.js';   /* 21/11 the calendar's read of the message log, old days kept */
+import { cleanItems, itemsToKeep } from './seatplan-items.js';   /* 22/11 the hall's chuppah, bar, stage… kept with the table map */
 import { precomputePlans } from './ops-plan.js';   /* 04/11 the סקירה plan, precomputed every tick into plan:<period> */
 import { handleRaffle } from './raffle.js';
 import { handleMondayWebhook, reconcileLeads } from './leads-sync.js';   /* 16/11 leads screen ⇄ monday */
@@ -13787,12 +13788,17 @@ const WORKER = {
         let groups = {};
         if (b.groups && typeof b.groups === 'object') {
           for (const [gid, lbl] of Object.entries(b.groups).slice(0, 2000)) { const l = String(lbl || '').trim().slice(0, 24); if (l) groups[String(gid).slice(0, 40)] = l; }
-        } else { try { groups = (JSON.parse(await env.RATE.get('seatplan:' + tok)) || {}).groups || {}; } catch {} }
-        await env.RATE.put('seatplan:' + tok, JSON.stringify({ tables, groups, at: new Date().toISOString() }));
-        return okJson({ ok: true, tables, groups }, origin);
+        }
+        /* 22/11: chuppah, bar, stage… live with the plan too. A save that carries no groups / no items (an older copy of the page) keeps what is there. */
+        let prev = null;
+        if (!(b.groups && typeof b.groups === 'object') || !Array.isArray(b.items)) { try { prev = JSON.parse(await env.RATE.get('seatplan:' + tok)); } catch {} }
+        if (!(b.groups && typeof b.groups === 'object')) groups = (prev && prev.groups) || {};
+        const items = itemsToKeep(b.items, prev && prev.items);
+        await env.RATE.put('seatplan:' + tok, JSON.stringify({ tables, groups, items, at: new Date().toISOString() }));
+        return okJson({ ok: true, tables, groups, items }, origin);
       }
       let plan = null; try { plan = JSON.parse(await env.RATE.get('seatplan:' + tok)); } catch {}
-      return okJson({ ok: true, tables: (plan && plan.tables) || [], groups: (plan && plan.groups) || {} }, origin);
+      return okJson({ ok: true, tables: (plan && plan.tables) || [], groups: (plan && plan.groups) || {}, items: cleanItems(plan && plan.items) }, origin);
     }
     if (url.pathname === '/api/seating' && request.method === 'POST') {
       return handleSeating(request, env, origin);
