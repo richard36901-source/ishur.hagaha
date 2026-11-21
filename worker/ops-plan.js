@@ -489,8 +489,10 @@ async function pastDay(env, d, fns, day, { today, events, subTpl, clientId, budg
   if (rec.final) await kput(env, PLAN_DAY_KEY(day), rec, 40 * 86400);
   /* 21/11: a past day that did not fit was never kept, so it was read again on every tick AND used up the per-tick
      allowance of new days (01/11, 02/11 and 16/11 were re-read every ten minutes while 17/11-20/11 were never reached).
-     It is now kept for a day as it came back, still marked truncated, and tried again tomorrow. */
-  else if (day < today && truncated) await kput(env, PLAN_DAY_KEY(day), { ...rec, cut: true }, PAST_DAY_RETRY_S);
+     It is now kept for a day as it came back, still marked truncated, and tried again tomorrow.
+     Only when the read really ran out of its allowance: a read that FAILED (KV error, a query that threw) keeps nothing
+     and is tried again on the next tick, as before. */
+  else if (day < today && truncated && [o, st, cl].every(r => !r.truncated || (!(r.failed > 0) && Number(r.ops) >= PAST_DAY_OPS))) await kput(env, PLAN_DAY_KEY(day), { ...rec, cut: true }, PAST_DAY_RETRY_S);
   return rec;
 }
 
