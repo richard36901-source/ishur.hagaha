@@ -69,3 +69,34 @@ export async function readLogValues(env, names, { now = Date.now(), liveDays = L
   }
   return { vals: out, stats };
 }
+
+/* 22/11: the calendar asked KV about every planned message of the month, one read per guest per wave (2,838 reads a
+   build on 22/11), to find the few that are already marked. A marker either exists or it does not, and its name says
+   which guest it is: one listing per event and wave shows which exist, and only those are read.
+   keys: marker names (wsent:<token>:<wave>:<phone>, s5d:<token>:<phone>, …) → their values in the same order (null = no marker).
+   Display only. A listing can be a few seconds behind a marker that was just set; the next build shows it. */
+export async function plannedMarks(env, keys) {
+  const out = new Array(keys.length).fill(null);
+  const stats = { lists: 0, reads: 0 };
+  if (!env || !env.RATE || !keys.length) return { marks: out, stats };
+  const groups = {};
+  keys.forEach((k, i) => { const cut = String(k).lastIndexOf(':'); const pre = String(k).slice(0, cut + 1); (groups[pre] = groups[pre] || []).push(i); });
+  await Promise.all(Object.keys(groups).map(async pre => {
+    const have = new Set(); let cursor, okList = true;
+    for (let p = 0; p < 20; p++) {
+      stats.lists++;
+      const page = await env.RATE.list({ prefix: pre, cursor, limit: 1000 }).catch(() => null);
+      if (!page) { okList = false; break; }
+      for (const k of page.keys || []) have.add(k.name);
+      if (page.list_complete || !page.cursor) break; cursor = page.cursor;
+    }
+    /* a listing that failed says nothing: those rows are asked one by one, as before */
+    const idx = okList ? groups[pre].filter(i => have.has(keys[i])) : groups[pre];
+    for (let s = 0; s < idx.length; s += BATCH) {
+      const part = idx.slice(s, s + BATCH); stats.reads += part.length;
+      const vals = await Promise.all(part.map(i => env.RATE.get(keys[i]).catch(() => null)));
+      part.forEach((i, j) => { out[i] = vals[j] || null; });
+    }
+  }));
+  return { marks: out, stats };
+}
