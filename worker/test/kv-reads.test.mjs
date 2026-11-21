@@ -29,11 +29,11 @@ test('counters: a past day whose audit read was cut is marked and not read again
 });
 
 const NOW = Date.parse('2026-11-04T13:40:00Z'), RT = { ok: true, today: '2026-11-04', wa: { numbers: [], totals: {} }, cap: { remaining: 100 }, queue: { sends: {}, calls: {} }, make: {}, noa: {} };
-function harness(cutDays) {
-  const env = { RATE: kv() }; const audit = [];
+function harness(cutDays, boom = [], init = {}) {
+  const env = { RATE: kv(init) }; const audit = [];
   const d = { ilDate: (x = new Date(NOW)) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(x), snapshotCached: async () => null, clientPhoneId: () => 'N',
     kvPrefix: async (e, pre) => Object.fromEntries([...e.RATE.m.entries()].filter(([k]) => k.startsWith(pre))),
-    auditQueryEx: async (e, q) => { audit.push(q); return { items: [], truncated: !!q.from && cutDays.includes(q.from) }; },
+    auditQueryEx: async (e, q) => { audit.push(q); if (q.from && boom.includes(q.from)) { if (boom.mode === 'throw') throw new Error('KV down'); return { items: [], truncated: true, ops: 40, failed: 3 }; } const cut = !!q.from && cutDays.includes(q.from); return { items: [], truncated: cut, ops: cut ? q.budget : 12, failed: 0 }; },
     sendBoardData: async () => ({ events: [] }), sendingPaused: async () => false, sendWindowState: () => ({ open: true }), callWindowState: () => ({ open: true }), isNoContactDay: () => false, isTestEventRow: () => false, planKeyOf: () => 'pro', normPhone: x => x };
   const fns = { sendsByDay, callsByDay, buildCapacity: async () => ({ ok: true, days: [] }), buildCallRounds: async () => ({ ok: true, events: [], totals: {} }), buildRealtime: async () => RT };
   return { env, d, fns, audit };
@@ -82,4 +82,26 @@ test('calendar log: the last three days are read live; an older day is read once
   const f = { RATE: kv(entries) }; const get0 = f.RATE.get; let k = 0; f.RATE.get = async key => { if (key.startsWith('log:') && calDayOf(Number(key.split(':').pop())) === '2026-11-10' && ++k === 5) throw new Error('Too many API requests'); return get0(key); };
   const g = await readLogValues(f, names, { now }); assert.equal(g.stats.built_days, 0); assert.equal(f.RATE.m.has(CAL_DAY_KEY('2026-11-10')), false);
   assert.equal(g.vals.filter(Boolean).length, 40 + 7 + 5 - 1);
+});
+
+test('plan: a past day whose read FAILED (KV error or a query that threw) keeps nothing and is read again on the next tick', async () => {
+  for (const mode of ['failed', 'throw']) {
+    const boom = ['20261101']; boom.mode = mode; const h = harness([], boom);
+    await precomputePlans(h.env, h.d, h.fns, { now: NOW, periods: ['week'], pastDayBudget: 1 });
+    assert.equal(h.env.RATE.m.has(PLAN_DAY_KEY('2026-11-01')), false, mode + ': nothing kept');
+    h.audit.length = 0;
+    await precomputePlans(h.env, h.d, h.fns, { now: NOW + 600e3, periods: ['week'], pastDayBudget: 1 });
+    assert.ok(h.audit.some(q => q.from === '20261101'), mode + ': read again ten minutes later');
+  }
+});
+
+test('plan: what the pacer reads (plan:today) does not depend on past days — kept, cut or missing', async () => {
+  const past = (day, extra = {}) => JSON.stringify({ day, sends: [{ day, tok8: 'c2f63d20', type: 'w2', sent: 50, delivered: 40, failed: 3, template: 't' }], calls: [{ day, tok8: 'c2f63d20', dialed: 9, answered: 4 }], lead: { sent: 7, failed: 2 }, truncated: false, final: true, ...extra });
+  const run = async init => { const h = harness([], [], init); const r = await precomputePlans(h.env, h.d, h.fns, { now: NOW }); const strip = p => JSON.parse(JSON.stringify({ days: p.days, tomorrow: p.tomorrow, status: p.status }, (k, v) => (k === 'audit_truncated' ? undefined : v))); return { today: strip(r.plans.today), week: strip(r.plans.week), kv: JSON.parse(h.env.RATE.m.get('plan:today')).data }; };
+  const none = await run({});
+  const kept = await run({ [PLAN_DAY_KEY('2026-11-02')]: past('2026-11-02'), [PLAN_DAY_KEY('2026-11-03')]: past('2026-11-03') });
+  const cut = await run({ [PLAN_DAY_KEY('2026-11-02')]: past('2026-11-02', { final: false, cut: true, truncated: true }), [PLAN_DAY_KEY('2026-11-03')]: past('2026-11-03') });
+  assert.notDeepEqual(kept.week.days, none.week.days, 'the past days do reach the week view (so this test sees them)');
+  assert.deepEqual(kept.today, none.today); assert.deepEqual(cut.today, none.today);
+  assert.deepEqual(kept.kv.days, none.kv.days, 'the rows the pacer counts from are the same');
 });
