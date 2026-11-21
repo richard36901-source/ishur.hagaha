@@ -110,6 +110,39 @@
   .pop .del{font:inherit;font-size:.76rem;border:none;background:none;color:var(--warn);cursor:pointer;margin-top:.5rem;padding:.2rem 0}
   .pop input.onm{font:inherit;font-weight:600;width:100%;border:none;border-bottom:1px dashed var(--bdr);background:transparent;color:var(--ink);padding:.1rem 0}
   .pop input.onm:focus{outline:none;border-color:var(--green)}
+  /* 22/11 Richard: hide the guest list to lay the hall out first; a turned phone gets the floor; first-time steps */
+  .lay.noside{grid-template-columns:1fr;grid-template-rows:1fr}
+  .lay.noside .side{display:none}
+  @media (orientation:landscape) and (max-height:520px){
+    .top{height:44px;min-height:44px;flex-wrap:nowrap;overflow-x:auto;padding:.3rem .6rem;gap:.4rem;scrollbar-width:none}
+    .top::-webkit-scrollbar{display:none}
+    .top .btn{white-space:nowrap;padding:.3rem .7rem;font-size:.78rem;flex:none}
+    .top h1{font-size:.92rem;white-space:nowrap}.top .sub{display:none}
+    .lay{grid-template-columns:210px 1fr;grid-template-rows:1fr;height:calc(100% - 44px)}
+    .lay.noside{grid-template-columns:1fr}
+    .side{max-height:none}
+    .hint{display:none}
+    .fab{bottom:.4rem}
+  }
+  .seatdlg .cur{font-size:.82rem;color:var(--ink2);margin:.2rem 0 .5rem}
+  .seatdlg .tin{display:flex;gap:.4rem;margin:.5rem 0}
+  .seatdlg .tin input{flex:1;min-width:0;font:inherit;font-size:1rem;padding:.5rem .65rem;border:1.5px solid var(--bdr);border-radius:8px;background:var(--card);color:var(--ink)}
+  .seatdlg .tin input:focus{outline:none;border-color:var(--green)}
+  .seatdlg .chips{display:flex;flex-wrap:wrap;gap:.3rem;max-height:9.5rem;overflow:auto}
+  .seatdlg .chip{font:inherit;font-size:.78rem;padding:.25rem .6rem;border:1.5px solid var(--bdr);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer}
+  .seatdlg .chip.full{opacity:.45}
+  .seatdlg .chip.on{border-color:var(--green);background:var(--green4);color:var(--green2)}
+  .seatdlg .chip small{color:var(--ink3)}
+  .seatdlg .msg{min-height:1.2em;font-size:.8rem;color:var(--warn);margin-top:.35rem}
+  .seatdlg .acts{display:flex;gap:.5rem;margin-top:.6rem;flex-wrap:wrap}
+  .seatdlg .lnk{font:inherit;font-size:.8rem;border:none;background:none;color:var(--warn);cursor:pointer;padding:.3rem 0}
+  .guide{position:fixed;z-index:90;inset-inline:0;bottom:0;display:flex;justify-content:center;padding:.8rem;pointer-events:none}
+  .guide .gc{pointer-events:auto;background:var(--card);border:1.5px solid var(--bdr2);border-radius:8px;box-shadow:0 12px 32px rgba(0,0,0,.16);padding:.8rem .9rem;width:100%;max-width:420px}
+  .guide .gs{font-size:.72rem;color:var(--ink3)}
+  .guide h4{font-family:'Rubik',sans-serif;font-size:.98rem;font-weight:600;margin:.1rem 0 .25rem}
+  .guide p{font-size:.86rem;color:var(--ink2)}
+  .guide .ga{display:flex;gap:.5rem;margin-top:.6rem;align-items:center}
+  .guide .ga .sp{flex:1}
   .fab{position:absolute;bottom:1rem;inset-inline-start:1rem;display:flex;gap:.5rem;z-index:6}
   /* groups: a folder per label, draggable onto a table (Richard 21/10) */
   .grps{display:flex;gap:.35rem;flex-wrap:wrap;padding:.45rem .6rem .2rem}
@@ -140,13 +173,14 @@
 <header class="top">
   <a id="back" href="#" class="btn" style="padding:.35rem .7rem">→ ללוח</a><div><h1>סידור הושבה</h1><div class="sub" id="sub">טוען…</div></div>
   <span class="sp"></span>
+  <button class="btn" id="sideBtn">הסתרת רשימת האורחים</button>
   <button class="btn" id="tplBtn">תבניות</button>
   <button class="btn" id="addRound">+ שולחן עגול</button>
   <button class="btn" id="addRect">+ שולחן ארוך</button>
   <button class="btn" id="addObj">+ חופה, בר, במה</button>
   <button class="btn p ok" id="save" disabled>נשמר ✓</button>
 </header>
-<div class="lay">
+<div class="lay" id="lay">
   <aside class="side">
     <div class="hd">
       <input type="search" id="q" placeholder="חיפוש אורח">
@@ -231,7 +265,7 @@
     var names = groupNames().filter(function (n) { return guests.some(function (g) { return groups[g.id] === n; }); });
     el.innerHTML = names.map(function (n) {
       var m = guests.filter(function (g) { return groups[g.id] === n; }), left = m.filter(function (g) { return !g.table; }).reduce(function (a, g) { return a + g.party; }, 0);
-      return '<span class="grp' + (grpFilter === n ? ' on' : '') + '" data-g="' + esc(n) + '" title="לחיצה: סינון · גרירה לשולחן: שיבוץ הקבוצה">' + esc(n) + ' <b>' + m.length + (left ? ' · ' + left + ' בלי שולחן' : '') + '</b></span>';
+      return '<span class="grp' + (grpFilter === n ? ' on' : '') + '" data-g="' + esc(n) + '" title="נגיעה: שיבוץ בשולחן · גרירה לשולחן: שיבוץ הקבוצה">' + esc(n) + ' <b>' + m.length + (left ? ' · ' + left + ' בלי שולחן' : '') + '</b></span>';
     }).join('') + '<span class="grp add" id="grpHelp">+ קבוצה: לחצו על "+ קבוצה" ליד אורח</span>';
   }
   /* pick a group for one guest */
@@ -252,7 +286,7 @@
   $('grps').addEventListener('click', function (e) {
     var c = e.target.closest('.grp'); if (!c || c.classList.contains('add')) return;
     if (dragGrpMoved) { dragGrpMoved = false; return; }
-    grpFilter = grpFilter === c.dataset.g ? '' : c.dataset.g; paintList();
+    seatDialog({ group: c.dataset.g });
   });
   /* seat a whole group: fill the dropped table, then the nearest tables */
   function seatGroup(name, t0) {
@@ -268,6 +302,73 @@
   }
   var dragGrpMoved = false;
   $('q').addEventListener('input', paintList);
+
+  /* 22/11 Richard: "click on person or group to write which table they are at and it will attach them, and from the list they can change or remove".
+     A tap (not a drag) on a guest or a group opens this: type a table or pick one. A table that does not exist yet is created. */
+  function tableByName(n) { return tables.filter(function (t) { return t.name === n; })[0] || null; }
+  function newTableNamed(name) {
+    var n = tables.length;
+    var t = { id: 'T' + Date.now() + n, name: name, shape: 'round', x: 60 + (n % 5) * 150, y: 80 + Math.floor(n / 5) * 160, w: 120, h: 120 };
+    tables.push(t); return t;
+  }
+  function seatDialog(who) {   /* who: {g} one guest, or {group} a group name */
+    var g = who.g || null, grp = who.group || '';
+    var box = document.createElement('div'); box.className = 'tplw seatdlg';
+    var need = g ? g.party : guests.filter(function (x) { return groups[x.id] === grp && !x.table; }).reduce(function (a, x) { return a + x.party; }, 0);
+    var chips = tables.map(function (t) { var free = capOf(t) - seatedAt(t) + (g && g.table === t.name ? g.party : 0); return '<button type="button" class="chip' + (g && g.table === t.name ? ' on' : '') + (g && free < g.party ? ' full' : '') + '" data-tn="' + esc(t.name) + '">' + esc(t.name) + ' <small>' + seatedAt(t) + '/' + capOf(t) + '</small></button>'; }).join('');
+    box.innerHTML = '<div class="tpl"><h3>' + (g ? esc(g.name) : esc(grp)) + '</h3>' +
+      '<div class="cur">' + (g ? (g.table ? 'יושב/ת עכשיו בשולחן ' + esc(g.table) : 'עדיין בלי שולחן') + ' · ' + g.party + (g.party === 1 ? ' מקום' : ' מקומות') : need + ' מקומות מהקבוצה עדיין בלי שולחן') + '</div>' +
+      '<div class="tin"><input id="stn" maxlength="12" inputmode="text" enterkeyhint="done" placeholder="מספר או שם שולחן" autocomplete="off"><button class="btn p" id="stGo">שיבוץ</button></div>' +
+      (chips ? '<div class="chips">' + chips + '</div>' : '') +
+      '<div class="msg" id="stMsg" role="status" aria-live="polite"></div>' +
+      '<div class="acts">' + (g && g.table ? '<button type="button" class="lnk" id="stUn">הסרה מהשולחן</button>' : '') + (grp ? '<button type="button" class="btn" id="stFlt">' + (grpFilter === grp ? 'הצגת כל האורחים' : 'הצגת הקבוצה ברשימה') + '</button>' : '') + '<span style="flex:1"></span><button type="button" class="btn" id="stX">סגירה</button></div></div>';
+    document.body.appendChild(box);
+    var inp = box.querySelector('#stn'); setTimeout(function () { try { inp.focus(); } catch (e) {} }, 30);
+    function close() { box.remove(); }
+    function go(name) {
+      name = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 12);
+      if (!name) { box.querySelector('#stMsg').textContent = 'כתבו מספר או שם של שולחן'; inp.focus(); return; }
+      var t = tableByName(name), made = false;
+      if (!t) { t = newTableNamed(name); made = true; }
+      if (g) {
+        var free = capOf(t) - seatedAt(t) + (g.table === t.name ? g.party : 0);
+        if (free < g.party) { if (made) tables.pop(); box.querySelector('#stMsg').textContent = 'אין מקום בשולחן ' + t.name + ' (' + free + ' פנויים, צריך ' + g.party + ')'; return; }
+        g.table = t.name; sel = t.id; selObj = null; close(); markDirty(); paintObjs(); paintTables(); paintList();
+        toast(g.name + ' → שולחן ' + t.name + (made ? ' (שולחן חדש)' : ''));
+      } else { close(); sel = t.id; selObj = null; paintObjs(); seatGroup(grp, t); }
+    }
+    box.addEventListener('click', function (e) {
+      if (e.target === box || e.target.id === 'stX') { close(); return; }
+      var c = e.target.closest('.chip'); if (c) { go(c.dataset.tn); return; }
+      if (e.target.id === 'stGo') { go(inp.value); return; }
+      if (e.target.id === 'stUn') { g.table = ''; close(); markDirty(); paintTables(); paintList(); toast(g.name + ' חזר/ה לרשימה בלי שולחן'); return; }
+      if (e.target.id === 'stFlt') { grpFilter = grpFilter === grp ? '' : grp; close(); paintList(); }
+    });
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); go(inp.value); } });
+  }
+  /* the guest list on and off: off, the whole screen is the hall */
+  function sideState(hide) { $('lay').classList.toggle('noside', hide); $('sideBtn').textContent = hide ? 'הצגת רשימת האורחים' : 'הסתרת רשימת האורחים'; }
+  $('sideBtn').addEventListener('click', function () { var hide = !$('lay').classList.contains('noside'); sideState(hide); try { localStorage.setItem('ishur_seat_noside', hide ? '1' : ''); } catch (e) {} });
+  try { if (localStorage.getItem('ishur_seat_noside') === '1') sideState(true); } catch (e) {}
+
+  /* first time on this device: four short steps, in the order people work */
+  var GUIDE = [
+    ['בונים את האולם', 'מתחילים מ"תבניות" או מ"+ שולחן", ומוסיפים חופה, בר ובמה. אפשר להסתיר את רשימת האורחים כדי שכל המסך יהיה האולם.'],
+    ['משבצים אורחים', 'גוררים אורח אל שולחן, או נוגעים בשם שלו וכותבים מספר שולחן. כך גם משנים שולחן או מסירים ממנו.'],
+    ['קבוצות', 'נוגעים ב"+ קבוצה" ליד אורח (משפחה, חברים…). אחר כך נוגעים בקבוצה וכותבים שולחן, והיא משובצת יחד.'],
+    ['הכול נשמר לבד', 'אין כפתור שצריך לזכור. בטלפון כדאי לסובב את המסך לרוחב: האולם גדל.']
+  ];
+  function guide(i) {
+    var old = document.querySelector('.guide'); if (old) old.remove();
+    if (i >= GUIDE.length) { try { localStorage.setItem('ishur_seat_guide', '1'); } catch (e) {} return; }
+    var el = document.createElement('div'); el.className = 'guide';
+    el.innerHTML = '<div class="gc" role="dialog" aria-label="הדרכה"><div class="gs">' + (i + 1) + ' / ' + GUIDE.length + '</div><h4>' + GUIDE[i][0] + '</h4><p>' + GUIDE[i][1] + '</p>' +
+      '<div class="ga"><button type="button" class="btn" id="gSkip">דילוג</button><span class="sp"></span><button type="button" class="btn p" id="gNext">' + (i === GUIDE.length - 1 ? 'הבנתי' : 'הבא') + '</button></div></div>';
+    document.body.appendChild(el);
+    el.querySelector('#gNext').addEventListener('click', function () { guide(i + 1); });
+    el.querySelector('#gSkip').addEventListener('click', function () { guide(GUIDE.length); });
+  }
+  function guideOnce() { var seen = ''; try { seen = localStorage.getItem('ishur_seat_guide') || ''; } catch (e) { seen = '1'; } if (!seen) guide(0); }
 
   /* ── floor ── */
   function paintTables() {
@@ -434,9 +535,8 @@
     var gEl = e.target.closest('.g');
     if (gEl) {
       var g = guests.filter(function (x) { return x.id === gEl.dataset.id; })[0];
-      drag = { kind: 'guest', g: g, el: gEl }; gEl.classList.add('dragging');
-      ghost = document.createElement('div'); ghost.className = 'ghost'; ghost.textContent = g.name + ' · ' + g.party; document.body.appendChild(ghost);
-      ghost.style.left = e.clientX + 'px'; ghost.style.top = e.clientY + 'px';
+      if (e.target.closest('.gt')) return;   /* the group tag has its own tap */
+      drag = { kind: 'guest', g: g, el: gEl, sx: e.clientX, sy: e.clientY, moved: false };
       e.preventDefault(); return;
     }
     var rz = e.target.closest('.rz');
@@ -468,6 +568,11 @@
       return;
     }
     if (drag.kind === 'guest') {
+      if (!drag.moved) {
+        if (Math.abs(e.clientX - drag.sx) + Math.abs(e.clientY - drag.sy) < 8) return;
+        drag.moved = true; drag.el.classList.add('dragging');
+        ghost = document.createElement('div'); ghost.className = 'ghost'; ghost.textContent = drag.g.name + ' · ' + drag.g.party; document.body.appendChild(ghost);
+      }
       ghost.style.left = e.clientX + 'px'; ghost.style.top = e.clientY + 'px';
       var over = ptTable(e.clientX, e.clientY);
       document.querySelectorAll('.tbl.hot').forEach(function (x) { x.classList.remove('hot'); });
@@ -502,6 +607,7 @@
       if (ovr) seatGroup(drag.name, ovr); else if (!drag.moved) dragGrpMoved = false;
       drag = null; return;
     }
+    if (drag.kind === 'guest' && !drag.moved) { var tg = drag.g; drag = null; seatDialog({ g: tg }); return; }
     if (drag.kind === 'guest') {
       var over = ptTable(e.clientX, e.clientY);
       drag.el.classList.remove('dragging'); ghost.remove(); ghost = null;
@@ -573,7 +679,7 @@
       guests.forEach(function (g) { if (g.table && !known[g.table]) { known[g.table] = 1; var n = tables.length; tables.push({ id: 'T' + Date.now() + n, name: g.table, shape: 'round', x: 60 + (n % 5) * 150, y: 80 + Math.floor(n / 5) * 160, w: 120, h: 120 }); } });
       if (!tables.length) { addTable('round'); addTable('round'); dirty = false; $('save').disabled = true; }
       var fl = $('floorLoad'); if (fl) fl.remove();
-      paintObjs(); paintTables(); paintList();
+      paintObjs(); paintTables(); paintList(); guideOnce();
     }).catch(function () { $('sub').textContent = 'לא הצלחנו לטעון את האירוע'; var fl = $('floorLoad'); if (fl) fl.textContent = 'לא הצלחנו לטעון'; });
   }
   load();
