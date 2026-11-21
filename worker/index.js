@@ -11025,7 +11025,7 @@ async function buildCalendarMonth(env, month) {
   const fromTs = Date.parse(mFirst + 'T00:00:00+03:00'), toTs = Date.parse(mLast + 'T23:59:59+03:00');
   const inMonth = names.filter(n => { const ts = Number(n.split(':').pop()); return ts >= fromTs && ts <= toTs; });
   /* 21/11: days older than three are read once and kept (calendar-log.js); it used to be one KV read per message of the month, every build */
-  const { vals } = await readLogValues(env, inMonth);
+  const { vals, stats: logStats } = await readLogValues(env, inMonth);
   inMonth.forEach((n, i) => {
     let v = null; try { v = JSON.parse(vals[i]); } catch {}
     if (!v || v.dir !== 'out') return;
@@ -11112,7 +11112,7 @@ async function buildCalendarMonth(env, month) {
     rows.sort((a, b) => a.at < b.at ? -1 : 1);
   }
   const calOut = { ok: true, month, today, days, events: Object.values(evByTok).map(e => ({ token: e.token, tok8: e.tok8, client: e.client, event: e.event, date: e.date })) };
-  if (env.RATE) await env.RATE.put('calcache:' + month, JSON.stringify({ at: Date.now(), data: calOut }), { expirationTtl: 1200 }).catch(() => {});
+  if (env.RATE) await env.RATE.put('calcache:' + month, JSON.stringify({ at: Date.now(), reads: logStats, data: calOut }), { expirationTtl: 1200 }).catch(() => {});
   return calOut;
 }
 
