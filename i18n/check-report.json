@@ -113,5 +113,74 @@
   "frameLang": "fr",
   "ok": true,
   "at": "2026-11-21T00:34:37.094Z"
+ },
+ "ru": {
+  "left": {},
+  "dir": {
+   "app:board": "ltr",
+   "board:board": "ltr",
+   "app:guests": "ltr",
+   "board:guests": "ltr",
+   "app:sends": "ltr",
+   "board:sends": "ltr",
+   "app:account": "ltr",
+   "app:events": "ltr",
+   "upload.html": "ltr",
+   "schedule.html": "ltr",
+   "budget.html": "ltr",
+   "seating.html": "ltr",
+   "checklist.html": "ltr"
+  },
+  "wide": [],
+  "persisted": "ru",
+  "frameLang": "ru",
+  "ok": true,
+  "at": "2026-11-21T01:05:52.829Z"
+ },
+ "yi": {
+  "left": {},
+  "dir": {
+   "app:board": "rtl",
+   "board:board": "rtl",
+   "app:guests": "rtl",
+   "board:guests": "rtl",
+   "app:sends": "rtl",
+   "board:sends": "rtl",
+   "app:account": "rtl",
+   "app:events": "rtl",
+   "upload.html": "rtl",
+   "schedule.html": "rtl",
+   "budget.html": "rtl",
+   "seating.html": "rtl",
+   "checklist.html": "rtl"
+  },
+  "wide": [],
+  "persisted": "yi",
+  "frameLang": "yi",
+  "ok": true,
+  "at": "2026-11-21T01:07:09.915Z"
+ },
+ "pt": {
+  "left": {},
+  "dir": {
+   "app:board": "ltr",
+   "board:board": "ltr",
+   "app:guests": "ltr",
+   "board:guests": "ltr",
+   "app:sends": "ltr",
+   "board:sends": "ltr",
+   "app:account": "ltr",
+   "app:events": "ltr",
+   "upload.html": "ltr",
+   "schedule.html": "ltr",
+   "budget.html": "ltr",
+   "seating.html": "ltr",
+   "checklist.html": "ltr"
+  },
+  "wide": [],
+  "persisted": "pt",
+  "frameLang": "pt",
+  "ok": true,
+  "at": "2026-11-21T01:08:13.756Z"
  }
 }
