@@ -27,7 +27,7 @@ test('hall items: a save from an older copy of the page (no items at all) keeps 
   assert.deepEqual(itemsToKeep(undefined, undefined), []);
 });
 
-test('hall items: the client's own colour is kept only as #rrggbb; the added kinds and the octagon are kept', () => {
+test('hall items: the own colour of a client is kept only as #rrggbb; the added kinds and the octagon are kept', () => {
   const out = cleanItems([{ kind: 'buffet', shape: 'oct', color: '#FF8800' }, { kind: 'photo', color: '#ff88' }, { kind: 'gifts', color: '#ff8800;background:url(x)' }, { color: 'red' }]);
   assert.deepEqual(out.map(o => [o.kind, o.shape, o.color]), [['buffet', 'oct', '#ff8800'], ['photo', 'rect', 'gold'], ['gifts', 'rect', 'gold'], ['free', 'rect', 'red']]);
 });
