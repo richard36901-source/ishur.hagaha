@@ -41,6 +41,7 @@ import { waveNoteDeps } from './whatsapp.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, isQuestion, touchConversation, guestsReady } from './whatsapp.js';
 import { isAppAutoReply, chaseStopReason, leadAlertHeader, lastInboundTs } from './inbound.js';
 import { isTableQuestion, tableFor, tableReply } from './seating.js';
+import { guestLangApi } from './guest-lang.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
 import { logEvent, flushEventLog, readLogTail, OWNER_PHONE, stream } from './evlog.js';
 import { recordHit, recordPurchase, trafficReport } from './traffic.js';
@@ -13810,6 +13811,16 @@ const WORKER = {
       }
       let plan = null; try { plan = JSON.parse(await env.RATE.get('seatplan:' + tok)); } catch {}
       return okJson({ ok: true, tables: (plan && plan.tables) || [], groups: (plan && plan.groups) || {}, items: cleanItems(plan && plan.items) }, origin);
+    }
+    /* 22/11 round 7 Part B: the language the event's guest messages go out in (guest-lang.js), set on the board */
+    if (url.pathname === '/api/guest-lang' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const tok = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(tok) || !(await tokenRecord(env, tok))) return deny(404, 'unknown-token', origin);
+      if (b.mode && await overBudget(env, 'rl:guestlang:' + tok, 30, 3600)) return deny(429, 'slow-down', origin);
+      const r = await guestLangApi(env, tok, b.mode ? { mode: b.mode, lang: b.lang } : null);
+      if (!r.ok) return deny(r.status, r.error, origin);
+      return okJson(r, origin);
     }
     if (url.pathname === '/api/seating' && request.method === 'POST') {
       return handleSeating(request, env, origin);

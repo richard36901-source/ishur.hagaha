@@ -74,3 +74,94 @@ test('only whole replies are swapped: a sentence that contains a button word is 
   assert.equal(G.toHebrewReply('there is no mistake here'), 'there is no mistake here');
   assert.equal(G.toHebrewReply('מגיע/ה'), 'מגיע/ה');
 });
+
+/* ══ 22/11 sending in the event's language (sendTemplate hook) and the board's choice ══ */
+import { sendTemplate, _resetBudgetMemory } from '../whatsapp.js';
+import { beforeEach, afterEach } from 'node:test';
+function kv(init = {}) {
+  const m = new Map(Object.entries(init));
+  return { m, get: async (k, t) => { if (!m.has(k)) return null; const v = m.get(k); return t === 'json' ? JSON.parse(v) : v; }, put: async (k, v) => { m.set(k, String(v)); }, delete: async k => { m.delete(k); },
+    list: async ({ prefix = '', limit = 1000 } = {}) => ({ keys: [...m.keys()].filter(k => k.startsWith(prefix)).slice(0, limit).map(name => ({ name })), list_complete: true }), getWithMetadata: async k => ({ value: m.has(k) ? m.get(k) : null, metadata: null }) };
+}
+const TOKEN = 'cccccccc-0000-4000-8000-000000000001';
+let posts = [], fail = {}, realFetch;
+beforeEach(() => {
+  _resetBudgetMemory(); posts = []; fail = {}; realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init = {}) => {
+    const u = String(url), json = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { 'Content-Type': 'application/json' } });
+    if (/\/messages$/.test(u) && init.method === 'POST') {
+      const b = JSON.parse(init.body); posts.push(b);
+      const f = fail[b.template && b.template.name]; if (f) return json({ error: { code: f, message: 'fake' } }, 400);
+      return json({ messages: [{ id: 'wamid.' + posts.length }] });
+    }
+    return json({});
+  };
+});
+afterEach(() => { globalThis.fetch = realFetch; });
+const envWith = (store = {}, extra = {}) => ({ RATE: kv(store), WA_PHONE_ID_GUESTS: 'A', WA_TOKEN_GUESTS: 't', WA_TOKEN: 'tc', WA_PHONE_ID: 'C', ...extra });
+const ON = { GUEST_LANG: 'on' };
+const send = (env, name = 'ishur_yom_plain_t', params = ['דנה', 'החתונה', '19:30', 'אולם', '12']) => sendTemplate(env, '0501234567', name, params, '', 'he', 'guests', { token: TOKEN, wave: 'eventday' });
+const sentAs = () => posts.map(p => p.template.name + '/' + p.template.language.code);
+const paramsOfPost = p => ((p.template.components || []).find(c => c.type === 'body') || { parameters: [] }).parameters.map(x => x.text);
+
+test('switch off (production today): Hebrew goes out exactly as before, even when the event chose a language', async () => {
+  const r = await send(envWith({ ['guestlang:' + TOKEN]: '{"mode":"alone","lang":"en"}' }));
+  assert.equal(r.ok, true); assert.deepEqual(sentAs(), ['ishur_yom_plain_t/he']);
+});
+test('switch on, no choice for the event: Hebrew', async () => {
+  await send(envWith({}, ON)); assert.deepEqual(sentAs(), ['ishur_yom_plain_t/he']);
+});
+test('switch on, English alone: the English copy, same values, one send', async () => {
+  await send(envWith({ ['guestlang:' + TOKEN]: '{"mode":"alone","lang":"en"}' }, ON));
+  assert.deepEqual(sentAs(), ['ishur_yom_plain_t_en/en']);
+  assert.deepEqual(paramsOfPost(posts[0]), ['דנה', 'החתונה', '19:30', 'אולם', '12']);
+});
+test('switch on, Portuguese alone: labelled pt_BR', async () => {
+  await send(envWith({ ['guestlang:' + TOKEN]: '{"mode":"alone","lang":"pt"}' }, ON)); assert.deepEqual(sentAs(), ['ishur_yom_plain_t_pt/pt_BR']);
+});
+test('switch on, Hebrew + Russian: the pair copy (labelled he) gets every value twice', async () => {
+  await send(envWith({ ['guestlang:' + TOKEN]: '{"mode":"pair","lang":"ru"}' }, ON));
+  assert.deepEqual(sentAs(), ['ishur_yom_plain_t_heru/he']);
+  assert.equal(paramsOfPost(posts[0]).length, 10);
+});
+test('a template with no translation (the client\'s own invitation, say) goes out in Hebrew', async () => {
+  await send(envWith({ ['guestlang:' + TOKEN]: '{"mode":"alone","lang":"en"}' }, ON), 'hazmana_ishur', ['דנה', 'x', 'y', 'z', 'w', 'v']);
+  assert.deepEqual(sentAs(), ['hazmana_ishur/he']);
+});
+test('Meta does not know the copy (132001): the Hebrew goes out at once, and the copy is not tried again for 6 hours', async () => {
+  fail['ishur_yom_plain_t_en'] = 132001;
+  const env = envWith({ ['guestlang:' + TOKEN]: '{"mode":"alone","lang":"en"}' }, ON);
+  const r = await send(env);
+  assert.equal(r.ok, true); assert.deepEqual(sentAs(), ['ishur_yom_plain_t_en/en', 'ishur_yom_plain_t/he']);
+  assert.ok(env.RATE.m.has('tmplmiss:ishur_yom_plain_t_en'));
+  posts = []; await send(env);
+  assert.deepEqual(sentAs(), ['ishur_yom_plain_t/he'], 'second guest: straight to Hebrew');
+});
+test('any other failure (the guest\'s number) is reported as it is, never sent twice', async () => {
+  fail['ishur_yom_plain_t_en'] = 131026;
+  const r = await send(envWith({ ['guestlang:' + TOKEN]: '{"mode":"alone","lang":"en"}' }, ON));
+  assert.equal(r.ok, false); assert.deepEqual(sentAs(), ['ishur_yom_plain_t_en/en']);
+});
+test('messages to clients are never touched', async () => {
+  await sendTemplate(envWith({ ['guestlang:' + TOKEN]: '{"mode":"alone","lang":"en"}' }, ON), '0501234567', 'ishur_yom_plain_t', ['a', 'b', 'c', 'd', 'e'], '', 'he', 'client', { token: TOKEN });
+  assert.ok(posts.every(p => p.template.name.indexOf('_en') < 0));
+});
+test('TRANSLATED is exactly the set of templates the generator translated', async () => {
+  const fs = await import('node:fs'), path = await import('node:path'), { fileURLToPath } = await import('node:url');
+  const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'templates', 'i18n', 'out');
+  const bases = new Set(fs.readdirSync(dir).filter(f => /_en\.json$/.test(f)).map(f => f.replace(/_en\.json$/, '')));
+  assert.deepEqual([...G.TRANSLATED].sort(), [...bases].sort());
+});
+
+test('the board\'s choice: saved, read back, Hebrew removes it, refused once the invitations went out', async () => {
+  const env = envWith();
+  assert.deepEqual((await G.guestLangApi(env, TOKEN, null)).choice, { mode: 'he' });
+  assert.equal((await G.guestLangApi(env, TOKEN, { mode: 'pair', lang: 'ar' })).ok, true);
+  assert.deepEqual((await G.guestLangApi(env, TOKEN, null)).choice, { mode: 'pair', lang: 'ar' });
+  assert.equal((await G.guestLangApi(env, TOKEN, { mode: 'alone', lang: 'yi' })).error, 'bad-choice', 'Yiddish is not a guest language');
+  assert.equal((await G.guestLangApi(env, TOKEN, { mode: 'he' })).ok, true);
+  assert.equal(env.RATE.m.has('guestlang:' + TOKEN), false);
+  env.RATE.m.set('wave:' + TOKEN + ':1', '1');
+  const r = await G.guestLangApi(env, TOKEN, { mode: 'alone', lang: 'en' });
+  assert.equal(r.error, 'already-sent'); assert.equal(r.locked, true);
+});

@@ -19,7 +19,7 @@ import { logRow } from './sheetlogs.js';
 import { logEvent, stream } from './evlog.js';
 import { isStaging, isAllowedPhone, BLOCKED as STAGING_BLOCKED } from './staging-guard.js';
 import { noteDailySend } from './wavenote.js';
-import { toHebrewReply } from './guest-lang.js';
+import { toHebrewReply, trySendInGuestLang } from './guest-lang.js';
 /* index.js registers the event-name resolver (it owns the sheet snapshot); whatsapp.js stays import-free of index.js */
 export const waveNoteDeps = { eventName: null };
 import { capacity, numberState, rollingUsed, nextFreeAt, readHourBuckets, bumpHourBucket, cachedTiers, tierLimit, epochHour } from './budget.js';
@@ -637,6 +637,9 @@ export async function sendTemplate(env, to, name, params = [], imageUrl = '', la
   /* 26/09: on the ishur.io portfolio the client templates live under new
      names (<name>_n, footer built in) because Meta locks a deleted name for
      30 days. Portfolio + client channel → _n, and the _f switch is skipped. */
+  /* 22/11 round 7 Part B: the event's guest language (guest-lang.js); off unless GUEST_LANG=on, Hebrew on any doubt */
+  const inLang = await trySendInGuestLang(env, { name, params, channel, ctx }, v => sendTemplate(env, to, v.name, v.params, imageUrl, v.lang, channel, { ...ctx, langTried: 1 }));
+  if (inLang) return inLang;
   const isClient = !(channel === 'guests' && guestsReady(env));
   /* 08/11 (Richard): the template guard (templateguard.js) found this one broken at Meta
      (rejected / reclassified MARKETING / paused) and got a reworded UTILITY copy approved */

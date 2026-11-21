@@ -87,3 +87,56 @@ export function toHebrewReply(text) {
   const k = s.replace(/[‎‏]/g, '').trim().replace(/\s+/g, ' ').toLowerCase();
   return BACK.get(k) || s;
 }
+
+/* ══ 22/11 night · sending in the event's language (Richard: "Yes, all messages") ══════════════════════════════
+   OFF unless the Worker variable GUEST_LANG is "on" (staging first; production only on Richard's "promote").
+   The event's choice lives in KV guestlang:<token> = {mode, lang}; with no key the event is Hebrew only, as today.
+   sendTemplate asks variantFor() before a guest send: a translated copy exists for the templates in TRANSLATED
+   (built by scripts/translate-templates.mjs). If Meta does not know or has not approved that copy (MISSING), the
+   Hebrew one goes out instead and the copy is not tried again for 6 hours, so no guest misses a message. */
+export const TRANSLATED = new Set(["ishur_lifnei_combo_g","ishur_lifnei_combo_gb","ishur_lifnei_combo_gp","ishur_lifnei_combo_n","ishur_lifnei_combo_t","ishur_lifnei_combo_tg","ishur_lifnei_combo_tgb","ishur_lifnei_combo_tgp","ishur_lifnei_plain_g","ishur_lifnei_plain_gb","ishur_lifnei_plain_gp","ishur_lifnei_plain_t","ishur_lifnei_plain_tg","ishur_lifnei_plain_tgb","ishur_lifnei_plain_tgp","ishur_matana","ishur_shulchan_matana","ishur_toda_matana","ishur_toda_orach_u","ishur_yom_combo_g","ishur_yom_combo_gb","ishur_yom_combo_gp","ishur_yom_combo_n","ishur_yom_combo_t","ishur_yom_combo_tg","ishur_yom_combo_tgb","ishur_yom_combo_tgp","ishur_yom_haerua_matana","ishur_yom_plain_g","ishur_yom_plain_gb","ishur_yom_plain_gp","ishur_yom_plain_s","ishur_yom_plain_t","ishur_yom_plain_tg","ishur_yom_plain_tgb","ishur_yom_plain_tgp"]);
+export const guestLangOn = env => String((env && env.GUEST_LANG) || '').toLowerCase() === 'on';
+/* Meta: 132000 wrong number of variables, 132001 no such template in that language, 132012 variable format,
+   132015 paused, 132016 disabled — all mean "this copy cannot be used", not "this guest cannot be reached" */
+export const isMissingTemplate = err => /^(132000|132001|132012|132015|132016)\b/.test(String(err || ''));
+
+export async function readGuestLang(env, token) {
+  if (!env || !env.RATE || !token) return { mode: 'he' };
+  try { return norm(JSON.parse((await env.RATE.get('guestlang:' + token)) || 'null')); } catch { return { mode: 'he' }; }
+}
+
+/* the copy to send instead of <name>, or null when Hebrew goes out as today */
+export function variantFor(name, choice, params) {
+  const c = norm(choice);
+  if (c.mode === 'he' || !TRANSLATED.has(name)) return null;
+  const pair = c.mode === 'pair';
+  return { name: name + '_' + (pair ? 'he' : '') + c.lang, lang: templateLang(c), params: pair ? [...params, ...params] : params.slice() };
+}
+
+/* the hook sendTemplate calls; returns the send's result, or null to go on with the Hebrew template */
+export async function trySendInGuestLang(env, { name, params, channel, ctx }, send) {
+  if (channel !== 'guests' || !ctx || !ctx.token || ctx.langTried || !guestLangOn(env) || !TRANSLATED.has(name)) return null;
+  const v = variantFor(name, await readGuestLang(env, ctx.token), params || []);
+  if (!v) return null;
+  try { if (env.RATE && await env.RATE.get('tmplmiss:' + v.name)) return null; } catch {}
+  const r = await send(v);
+  if (r && !r.ok && isMissingTemplate(r.error)) {
+    try { if (env.RATE) await env.RATE.put('tmplmiss:' + v.name, String(r.error).slice(0, 120), { expirationTtl: 6 * 3600 }); } catch {}
+    return null;
+  }
+  return r;
+}
+
+/* the board's choice: read it, and save it while the invitations have not gone out (KV wave:<token>:1) */
+export async function guestLangApi(env, token, body) {
+  const locked = !!(env.RATE && await env.RATE.get('wave:' + token + ':1'));
+  const cur = await readGuestLang(env, token);
+  if (body && body.mode) {
+    if (locked) return { ok: false, status: 409, error: 'already-sent', choice: cur, locked };
+    const c = norm(body);
+    if (body.mode !== 'he' && c.mode === 'he') return { ok: false, status: 400, error: 'bad-choice', choice: cur, locked };
+    if (c.mode === 'he') await env.RATE.delete('guestlang:' + token); else await env.RATE.put('guestlang:' + token, JSON.stringify(c));
+    return { ok: true, choice: c, locked, langs: GUEST_LANGS };
+  }
+  return { ok: true, choice: cur, locked, langs: GUEST_LANGS };
+}
