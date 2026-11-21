@@ -71,6 +71,21 @@ Plan: `.sdlc/client-app/round7-languages.md`. The client picks a language in ח�
   (`assets/i18n/`, other session) were asked to take them. Translations unverified by native speakers, like the rest.
 - [ ] Guest messages in other languages (Part B of the plan): waiting for Richard's answers, one at a time.
 
+## Round 8 · feel like the apps people use every day (Richard, 22/11)
+His words, shortened: the bottom bar like Apple's, WhatsApp's and Instagram's ("we need to be on the level of those
+apps"; the Figma connection has those designs); maybe no constant top bar, or keep one so a screenshot that gets
+shared carries our brand; on opening: the logo, "אישורי הגעה לאירועים", support WhatsApp 055-9504499 and the email
+(info@ishur.io, from the site); loading with the logo and skeletons; in חשבון "צרו קשר" with WhatsApp and email
+buttons; swipe from the edge goes back; dragging the page down hides the keyboard, "just like all the native iOS apps".
+- [x] Language button off the board pages inside the app (22/11): the choice lives in חשבון only. Website unchanged.
+- [ ] Bottom bar redesign (iOS tab bar look: blur, thin top line, filled icon when selected, labels 10pt).
+- [ ] Top bar: waiting for Richard's choice.
+- [ ] Opening screen: logo, "אישורי הגעה לאירועים", WhatsApp and email.
+- [ ] Loading: logo, then skeletons in the shape of each screen.
+- [ ] חשבון: "צרו קשר" with WhatsApp and email.
+- [ ] Swipe back from the edge on every pushed screen (events, help, pages).
+- [ ] Keyboard hides when the page is dragged down.
+
 ## Claude's own queue (no approval needed, staging only)
 
 Split on 20/11 at Richard's request: routine, well-specified work for Opus now; work that needs design judgment or carries production risk for Fable.
