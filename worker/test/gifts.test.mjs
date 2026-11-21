@@ -153,7 +153,7 @@ test('lint: the table message never gets a definite article (template says ב{{2
 });
 
 /* ── 22/11: one link for every guest ── */
-import { giftRoute, giftMethods, giftCountable, bumpGiftStat } from '../gifts.js';
+import { giftRoute, giftMethods, giftCountable, giftHitKey, giftStatsFromKeys } from '../gifts.js';
 test('gift link: one way to give goes straight there; two ways show the page; a tap on the page is forwarded and counted', () => {
   const PB = 'https://links.payboxapp.com/abc123';
   assert.deepEqual(giftRoute({ on: true, bit: BIT, paybox: '' }, ''), { go: BIT, count: 'bit', direct: true });
@@ -168,9 +168,13 @@ test('gift link: one way to give goes straight there; two ways show the page; a 
   const h = giftPageHtml({ on: true, bit: BIT, paybox: PB }, 'נועה ויונתן', 'aaaaaaaa');
   assert.ok(h.includes('href="/gift/aaaaaaaa/bit"') && h.includes('href="/gift/aaaaaaaa/paybox"') && h.includes('בחרו איך לתת'));
 });
-test('gift link counting: opens and taps add up; link previews and crawlers are never counted', () => {
-  let s = bumpGiftStat(null, ['open', ''], 1e12); s = bumpGiftStat(s, ['open', 'bit'], 1e12 + 5); s = bumpGiftStat(s, ['', 'paybox'], 1e12 + 9);
+test('gift link counting: every open and tap is its own key, so nothing is overwritten; link previews and crawlers are never counted', () => {
+  const T = 'aaaaaaaa-0000-4000-8000-000000000001';
+  const keys = [giftHitKey(T, 'open', 1e12, 'a'), giftHitKey(T, 'open', 1e12, 'b'), giftHitKey(T, 'bit', 1e12 + 5, 'c'), giftHitKey(T, 'paybox', 1e12 + 9, 'd'), 'gifthit:' + T + ':nonsense:5:x'];
+  assert.equal(new Set(keys).size, 5, 'two opens in the same millisecond are two keys');
+  const s = giftStatsFromKeys(keys);
   assert.equal(s.open, 2); assert.equal(s.bit, 1); assert.equal(s.paybox, 1); assert.equal(s.first, new Date(1e12).toISOString()); assert.equal(s.last, new Date(1e12 + 9).toISOString());
+  assert.deepEqual(giftStatsFromKeys([]), { open: 0, bit: 0, paybox: 0 });
   assert.equal(giftCountable('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1'), true);
   for (const ua of ['WhatsApp/2.23.20.0', 'facebookexternalhit/1.1', 'Googlebot/2.1', 'TelegramBot (like TwitterBot)', 'curl/8.0']) assert.equal(giftCountable(ua), false, ua);
 });

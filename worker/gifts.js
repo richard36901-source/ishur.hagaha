@@ -114,12 +114,30 @@ export function giftRoute(gl, method) {
 }
 /* link previews and crawlers open the link too; they are forwarded like anyone, never counted */
 export function giftCountable(ua) { return !/whatsapp|facebookexternalhit|facebot|bot\b|crawler|spider|preview|slack|telegram|curl|wget/i.test(String(ua || '')); }
-export function bumpGiftStat(stat, what, now = Date.now()) {
-  const s = { open: 0, bit: 0, paybox: 0, ...(stat && typeof stat === 'object' ? stat : {}) };
-  for (const k of [].concat(what)) if (k) s[k] = (Number(s[k]) || 0) + 1;
-  if (!s.first) s.first = new Date(now).toISOString();
-  s.last = new Date(now).toISOString();
+/* Every open and every tap is its own small key (gifthit:<token>:<kind>:<time>:<rand>), written without reading
+   anything first, so two guests in the same second never overwrite each other. The numbers are the count of keys.
+   (This is a display number, not a limit: a listing that is a few seconds behind only shows the count a moment late.) */
+export const GIFT_HIT_TTL = 400 * 86400;
+export function giftHitKey(token, kind, now = Date.now(), rand = Math.random().toString(36).slice(2, 8)) { return `gifthit:${token}:${kind}:${now}:${rand}`; }
+export function giftStatsFromKeys(names) {
+  const s = { open: 0, bit: 0, paybox: 0 }; let first = 0, last = 0;
+  for (const n of names || []) {
+    const p = String(n).split(':'); const kind = p[2], ts = Number(p[3]) || 0;
+    if (!(kind in s)) continue;
+    s[kind]++; if (ts) { if (!first || ts < first) first = ts; if (ts > last) last = ts; }
+  }
+  if (first) { s.first = new Date(first).toISOString(); s.last = new Date(last).toISOString(); }
   return s;
+}
+export async function giftStats(env, token) {
+  const names = []; let cursor;
+  for (let i = 0; i < 20; i++) {
+    const page = await env.RATE.list({ prefix: 'gifthit:' + token + ':', cursor, limit: 1000 }).catch(() => null);
+    if (!page) break;
+    for (const k of page.keys || []) names.push(k.name);
+    if (page.list_complete || !page.cursor) break; cursor = page.cursor;
+  }
+  return giftStatsFromKeys(names);
 }
 
 /* the page behind the button (GET /gift/<slug>) */

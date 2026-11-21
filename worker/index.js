@@ -36,7 +36,7 @@ import { sendCtaUrl, sendReplyButtons, guestCapacity, guestCapScope, pinGuestPho
 import { fitBatch, dynamicPace } from './budget.js';
 import * as tguard from './templateguard.js';
 import { eventDayMessageFor, edMarkKey, ED_MARK_TTL, dayBeforeAllowed, dayBeforeDropped, navTarget, COMBO_NAMES, dayBeforeMessageFor, eventDayNeeded } from './eventday.js';
-import { giftActive, giftKey, declineGiftText, eventDayGiftSlot, eventHasSeating, giftVariantName, giftButtonComponent, giftSlug, planGiftBlast, giftPageHtml, cleanLink, giftRoute, giftCountable, bumpGiftStat, GIFT_METHODS } from './gifts.js';
+import { giftActive, giftKey, declineGiftText, eventDayGiftSlot, eventHasSeating, giftVariantName, giftButtonComponent, giftSlug, planGiftBlast, giftPageHtml, cleanLink, giftRoute, giftCountable, giftHitKey, giftStats, GIFT_HIT_TTL, GIFT_METHODS } from './gifts.js';
 import { waveNoteDeps } from './whatsapp.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, isQuestion, touchConversation, guestsReady } from './whatsapp.js';
 import { isAppAutoReply, chaseStopReason, leadAlertHeader, lastInboundTs } from './inbound.js';
@@ -11569,13 +11569,13 @@ const WORKER = {
       const hits = ((raw && raw.events && raw.events.values) || []).filter(r => String((r || [])[1] || '').trim().slice(0, 8) === slug);
       if (hits.length !== 1) return html(giftPageHtml(null, ''), 404);
       const tok = String(hits[0][1]).trim();
-      /* 22/11: one way to give → straight there; two → the page; every open and every tap is counted (giftstat:<token>) */
+      /* 22/11: one way to give → straight there; two → the page; every open and every tap is counted (gifthit:<token>:… keys) */
       const gl = await giftLinksOf(env, tok);
       const method = (url.pathname.slice('/gift/'.length).split('/')[1] || '').toLowerCase();
       const rt = giftRoute(gl, GIFT_METHODS.includes(method) ? method : '');
       if (giftCountable(request.headers.get('user-agent')) && !rt.none) {
-        const what = [method ? '' : 'open', rt.go ? rt.count : ''];
-        ctx.waitUntil((async () => { let st = null; try { st = JSON.parse(await env.RATE.get('giftstat:' + tok)); } catch {} await env.RATE.put('giftstat:' + tok, JSON.stringify(bumpGiftStat(st, what)), { expirationTtl: 400 * 86400 }); })().catch(() => {}));
+        const what = [method ? '' : 'open', rt.go ? rt.count : ''].filter(Boolean);
+        ctx.waitUntil(Promise.all(what.map(k => env.RATE.put(giftHitKey(tok, k), '1', { expirationTtl: GIFT_HIT_TTL }))).catch(() => {}));
       }
       if (rt.go) return new Response('', { status: 302, headers: { Location: rt.go, 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' } });
       return html(giftPageHtml(gl, String(hits[0][34] || hits[0][2] || '').trim(), slug));
@@ -13732,7 +13732,7 @@ const WORKER = {
         await logEvent(env, { area: 'לוח', action: 'קישורי מתנה עודכנו', ok: true, token: tok, detail: `${cur.on ? 'פעיל' : 'כבוי'} · ביט ${bit ? 'כן' : 'לא'} · פייבוקס ${paybox ? 'כן' : 'לא'}` }).catch(() => {});
       }
       /* 22/11: how many guests opened the gift link and which way they tapped (never who paid) */
-      let stats = null; try { stats = JSON.parse(await env.RATE.get('giftstat:' + tok)); } catch {}
+      const stats = giftActive(cur) ? await giftStats(env, tok).catch(() => null) : null;
       return okJson({ ok: true, ...cur, stats: stats || { open: 0, bit: 0, paybox: 0 } }, origin);
     }
     /* Richard 29/09: the client's budget planner (budget.html). One KV record per
