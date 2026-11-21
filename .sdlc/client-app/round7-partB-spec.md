@@ -57,3 +57,20 @@ default, and reaches production only on Richard's "promote".
   it in that language (in a pair: both texts); we do not translate it. It goes to Meta through the existing
   per-client custom-template path, labelled with that language.
 - Is the business verified with Meta (needed for over 250 templates)? Claude checks this in Business settings.
+
+## Scope set by Richard, 22/11
+"we just prep the buttons so they be in the same language as requested, but same text we got now for the buttons
+just translated". So the message body is the client's own wording; from us come only today's three answer buttons
+(מגיע/ה · לא מגיע/ה · עדיין לא ידוע) and the footer line, translated. This replaces the "about 480 templates"
+estimate above: the templates are the client's own, one per event and language, through the existing custom path.
+
+Built 22/11 (client-app branch, not on staging yet): `worker/guest-lang.js`
+- `guestButtons(choice)`, `guestFooter(choice)`, `templateLang(choice)` for Hebrew only / alone / pair. Pair buttons
+  read "מגיע/ה · Coming"; every button fits Meta's 25 characters, every footer its 60.
+- `toHebrewReply(text)`, wired into `parseInboundReply`: a whole reply that is one of our translated buttons, or the
+  wrong-number word in that language, is read as today's Hebrew word. Sentences are left alone.
+- Tests: `worker/test/guest-lang.test.mjs`, 34/34. Without the wiring 8 of them fail. Full Worker suite: the same 5
+  night-time failures with and without the change; with the clock at 10:00 one failure, also present without it
+  ("calls row is done once every waiting guest used all tries"); not looked into.
+Not built yet: the client's choice on the board, sending the custom template with these buttons and language,
+the guest-facing confirmations the engine writes back (still Hebrew).
