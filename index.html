@@ -2825,7 +2825,9 @@ function acceptCookies(){
   document.getElementById('cookie-bar').classList.add('hidden');
 }
 window.addEventListener('load',()=>{
-  if(localStorage.getItem('cookies_ok')) document.getElementById('cookie-bar').classList.add('hidden');
+  /* 22/11: no cookie bar inside the ishur app, which tracks nobody (tracking.js does the same for its own bar) */
+  var inApp=false; try{inApp=/[?&]app=1(&|$)/.test(location.search)||sessionStorage.getItem('ishur_in_app')==='1'}catch(e){}
+  if(inApp||localStorage.getItem('cookies_ok')) document.getElementById('cookie-bar').classList.add('hidden');
 });
 
 </script>

@@ -257,7 +257,7 @@
   });
   $('forgot').addEventListener('click', function (e) { e.preventDefault(); T('whatsapp_tap', { from: 'signin' }); openUrl(waLink('היי, אני צריך/ה את קוד הכניסה לאפליקציה של ishur')); });
   $('support').addEventListener('click', function (e) { e.preventDefault(); T('whatsapp_tap', { from: 'account' }); openUrl(waLink('היי, יש לי שאלה על האירוע שלי')); });
-  $('privacy').addEventListener('click', function (e) { e.preventDefault(); T('privacy_open'); openUrl(ENV.site + '/terms.html#privacy'); });
+  $('privacy').addEventListener('click', function (e) { e.preventDefault(); T('privacy_open'); openUrl(ENV.site + '/terms.html?app=1' + LQ + '#privacy');   /* app=1: the website's cookie bar is not shown in the app, which tracks nobody */ });
   $('signout').addEventListener('click', function () { signOut(false); });
   $('tabs').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) { tab(b.getAttribute('data-tab')); haptic(); } });
   $('filters').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; filter = b.getAttribute('data-f'); T('guest_filter', { id: filter }); render(); });
@@ -285,7 +285,7 @@
   $('eventsClose').addEventListener('click', function () { $('events').hidden = true; });
   $('pageClose').addEventListener('click', function () { $('page').hidden = true; $('pageFrame').removeAttribute('src'); if (session) loadAccount().then(function () { render(); }); });
   $('refOpen').addEventListener('click', function () { if (!current) return; T('ref_open'); openPage('המלצה עלינו', ENV.board + '?t=' + encodeURIComponent(current) + '&app=1&view=account' + LQ + '#s=' + encodeURIComponent(session)); });
-  $('pkgTerms').addEventListener('click', function (e) { e.preventDefault(); T('terms_open'); openUrl(ENV.site + '/terms.html'); });
+  $('pkgTerms').addEventListener('click', function (e) { e.preventDefault(); T('terms_open'); openUrl(ENV.site + '/terms.html?app=1' + LQ); });
   /* after the event: asked when the app opens. "לא עכשיו" is offered once; the next time only "לדרג עכשיו". */
   var reviewFor = '';
   function askReview() {

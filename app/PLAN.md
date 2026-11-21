@@ -85,6 +85,17 @@ buttons; swipe from the edge goes back; dragging the page down hides the keyboar
 - [ ] חשבון: "צרו קשר" with WhatsApp and email.
 - [ ] Swipe back from the edge on every pushed screen (events, help, pages).
 - [ ] Keyboard hides when the page is dragged down.
+- [x] Cookie notice inside the app (22/11, Richard: "if we at all need it"): the app tracks nobody, so none is shown.
+  Privacy and terms links now open in app mode; the home page's own notice also stays hidden in app mode.
+- [ ] Appearance in חשבון: light, dark, or as the phone.
+- [ ] Top bar decided 22/11: "Yes, like iOS apps" (a big title that shrinks to a thin bar on scroll, small logo kept).
+Seating (22/11, same evening):
+- [ ] Landscape: turning the phone gives a bigger floor to drag on.
+- [ ] Tap a guest or a group, type the table, and they are seated there.
+- [ ] Change or remove a table from the list only.
+- [ ] Hide the guest list to lay out the venue first, then seat.
+- [ ] First-time guidance at the right steps.
+- [ ] Later: video guides in חשבון (after the app is finished).
 
 ## Claude's own queue (no approval needed, staging only)
 
