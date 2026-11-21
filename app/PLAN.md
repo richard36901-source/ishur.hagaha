@@ -78,16 +78,17 @@ shared carries our brand; on opening: the logo, "אישורי הגעה לאיר�
 (info@ishur.io, from the site); loading with the logo and skeletons; in חשבון "צרו קשר" with WhatsApp and email
 buttons; swipe from the edge goes back; dragging the page down hides the keyboard, "just like all the native iOS apps".
 - [x] Language button off the board pages inside the app (22/11): the choice lives in חשבון only. Website unchanged.
-- [ ] Bottom bar redesign (iOS tab bar look: blur, thin top line, filled icon when selected, labels 10pt).
-- [ ] Top bar: waiting for Richard's choice.
-- [ ] Opening screen: logo, "אישורי הגעה לאירועים", WhatsApp and email.
-- [ ] Loading: logo, then skeletons in the shape of each screen.
-- [ ] חשבון: "צרו קשר" with WhatsApp and email.
-- [ ] Swipe back from the edge on every pushed screen (events, help, pages).
-- [ ] Keyboard hides when the page is dragged down.
+- Check: `app/scripts/round8-check.mjs` 21/21 (22/11). Board-side parts (language button, theme, keyboard) need client-app merged into staging to be seen in the app.
+- [x] Bottom bar: the selected tab's icon is filled, its label bold, a light tap feel (22/11).
+- [x] Top bar (22/11): logo at the start, the screen's title in the middle (the event's name on ראשי); on חשבון the big title shrinks into the bar on scroll.
+- [x] Opening screen: logo, "אישורי הגעה לאירועים", WhatsApp 055-9504499 and info@ishur.io; at least 0.8 s, gone by 5 s. Seen on the simulator.
+- [x] Loading: skeletons in the board's shape over the frame while it loads.
+- [x] חשבון: "צרו קשר" with WhatsApp and email.
+- [x] Swipe back from the edge on the events page, help and opened pages (checked with touch input in Chrome; not yet by hand on a phone).
+- [x] Dragging down while typing hides the keyboard (app screens and board pages).
 - [x] Cookie notice inside the app (22/11, Richard: "if we at all need it"): the app tracks nobody, so none is shown.
   Privacy and terms links now open in app mode; the home page's own notice also stays hidden in app mode.
-- [ ] Appearance in חשבון: light, dark, or as the phone.
+- [x] Appearance in חשבון: light, dark, or as the phone; kept on the device; the board in the app follows.
 - [ ] Top bar decided 22/11: "Yes, like iOS apps" (a big title that shrinks to a thin bar on scroll, small logo kept).
 Seating (22/11, same evening):
 - [ ] Landscape: turning the phone gives a bigger floor to drag on.

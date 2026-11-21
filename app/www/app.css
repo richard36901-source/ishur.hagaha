@@ -317,3 +317,6 @@ html[data-theme=dark] .skel .sk::after{background:linear-gradient(90deg,transpar
 .help.swiping{transition:none!important}
 .help.swipe-out{transition:transform .22s ease-out}
 #contactCard .nav{padding-inline-end:1.4rem}
+/* the skeleton covers the board's frame from the top while it loads, instead of sitting under it */
+.view.board{position:relative}
+#boardWait.skel{position:absolute;top:0;inset-inline:0;bottom:0;background:var(--bg);z-index:1}
