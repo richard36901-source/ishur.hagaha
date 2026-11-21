@@ -81,8 +81,13 @@
   function count(k) { return ((data && data.guests) || []).filter(function (g) { return inFilter(g, k); }).length; }
 
   /* ── screens ── */
+  /* 22/11 opening screen: shown at least 0.8 s so the logo and the support line can be read, gone at most after 5 s */
+  var BOOT = Date.now();
+  function splashOut() { var sp = $('splash'); if (!sp || sp.classList.contains('out')) return; setTimeout(function () { sp.classList.add('out'); setTimeout(function () { sp.hidden = true; }, 400); }, Math.max(0, 800 - (Date.now() - BOOT))); }
+  setTimeout(splashOut, 5000);
   function show(signedIn) {
     $('signin').hidden = signedIn; $('app').hidden = !signedIn; $('tabs').hidden = !signedIn;
+    splashOut();
   }
   /* Home ("ראשי") is the regular client board itself, so the app looks and works like the board clients know.
      With no network the app's own summary takes its place, from the copy saved on the device. */
@@ -103,7 +108,18 @@
     Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === name); });
     window.scrollTo(0, 0);
     if (screen === 'board') openBoard();
+    navTitle();
   }
+  /* 22/11 the top bar's title: the event on ראשי, the tab's name elsewhere. Where a screen has a big title (חשבון, and
+     the slim screens with no network) the small one shows only once the big one has scrolled under the bar. */
+  var TAB_TITLE = { board: '', guests: 'מוזמנים', sends: 'שליחות', account: 'חשבון' }, navEv = '';
+  var bigObs = window.IntersectionObserver ? new IntersectionObserver(function (es) { es.forEach(function (en) { if (!en.target.closest('[hidden]')) $('navTitle').classList.toggle('hide', en.isIntersecting); }); }, { rootMargin: '-50px 0px 0px 0px' }) : null;
+  function navTitle() {
+    var t = $('navTitle'); t.textContent = curTab === 'board' ? navEv : TAB_TITLE[curTab] || '';
+    var shown = document.querySelector('.view:not([hidden]) h1.large');
+    t.classList.toggle('hide', !!shown && shown.getBoundingClientRect().bottom > 50);
+  }
+  if (bigObs) Array.prototype.forEach.call(document.querySelectorAll('h1.large'), function (h) { bigObs.observe(h); });
   var siteOrigin = ''; try { siteOrigin = new URL(ENV.site).origin; } catch (e) {}
   /* a site page in the frame (the event schedule) asks the app to open a link it cannot open itself: the calendar
      feed (webcal:, handed to the phone, which offers Apple Calendar) or an https page (Google Calendar, Waze) */
@@ -122,7 +138,7 @@
     if (boardFor === current) { postView(); return; }
     boardFor = current;
     $('boardWait').hidden = false;
-    $('boardFrame').src = ENV.board + '?t=' + encodeURIComponent(current) + '&app=1&view=' + view + LQ + '#s=' + encodeURIComponent(session);
+    $('boardFrame').src = ENV.board + '?t=' + encodeURIComponent(current) + '&app=1&view=' + view + LQ + '&theme=' + document.documentElement.getAttribute('data-theme') + '#s=' + encodeURIComponent(session);
   }
   $('boardFrame').addEventListener('load', function () { $('boardWait').hidden = true; postView(); });
   function evTitle(e) { return (e && (e.name || e.occasion)) || 'האירוע'; }
@@ -133,6 +149,7 @@
     $('ver').textContent = 'גרסה ' + (ENV.version || '') + (ENV.name === 'staging' ? ' · סביבת בדיקות' : '');
     var many = events.length > 1;
     $('evSwitch').hidden = !many; $('evSwitch').textContent = evTitle(ev) + ' ▾';
+    navEv = evTitle(ev); navTitle();
     renderEvents();
     var pk = data && data.package;
     $('pkgCard').hidden = !pk;
@@ -256,7 +273,53 @@
     });
   });
   $('forgot').addEventListener('click', function (e) { e.preventDefault(); T('whatsapp_tap', { from: 'signin' }); openUrl(waLink('היי, אני צריך/ה את קוד הכניסה לאפליקציה של ishur')); });
-  $('support').addEventListener('click', function (e) { e.preventDefault(); T('whatsapp_tap', { from: 'account' }); openUrl(waLink('היי, יש לי שאלה על האירוע שלי')); });
+  $('contactWa').addEventListener('click', function (e) { e.preventDefault(); T('whatsapp_tap', { from: 'contact' }); openUrl(waLink('היי, יש לי שאלה על האירוע שלי')); });
+  $('contactMail').addEventListener('click', function () { T('mail_tap', { from: 'contact' }); });
+  /* 22/11 appearance: light, dark, or as the phone; the board inside the app follows */
+  function appearance() { var a = 'auto'; try { a = localStorage.getItem('ishur_appearance') || 'auto'; } catch (e) {} return a; }
+  function applyAppearance() {
+    var a = appearance(), dark = a === 'dark' || (a === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+    var was = document.documentElement.getAttribute('data-theme'), now = dark ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', now);
+    Array.prototype.forEach.call(document.querySelectorAll('#appearance [data-a]'), function (b) { b.setAttribute('aria-checked', b.getAttribute('data-a') === a ? 'true' : 'false'); });
+    if (was !== now && boardFor) { boardFor = ''; if (!$('v-board').hidden) openBoard(); }
+  }
+  $('appearance').addEventListener('click', function (e) { var b = e.target.closest('[data-a]'); if (!b) return; try { localStorage.setItem('ishur_appearance', b.getAttribute('data-a')); } catch (x) {} T('appearance', { to: b.getAttribute('data-a') }); haptic(); applyAppearance(); });
+  if (window.matchMedia) { var mq = matchMedia('(prefers-color-scheme: dark)'); (mq.addEventListener ? mq.addEventListener.bind(mq, 'change') : mq.addListener.bind(mq))(function () { if (appearance() === 'auto') applyAppearance(); }); }
+  applyAppearance();
+  /* 22/11 swipe back, as in iOS: from the edge a page came in from (the right in Hebrew and Arabic, the left otherwise),
+     the page follows the finger; past a third of the screen it closes, otherwise it springs back. */
+  (function () {
+    var CLOSE = { events: 'eventsClose', help: 'helpClose', page: 'pageClose' }, g = null;
+    document.addEventListener('touchstart', function (e) {
+      var pg = e.target.closest('.help'); if (!pg || pg.hidden || !CLOSE[pg.id] || e.touches.length !== 1) return;
+      var rtl = document.documentElement.getAttribute('dir') === 'rtl', x = e.touches[0].clientX, edge = rtl ? innerWidth - x : x;
+      if (edge > 24) return;
+      if (pg.id === 'help' && !$('helpBack').hidden) { g = { pg: pg, rtl: rtl, x0: x, y0: e.touches[0].clientY, back: 'helpBack' }; return; }
+      g = { pg: pg, rtl: rtl, x0: x, y0: e.touches[0].clientY, back: CLOSE[pg.id] };
+    }, { passive: true });
+    document.addEventListener('touchmove', function (e) {
+      if (!g) return; var dx = (e.touches[0].clientX - g.x0) * (g.rtl ? -1 : 1);
+      if (!g.on && Math.abs(e.touches[0].clientY - g.y0) > Math.abs(dx)) { g = null; return; }
+      g.on = true; g.dx = Math.max(0, dx); g.pg.classList.add('swiping'); g.pg.style.transform = 'translateX(' + (g.rtl ? -g.dx : g.dx) + 'px)';
+    }, { passive: true });
+    document.addEventListener('touchend', function () {
+      if (!g) return; var c = g; g = null; if (!c.on) return;
+      c.pg.classList.remove('swiping'); c.pg.classList.add('swipe-out');
+      var done = c.dx > innerWidth / 3;
+      c.pg.style.transform = done ? 'translateX(' + (c.rtl ? -innerWidth : innerWidth) + 'px)' : '';
+      setTimeout(function () { c.pg.classList.remove('swipe-out'); c.pg.style.transform = ''; if (done) { $(c.back).click(); haptic(); } }, 230);
+    });
+  })();
+  /* 22/11 dragging the page down while typing hides the keyboard, as in iOS apps */
+  (function () {
+    var y0 = null;
+    document.addEventListener('touchstart', function (e) { y0 = e.touches.length === 1 ? e.touches[0].clientY : null; }, { passive: true });
+    document.addEventListener('touchmove', function (e) {
+      var a = document.activeElement; if (y0 == null || !a || !/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+      if (e.touches[0].clientY - y0 > 12 && !e.target.closest('input,textarea')) { a.blur(); y0 = null; }
+    }, { passive: true });
+  })();
   $('privacy').addEventListener('click', function (e) { e.preventDefault(); T('privacy_open'); openUrl(ENV.site + '/terms.html?app=1' + LQ + '#privacy');   /* app=1: the website's cookie bar is not shown in the app, which tracks nobody */ });
   $('signout').addEventListener('click', function () { signOut(false); });
   $('tabs').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) { tab(b.getAttribute('data-tab')); haptic(); } });
