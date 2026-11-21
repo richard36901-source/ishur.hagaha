@@ -53,6 +53,7 @@ default, and reaches production only on Richard's "promote".
 - B5. The submit script stays under 100 templates an hour and never resubmits an approved one.
 
 ## Open (Richard)
-- 3. A client's own wording in another language: the client writes it in that language, or writes Hebrew and we
-  translate it?
+- ~~3. A client's own wording in another language~~ **Decided 22/11** (Richard: "Client writes it"): the client writes
+  it in that language (in a pair: both texts); we do not translate it. It goes to Meta through the existing
+  per-client custom-template path, labelled with that language.
 - Is the business verified with Meta (needed for over 250 templates)? Claude checks this in Business settings.

@@ -72,5 +72,6 @@ Decisions for Richard, one at a time:
    **Decided 21/11** (Richard: "Skip those two"): no guest messages in Yiddish or Amharic. Guest languages are
    en, ru, ar, fr, es, pt (the app and board keep all 9). 6 x 2 sets x about 40 = about 480 new templates: still over
    250, so the business must be verified with Meta (6,000).
-3. Custom text in another language: does the client write it in that language, or do we translate it?
+3. ~~Custom text in another language~~ **Decided 22/11** (Richard: "Client writes it"): the client writes it in that
+   language; we do not translate it. Spec: `round7-partB-spec.md`.
 Build after the answers; it touches the live sending engine, so it gets its own spec and tests.
