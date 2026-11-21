@@ -29,7 +29,8 @@
     { c: 'yi', n: 'ייִדיש', dir: 'rtl', loc: 'yi' },
     { c: 'ar', n: 'العربية', dir: 'rtl', loc: 'ar' },
     { c: 'ru', n: 'Русский', dir: 'ltr', loc: 'ru-RU' },
-    { c: 'am', n: 'አማርኛ', dir: 'ltr', loc: 'am' }
+    { c: 'am', n: 'አማርኛ', dir: 'ltr', loc: 'am' },
+    { c: 'pt', n: 'Português', dir: 'ltr', loc: 'pt-BR' }
   ];
   /* languages that live only in a dictionary file (assets/i18n/<code>.json), with no column in ROWS below */
   var FILE_ONLY = { am: 1, pt: 1 };
@@ -311,6 +312,8 @@
     if (x.exact[he]) return x.exact[he];
     var nums = []; var key = he.replace(NUM, function (m) { nums.push(m); return '{n}'; });
     if (!nums.length) return null;
+    /* a file row that was written with {n} itself ("שלב {n} מתוך {n}") */
+    if (x.exact[key]) { var k2 = 0; return x.exact[key].replace(/\{n\}/g, function () { return nums[k2++] != null ? nums[k2 - 1] : ''; }); }
     var tpl = x.norm[key]; if (!tpl) return null;
     return tpl.replace(/\u0001(\d+)\u0002/g, function (_, q) { return nums[Number(q)] != null ? nums[Number(q)] : ''; });
   }
