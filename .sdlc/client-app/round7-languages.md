@@ -57,7 +57,11 @@ Recommended start (Claude): the custom-wording path first (it already exists per
 messages in the language the client picks; then the fixed templates for the languages clients actually choose.
 
 Decisions for Richard, one at a time:
-1. "Two languages" means one message holding both languages (text and buttons in both), or two separate messages?
+1. ~~"Two languages": one message or two?~~ **Decided 21/11** (Richard: "they can choose if they want one other
+   language instead of hebrew or one hebrew and another one in one message"). Per event the client picks one of:
+   Hebrew only (today) · one other language instead of Hebrew · Hebrew + one other language in the same message
+   (text and buttons in both). Never two separate messages. So each guest language needs two template sets: alone,
+   and paired with Hebrew.
 2. Which languages for guests first (each one is about 40 templates to approve with Meta, see above).
 3. Custom text in another language: does the client write it in that language, or do we translate it?
 Build after the answers; it touches the live sending engine, so it gets its own spec and tests.
