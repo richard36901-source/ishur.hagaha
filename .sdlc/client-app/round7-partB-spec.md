@@ -74,3 +74,15 @@ Built 22/11 (client-app branch, not on staging yet): `worker/guest-lang.js`
   ("calls row is done once every waiting guest used all tries"); not looked into.
 Not built yet: the client's choice on the board, sending the custom template with these buttons and language,
 the guest-facing confirmations the engine writes back (still Hebrew).
+
+## All guest messages (Richard 22/11: "Yes, all messages")
+Built: `worker/templates/i18n/lines.json` (each distinct Hebrew line, buttons, 6 languages), `worker/scripts/translate-templates.mjs`,
+432 files in `worker/templates/i18n/out` (36 templates x 6 languages x alone/pair; the Shabbat-hatan template is one client's and was left out).
+Pair = the Hebrew message, a blank line, the translation; its variables are renumbered after the Hebrew ones, so the sender
+passes the values twice. Test `worker/test/template-translations.test.mjs` 435/435 (Meta limits, variables, buttons, no Hebrew
+left in "alone", files equal to the generator); with one translation removed and one placeholder dropped, 67 fail.
+Still to do: the 8 guest templates that have no file here (invitation, reminder, day-before, table, invitation again,
+cancel, postpone, thank-you) need their live text (staging cannot read the live account); the sending side behind a
+switch; the client's picker in the board. Nothing submitted to Meta: that needs Richard's yes, about 430 templates
+need a verified business (250 otherwise), and Meta takes 100 an hour. Risk: Meta's pages say nothing about two
+languages in one template, so submit one pair first.
