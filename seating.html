@@ -87,10 +87,11 @@
   .obj .sh{position:absolute;inset:0;background:var(--ob);border:2px solid var(--oc);border-radius:8px;pointer-events:none}
   .obj.round .sh{border-radius:50%}
   .obj.arch .sh{border-radius:50% 50% 8px 8px / 70% 70% 8px 8px}
-  .obj.diamond .sh,.obj.hex .sh{border:0;background:var(--oc)}
+  .obj.diamond .sh,.obj.hex .sh,.obj.oct .sh{border:0;background:var(--oc)}
+  .obj.oct .sh{clip-path:polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%)}
   .obj.diamond .sh{clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
   .obj.hex .sh{clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
-  .obj.diamond .sh::after,.obj.hex .sh::after{content:'';position:absolute;inset:2px;background:var(--ob);clip-path:inherit}
+  .obj.diamond .sh::after,.obj.hex .sh::after,.obj.oct .sh::after{content:'';position:absolute;inset:2px;background:var(--ob);clip-path:inherit}
   .obj .on{position:relative;font-family:'Rubik',sans-serif;font-weight:600;font-size:.84rem;line-height:1.2;color:var(--ot);text-align:center;padding:.15rem .4rem;max-width:100%;overflow:hidden;overflow-wrap:anywhere;pointer-events:none}
   .obj.drag{z-index:5;filter:drop-shadow(0 10px 18px rgba(0,0,0,.18))}
   .obj.sel .sh{box-shadow:0 0 0 3px rgba(168,133,60,.35)}
@@ -103,6 +104,9 @@
   .pop .shp.on{border-color:var(--green);background:var(--green4);color:var(--green2)}
   .pop .sw{width:26px;height:26px;border-radius:8px;border:2px solid transparent;cursor:pointer;padding:0}
   .pop .sw.on{outline:2px solid var(--ink);outline-offset:1px}
+  .pop .own{display:inline-flex;align-items:center;gap:.35rem;font-size:.74rem;color:var(--ink2);margin:0;flex-basis:100%}
+  .pop .own input{width:30px;height:26px;padding:0;border:1.5px solid var(--bdr);border-radius:8px;background:none;cursor:pointer}
+  .pop .own.on input{outline:2px solid var(--ink);outline-offset:1px}
   .pop .del{font:inherit;font-size:.76rem;border:none;background:none;color:var(--warn);cursor:pointer;margin-top:.5rem;padding:.2rem 0}
   .pop input.onm{font:inherit;font-weight:600;width:100%;border:none;border-bottom:1px dashed var(--bdr);background:transparent;color:var(--ink);padding:.1rem 0}
   .pop input.onm:focus{outline:none;border-color:var(--green)}
@@ -188,12 +192,16 @@
     { k: 'kitchen',  label: 'מטבח',          shape: 'rect',  color: 'gray',   w: 170, h: 80 },
     { k: 'entrance', label: 'כניסה לאולם',   shape: 'rect',  color: 'green',  w: 130, h: 44 },
     { k: 'dj',       label: 'עמדת די־ג׳יי',  shape: 'round', color: 'dark',   w: 90,  h: 90 },
+    { k: 'buffet',   label: 'מזנון',         shape: 'rect',  color: 'red',    w: 220, h: 60 },
+    { k: 'photo',    label: 'עמדת צילום',    shape: 'oct',   color: 'pink',   w: 100, h: 100 },
+    { k: 'gifts',    label: 'שולחן מתנות',   shape: 'rect',  color: 'gold',   w: 130, h: 60 },
     { k: 'free',     label: '',              shape: 'rect',  color: 'pink',   w: 150, h: 100, title: 'צורה חופשית' }
   ];
-  var SHAPES = [['rect', 'מלבן'], ['round', 'עיגול'], ['arch', 'קשת'], ['diamond', 'מעוין'], ['hex', 'משושה']];
+  var SHAPES = [['rect', 'מלבן'], ['round', 'עיגול'], ['arch', 'קשת'], ['diamond', 'מעוין'], ['hex', 'משושה'], ['oct', 'מתומן']];
   /* line, fill, text: each pair readable on the light floor */
   var COLORS = { gold: ['#A8853C', '#F6EEDC', '#5C4513'], green: ['#0F4C35', '#E3F0EA', '#0A3826'], blue: ['#2B5FA8', '#E3ECF8', '#1D4175'], purple: ['#6B4AA0', '#ECE6F6', '#48306F'],
     pink: ['#B4487A', '#F8E5EE', '#7C2D52'], red: ['#A8402F', '#F7E4E0', '#742A1E'], gray: ['#6b7280', '#EEF0F2', '#374151'], dark: ['#1f2937', '#D9DCE1', '#111827'] };
+  function colorOf(c) { if (COLORS[c]) return COLORS[c]; if (/^#[0-9a-f]{6}$/i.test(c || '')) return [c, 'color-mix(in srgb, ' + c + ' 16%, #fff)', 'color-mix(in srgb, ' + c + ' 55%, #111)']; return COLORS.gold; }
   var dirty = false, sel = null;
   var SEAT_PX = 70;  /* one seat per ~70px of circumference → capacity grows as you stretch the table */
   function capOf(t) { if (t.capManual) return t.capManual; var per = t.shape === 'round' ? Math.PI * (t.w + t.h) / 2 : 2 * (t.w + t.h); return Math.max(2, Math.round(per / SEAT_PX)); }
@@ -291,7 +299,7 @@
     var floor = $('floor');
     floor.querySelectorAll('.obj').forEach(function (el) { el.remove(); });
     items.forEach(function (o) {
-      var c = COLORS[o.color] || COLORS.gold;
+      var c = colorOf(o.color);
       var el = document.createElement('div');
       el.className = 'obj ' + o.shape + (selObj === o.id ? ' sel' : '');
       el.dataset.id = o.id;
@@ -304,7 +312,7 @@
     var p = document.createElement('div'); p.className = 'pop';
     p.innerHTML = '<input class="onm" id="onm" maxlength="30" placeholder="מה כתוב עליו?" value="' + esc(o.label) + '">' +
       '<div class="row"><small>צורה</small>' + SHAPES.map(function (sh) { return '<button type="button" class="shp' + (o.shape === sh[0] ? ' on' : '') + '" data-shape="' + sh[0] + '">' + sh[1] + '</button>'; }).join('') + '</div>' +
-      '<div class="row"><small>צבע</small>' + Object.keys(COLORS).map(function (k) { return '<button type="button" class="sw' + (o.color === k ? ' on' : '') + '" data-color="' + k + '" style="background:' + COLORS[k][1] + ';border-color:' + COLORS[k][0] + '" aria-label="צבע"></button>'; }).join('') + '</div>' +
+      '<div class="row"><small>צבע</small>' + Object.keys(COLORS).map(function (k) { return '<button type="button" class="sw' + (o.color === k ? ' on' : '') + '" data-color="' + k + '" style="background:' + COLORS[k][1] + ';border-color:' + COLORS[k][0] + '" aria-label="צבע"></button>'; }).join('') + '<label class="own' + (COLORS[o.color] ? '' : ' on') + '">צבע אחר <input type="color" id="oown" value="' + (COLORS[o.color] ? COLORS[o.color][0] : esc(o.color)) + '"></label></div>' +
       '<button type="button" class="del" id="odel">הסרה מהאולם</button>';
     $('floor').appendChild(p);
     /* beside the item, never on top of it: right, else left, else under, else over */
@@ -314,6 +322,7 @@
     if (px < 8) { px = Math.max(8, Math.min(o.x, W - pw - 8)); py = o.y + o.h + gap; if (py + ph > H - 8) py = Math.max(8, o.y - ph - gap); }
     p.style.left = px + 'px'; p.style.top = py + 'px';
     p.querySelector('#onm').addEventListener('input', function (e) { o.label = e.target.value.slice(0, 30); var lb = $('floor').querySelector('.obj[data-id="' + o.id + '"] .on'); if (lb) lb.textContent = o.label; markDirty(); });
+    p.querySelector('#oown').addEventListener('input', function (e) { if (!/^#[0-9a-f]{6}$/i.test(e.target.value)) return; o.color = e.target.value.toLowerCase(); markDirty(); paintObjs(); p.querySelectorAll('.sw.on').forEach(function (x) { x.classList.remove('on'); }); e.target.parentNode.classList.add('on'); });
     p.addEventListener('click', function (e) {
       var sh = e.target.closest('[data-shape]'), sw = e.target.closest('[data-color]');
       if (sh) { o.shape = sh.dataset.shape; markDirty(); paintObjs(); paintPop(); }

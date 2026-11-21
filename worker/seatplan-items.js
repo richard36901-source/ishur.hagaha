@@ -8,8 +8,8 @@
    colour from the lists below, a short name, and a place inside the map.
    Nothing here touches guests, tables or messages.
    ========================================================================== */
-export const ITEM_KINDS = ['chuppah', 'bar', 'stage', 'dance', 'kitchen', 'entrance', 'dj', 'free'];
-export const ITEM_SHAPES = ['rect', 'round', 'arch', 'diamond', 'hex'];
+export const ITEM_KINDS = ['chuppah', 'bar', 'stage', 'dance', 'kitchen', 'entrance', 'dj', 'buffet', 'photo', 'gifts', 'free'];
+export const ITEM_SHAPES = ['rect', 'round', 'arch', 'diamond', 'hex', 'oct'];
 export const ITEM_COLORS = ['gold', 'green', 'blue', 'purple', 'pink', 'red', 'gray', 'dark'];
 export const MAX_ITEMS = 60;
 const num = (v, lo, hi, d) => { const n = Number(v); return Math.max(lo, Math.min(hi, Number.isFinite(n) ? n : d)); };
@@ -22,7 +22,8 @@ export function cleanItems(list) {
     kind: pick(String(o.kind || ''), ITEM_KINDS.slice().reverse()),   /* an unknown kind is kept as a free shape */
     label: String(o.label == null ? '' : o.label).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 30),
     shape: pick(String(o.shape || ''), ITEM_SHAPES),
-    color: pick(String(o.color || ''), ITEM_COLORS),
+    /* one of the eight, or the client's own colour: exactly #rrggbb, nothing else gets through */
+    color: /^#[0-9a-f]{6}$/i.test(String(o.color || '')) ? String(o.color).toLowerCase() : pick(String(o.color || ''), ITEM_COLORS),
     x: num(o.x, 0, 4000, 0), y: num(o.y, 0, 4000, 0),
     w: num(o.w, 30, 900, 140), h: num(o.h, 30, 900, 100),
   }));
