@@ -302,12 +302,17 @@
   }
   function paintObjPop(o) {
     var p = document.createElement('div'); p.className = 'pop';
-    p.style.left = Math.max(8, Math.min(o.x + o.w + 12, $('floor').clientWidth - 250)) + 'px'; p.style.top = Math.max(8, Math.min(o.y, $('floor').clientHeight - 250)) + 'px';
     p.innerHTML = '<input class="onm" id="onm" maxlength="30" placeholder="מה כתוב עליו?" value="' + esc(o.label) + '">' +
       '<div class="row"><small>צורה</small>' + SHAPES.map(function (sh) { return '<button type="button" class="shp' + (o.shape === sh[0] ? ' on' : '') + '" data-shape="' + sh[0] + '">' + sh[1] + '</button>'; }).join('') + '</div>' +
       '<div class="row"><small>צבע</small>' + Object.keys(COLORS).map(function (k) { return '<button type="button" class="sw' + (o.color === k ? ' on' : '') + '" data-color="' + k + '" style="background:' + COLORS[k][1] + ';border-color:' + COLORS[k][0] + '" aria-label="צבע"></button>'; }).join('') + '</div>' +
       '<button type="button" class="del" id="odel">הסרה מהאולם</button>';
     $('floor').appendChild(p);
+    /* beside the item, never on top of it: right, else left, else under, else over */
+    var W = $('floor').clientWidth, H = $('floor').clientHeight, pw = p.offsetWidth, ph = p.offsetHeight, gap = 12;
+    var px = o.x + o.w + gap, py = Math.max(8, Math.min(o.y, H - ph - 8));
+    if (px + pw > W - 8) px = o.x - pw - gap;
+    if (px < 8) { px = Math.max(8, Math.min(o.x, W - pw - 8)); py = o.y + o.h + gap; if (py + ph > H - 8) py = Math.max(8, o.y - ph - gap); }
+    p.style.left = px + 'px'; p.style.top = py + 'px';
     p.querySelector('#onm').addEventListener('input', function (e) { o.label = e.target.value.slice(0, 30); var lb = $('floor').querySelector('.obj[data-id="' + o.id + '"] .on'); if (lb) lb.textContent = o.label; markDirty(); });
     p.addEventListener('click', function (e) {
       var sh = e.target.closest('[data-shape]'), sw = e.target.closest('[data-color]');
