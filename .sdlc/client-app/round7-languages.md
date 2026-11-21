@@ -69,5 +69,8 @@ Decisions for Richard, one at a time:
    counts; at most 100 new templates an hour. All 8 languages x 2 sets (alone, with Hebrew) x about 40 = about 640
    templates, so this needs the verified limit, and submitting takes at least 7 hours at Meta's rate. Meta's pages say
    nothing about mixing two languages in one template.
+   **Decided 21/11** (Richard: "Skip those two"): no guest messages in Yiddish or Amharic. Guest languages are
+   en, ru, ar, fr, es, pt (the app and board keep all 9). 6 x 2 sets x about 40 = about 480 new templates: still over
+   250, so the business must be verified with Meta (6,000).
 3. Custom text in another language: does the client write it in that language, or do we translate it?
 Build after the answers; it touches the live sending engine, so it gets its own spec and tests.
