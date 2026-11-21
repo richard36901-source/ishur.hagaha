@@ -18,6 +18,7 @@
   html,body{height:100%}
   body{display:flex;flex-direction:column;font-family:'Heebo',sans-serif;background:var(--bg2);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased;overflow:hidden;touch-action:none}
   .top{display:flex;align-items:center;gap:.8rem;padding:.6rem 1rem;background:var(--card);border-bottom:1px solid var(--bdr);min-height:56px;flex:none;flex-wrap:wrap;row-gap:.4rem}
+  .top{padding-left:5.6rem}   /* the language button sits in this corner */
   .top .btn{white-space:nowrap}
   /* 21/11: on a phone the bar wraps instead of pushing "save" off screen (it did in Hebrew too) */
   @media (max-width:640px){.top{height:auto;min-height:56px;flex-wrap:wrap;row-gap:.4rem}}
@@ -332,7 +333,7 @@
       var t = tableByName(name), made = false;
       if (!t) { t = newTableNamed(name); made = true; }
       if (g) {
-        var free = capOf(t) - seatedAt(t) + (g.table === t.name ? g.party : 0);
+        var free = Math.max(0, capOf(t) - seatedAt(t) + (g.table === t.name ? g.party : 0));
         if (free < g.party) { if (made) tables.pop(); box.querySelector('#stMsg').textContent = 'אין מקום בשולחן ' + t.name + ' (' + free + ' פנויים, צריך ' + g.party + ')'; return; }
         g.table = t.name; sel = t.id; selObj = null; close(); markDirty(); paintObjs(); paintTables(); paintList();
         toast(g.name + ' → שולחן ' + t.name + (made ? ' (שולחן חדש)' : ''));
