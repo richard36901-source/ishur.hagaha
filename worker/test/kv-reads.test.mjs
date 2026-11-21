@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import * as CNT from '../counters.js';
 import { precomputePlans, PLAN_DAY_KEY, PAST_DAY_OPS } from '../ops-plan.js';
 import { sendsByDay, callsByDay } from '../ops.js';
-import { readLogValues, CAL_DAY_KEY, calDayOf } from '../calendar-log.js';
+import { readLogValues, CAL_DAY_KEY, calDayOf, BATCH } from '../calendar-log.js';
 
 const kv = (init = {}) => { const m = new Map(Object.entries(init)); const n = { get: 0, put: 0 };
   return { m, n, get: async k => { n.get++; return m.has(k) ? m.get(k) : null; }, put: async (k, v, o) => { n.put++; m.set(k, String(v)); (kv.ttl = kv.ttl || {})[k] = o && o.expirationTtl; }, delete: async k => { m.delete(k); },
@@ -65,13 +65,13 @@ test('calendar log: the last three days are read live; an older day is read once
   for (let i = 0; i < 5; i++) add('2026-11-19', i, { dir: 'out', tmpl: 'two-days', status: 'sent' });
   const e = { RATE: kv(entries) }; const names = Object.keys(entries);
   const a = await readLogValues(e, names, { now });
-  assert.deepEqual(a.stats, { reads: 40 + 1 + 7 + 5, live_days: 2, cached_days: 0, built_days: 1 });
+  assert.deepEqual(a.stats, { reads: 40 + 1 + 7 + 5, failed: 0, live_days: 2, cached_days: 0, built_days: 1, failed_days: 0, put_failed: 0 });
   const kept = JSON.parse(e.RATE.m.get(CAL_DAY_KEY('2026-11-10')));
   assert.equal(kept.n, 40); assert.equal(Object.keys(kept.v).length, 30, 'only outgoing messages are kept');
   assert.ok(!JSON.stringify(kept).includes('not-kept')); assert.equal(Object.values(kept.v)[0].text.length, 120);
   e.RATE.n.get = 0;
   const b = await readLogValues(e, names, { now: now + 600e3 });
-  assert.deepEqual(b.stats, { reads: 1 + 7 + 5, live_days: 2, cached_days: 1, built_days: 0 }); assert.equal(e.RATE.n.get, 13);
+  assert.deepEqual(b.stats, { reads: 1 + 7 + 5, failed: 0, live_days: 2, cached_days: 1, built_days: 0, failed_days: 0, put_failed: 0 }); assert.equal(e.RATE.n.get, 13);
   /* what the calendar shows is the same from the kept copy as from the log */
   const shown = vals => names.map((n, i) => { let v = null; try { v = JSON.parse(vals[i]); } catch {} return v && v.dir === 'out' ? [n, v.at, v.tok, v.ch, v.tmpl, v.type, v.ok, v.status, v.error, String(v.text || '').slice(0, 120)] : null; });
   assert.deepEqual(shown(b.vals), shown(a.vals));
@@ -80,7 +80,7 @@ test('calendar log: the last three days are read live; an older day is read once
   const c = await readLogValues(e, [...names, late], { now: now + 1200e3 }); assert.equal(c.stats.built_days, 1); assert.equal(JSON.parse(c.vals[names.length]).tmpl, 'late');
   /* a failed read: shown as far as it came back, nothing kept */
   const f = { RATE: kv(entries) }; const get0 = f.RATE.get; let k = 0; f.RATE.get = async key => { if (key.startsWith('log:') && calDayOf(Number(key.split(':').pop())) === '2026-11-10' && ++k === 5) throw new Error('Too many API requests'); return get0(key); };
-  const g = await readLogValues(f, names, { now }); assert.equal(g.stats.built_days, 0); assert.equal(f.RATE.m.has(CAL_DAY_KEY('2026-11-10')), false);
+  const g = await readLogValues(f, names, { now }); assert.equal(g.stats.built_days, 0); assert.equal(g.stats.failed, 1); assert.equal(g.stats.failed_days, 1); assert.equal(f.RATE.m.has(CAL_DAY_KEY('2026-11-10')), false);
   assert.equal(g.vals.filter(Boolean).length, 40 + 7 + 5 - 1);
 });
 
@@ -104,4 +104,20 @@ test('plan: what the pacer reads (plan:today) does not depend on past days — k
   assert.notDeepEqual(kept.week.days, none.week.days, 'the past days do reach the week view (so this test sees them)');
   assert.deepEqual(kept.today, none.today); assert.deepEqual(cut.today, none.today);
   assert.deepEqual(kept.kv.days, none.kv.days, 'the rows the pacer counts from are the same');
+});
+
+test('calendar log: when a build can only complete part of the month, the days that came back whole are kept and the next builds finish the rest', async () => {
+  /* production 21/11: the month fired at once failed in bulk and no old day was ever kept. Here each build gets 1,000 good reads, then every read fails. */
+  const now = Date.parse('2026-11-21T10:00:00Z'); const entries = {};
+  for (let d = 1; d <= 21; d++) { const day = '2026-11-' + String(d).padStart(2, '0'); for (let i = 0; i < 200; i++) entries[`log:9725${String(d).padStart(2, '0')}${i}:${Date.parse(day + 'T09:00:00Z') + i}`] = JSON.stringify({ dir: 'out', tmpl: 't', status: 'sent' }); }
+  const e = { RATE: kv(entries) }; const names = Object.keys(entries); const get0 = e.RATE.get; let left = 0, inFlight = 0, peak = 0;
+  e.RATE.get = async key => { inFlight++; peak = Math.max(peak, inFlight); try { await null; if (--left < 0) throw new Error('Too many API requests'); return await get0(key); } finally { inFlight--; } };
+  const kept = () => [...e.RATE.m.keys()].filter(k => k.startsWith('callog:')).length;
+  const seen = [];
+  for (let build = 0; build < 20 && kept() < 18; build++) { left = 1000; const r = await readLogValues(e, names, { now: now + build * 600e3 }); seen.push(kept()); assert.equal(r.vals.slice(-600).filter(Boolean).length, 600, 'the live days are always shown'); }
+  assert.equal(kept(), 18, 'every day older than three is kept in the end: ' + seen.join(','));
+  assert.ok(seen[0] >= 1 && seen.every((n, i) => !i || n >= seen[i - 1]), 'each build adds days: ' + seen.join(','));
+  assert.ok(peak <= BATCH, 'never more than a batch of reads in flight: ' + peak);
+  left = 1e9; e.RATE.n.get = 0; const r = await readLogValues(e, names, { now: now + 7200e3 });
+  assert.equal(r.stats.reads, 600 + 18); assert.equal(r.stats.cached_days, 18); assert.equal(r.stats.failed, 0); assert.equal(r.vals.filter(Boolean).length, names.length);
 });
