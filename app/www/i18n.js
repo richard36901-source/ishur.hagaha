@@ -11,7 +11,7 @@
   var LANGS = {
     he: { dir: 'rtl', name: 'עברית' }, en: { dir: 'ltr', name: 'English' }, ru: { dir: 'ltr', name: 'Русский' },
     ar: { dir: 'rtl', name: 'العربية' }, fr: { dir: 'ltr', name: 'Français' }, es: { dir: 'ltr', name: 'Español' },
-    yi: { dir: 'rtl', name: 'ייִדיש' }, am: { dir: 'ltr', name: 'አማርኛ' }
+    yi: { dir: 'rtl', name: 'ייִדיש' }, am: { dir: 'ltr', name: 'አማርኛ' }, pt: { dir: 'ltr', name: 'Português' }
   };
   var KEY = 'ishur_lang', HE = /[֐-׿]/;
   var get = function (s, k) { try { return s.getItem(k); } catch (e) { return null; } };

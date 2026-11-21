@@ -7,7 +7,9 @@
    Needs STAGING_SECRETS and PLAYWRIGHT_PATH, like test/app-check.mjs. Serves app/www on localhost:4180. */
 import fs from 'node:fs'; import path from 'node:path'; import http from 'node:http'; import { fileURLToPath } from 'node:url';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const KEYS = new Set(JSON.parse(fs.readFileSync(path.join(ROOT, 'i18n', 'keys.json'), 'utf8')));
+/* the collector also picked up pieces of code that hold Hebrew; they never show on screen, so they are not required */
+const CODE = /[$;{}=<>]|\+ ?'|' ?\+|\(|\)|\|\|/;
+const KEYS = new Set(JSON.parse(fs.readFileSync(path.join(ROOT, 'i18n', 'keys.json'), 'utf8')).filter(k => !CODE.test(k)));
 const RTL = { he: 1, ar: 1, yi: 1 };
 const DICT_DIR = path.join(ROOT, 'app', 'www', 'i18n');
 const all = fs.readdirSync(DICT_DIR).filter(f => /^[a-z]{2}\.json$/.test(f)).map(f => f.slice(0, 2));

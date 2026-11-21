@@ -1,0 +1,117 @@
+{
+ "am": {
+  "left": {},
+  "dir": {
+   "app:board": "ltr",
+   "board:board": "ltr",
+   "app:guests": "ltr",
+   "board:guests": "ltr",
+   "app:sends": "ltr",
+   "board:sends": "ltr",
+   "app:account": "ltr",
+   "app:events": "ltr",
+   "upload.html": "ltr",
+   "schedule.html": "ltr",
+   "budget.html": "ltr",
+   "seating.html": "ltr",
+   "checklist.html": "ltr"
+  },
+  "wide": [],
+  "persisted": "am",
+  "frameLang": "am",
+  "ok": true,
+  "at": "2026-11-21T00:30:24.362Z"
+ },
+ "ar": {
+  "left": {},
+  "dir": {
+   "app:board": "rtl",
+   "board:board": "rtl",
+   "app:guests": "rtl",
+   "board:guests": "rtl",
+   "app:sends": "rtl",
+   "board:sends": "rtl",
+   "app:account": "rtl",
+   "app:events": "rtl",
+   "upload.html": "rtl",
+   "schedule.html": "rtl",
+   "budget.html": "rtl",
+   "seating.html": "rtl",
+   "checklist.html": "rtl"
+  },
+  "wide": [],
+  "persisted": "ar",
+  "frameLang": "ar",
+  "ok": true,
+  "at": "2026-11-21T00:31:26.921Z"
+ },
+ "en": {
+  "left": {},
+  "dir": {
+   "app:board": "ltr",
+   "board:board": "ltr",
+   "app:guests": "ltr",
+   "board:guests": "ltr",
+   "app:sends": "ltr",
+   "board:sends": "ltr",
+   "app:account": "ltr",
+   "app:events": "ltr",
+   "upload.html": "ltr",
+   "schedule.html": "ltr",
+   "budget.html": "ltr",
+   "seating.html": "ltr",
+   "checklist.html": "ltr"
+  },
+  "wide": [],
+  "persisted": "en",
+  "frameLang": "en",
+  "ok": true,
+  "at": "2026-11-21T00:32:28.772Z"
+ },
+ "es": {
+  "left": {},
+  "dir": {
+   "app:board": "ltr",
+   "board:board": "ltr",
+   "app:guests": "ltr",
+   "board:guests": "ltr",
+   "app:sends": "ltr",
+   "board:sends": "ltr",
+   "app:account": "ltr",
+   "app:events": "ltr",
+   "upload.html": "ltr",
+   "schedule.html": "ltr",
+   "budget.html": "ltr",
+   "seating.html": "ltr",
+   "checklist.html": "ltr"
+  },
+  "wide": [],
+  "persisted": "es",
+  "frameLang": "es",
+  "ok": true,
+  "at": "2026-11-21T00:33:36.873Z"
+ },
+ "fr": {
+  "left": {},
+  "dir": {
+   "app:board": "ltr",
+   "board:board": "ltr",
+   "app:guests": "ltr",
+   "board:guests": "ltr",
+   "app:sends": "ltr",
+   "board:sends": "ltr",
+   "app:account": "ltr",
+   "app:events": "ltr",
+   "upload.html": "ltr",
+   "schedule.html": "ltr",
+   "budget.html": "ltr",
+   "seating.html": "ltr",
+   "checklist.html": "ltr"
+  },
+  "wide": [],
+  "persisted": "fr",
+  "frameLang": "fr",
+  "ok": true,
+  "at": "2026-11-21T00:34:37.094Z"
+ }
+}
