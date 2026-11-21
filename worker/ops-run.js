@@ -151,22 +151,51 @@ export function filterRows(rows, f = {}) {
     (!f.from || r.started_at >= f.from) && (!f.to || r.started_at <= f.to) && (!f.parent_id || r.parent_id === f.parent_id) &&
     (!f.before || r.started_at < f.before));
 }
-async function ringAll(env, maxKeys = 3000) {
+/* 22/11: the ring was read row by row (about 3,000 KV reads) on every query, and the plan asks four times every ten
+   minutes: 11,000 reads a tick, the largest line left on the Cloudflare bill. Every row's key already carries its
+   time (newest first) and its list metadata carries the automation, the status and the parent, so the listing alone
+   says which rows match. Only those are read, newest first, and no more than the caller asked for. */
+export const RING_SCAN_MAX = 12000;
+const keyMs = name => INV - Number(String(name).slice(RING_PREFIX.length, RING_PREFIX.length + 13));
+const keyId = name => String(name).slice(RING_PREFIX.length + 14);
+async function ringKeys(env, { fromMs = 0, maxKeys = RING_SCAN_MAX } = {}) {
   if (!env.RATE) return [];
-  const names = []; let cursor;
-  for (let i = 0; i < 5 && names.length < maxKeys; i++) {
+  const keys = []; let cursor;
+  for (let i = 0; i < 40 && keys.length < maxKeys; i++) {
     const page = await env.RATE.list({ prefix: RING_PREFIX, cursor, limit: 1000 }).catch(() => null);
     if (!page) break;
-    for (const k of page.keys || []) names.push(k.name);
-    if (page.list_complete) break; cursor = page.cursor;
+    let older = false;
+    for (const k of page.keys || []) { const ms = keyMs(k.name); if (fromMs && ms < fromMs) { older = true; continue; } keys.push({ name: k.name, ms, id: keyId(k.name), m: k.metadata || null }); }
+    if (page.list_complete || older) break;   /* newest first: a page that reached past `from` is the last one needed */
+    cursor = page.cursor;
   }
-  names.sort();
+  keys.sort((x, y) => (x.name < y.name ? -1 : 1));
+  return keys;
+}
+const msOf = iso => (iso ? Date.parse(iso) : 0);
+/* a key whose metadata is missing (never written that way, but a row is a row) is kept and decided after it is read */
+function keyMatches(k, f) {
+  if (f.from && k.ms < msOf(f.from)) return false;
+  if (f.to && k.ms > msOf(f.to)) return false;
+  if (f.before && !(k.ms < msOf(f.before))) return false;
+  if (!k.m) return true;
+  if (f.automation_id && k.m.a !== f.automation_id) return false;
+  if (f.status && k.m.s !== f.status) return false;
+  if (f.parent_id && (k.m.p || '') !== f.parent_id) return false;
+  return true;
+}
+/* the rows that match f, newest first, at most `limit` of them (0 = all) */
+async function ringRows(env, f = {}, limit = 0) {
+  const keys = (await ringKeys(env, { fromMs: msOf(f.from) })).filter(k => keyMatches(k, f));
   const out = [];
-  for (let i = 0; i < names.length; i += 50) {
-    const vals = await Promise.all(names.slice(i, i + 50).map(n => env.RATE.get(n).catch(() => null)));
-    for (const v of vals) { try { const r = JSON.parse(v || 'null'); if (r) out.push(r); } catch {} }
+  for (let i = 0; i < keys.length && (!limit || out.length < limit); i += 50) {
+    const part = keys.slice(i, i + 50);
+    const vals = await Promise.all(part.map(k => env.RATE.get(k.name).catch(() => null)));
+    for (const v of vals) { try { const r = parseRow(JSON.parse(v || 'null')); if (r) out.push(r); } catch {} }
   }
-  return out;
+  const rows = filterRows(out, f);
+  rows.sort((x, y) => (x.started_at < y.started_at ? 1 : -1));
+  return limit ? rows.slice(0, limit) : rows;
 }
 
 /* { automation_id, status, from, to, cursor (= started_at of the last row seen), limit ≤ 200 } */
@@ -189,8 +218,7 @@ export async function listRuns(env, f = {}) {
       return { source: 'd1', items, next_cursor: more ? items[items.length - 1].started_at : null };
     } catch (e) { /* fall through to the ring */ }
   }
-  const all = filterRows((await ringAll(env)).map(parseRow), { ...f, before });
-  all.sort((a, b) => (a.started_at < b.started_at ? 1 : -1));
+  const all = await ringRows(env, { ...f, before }, limit + 1);
   const items = all.slice(0, limit);
   return { source: 'kv', items, next_cursor: all.length > limit ? items[items.length - 1].started_at : null };
 }
@@ -205,10 +233,20 @@ export async function getRun(env, id) {
       }
     } catch {}
   }
-  const all = (await ringAll(env)).map(parseRow);
-  const run = all.find(r => r.id === id);
+  /* the id is in the key: one read for the run, and its children are found by the parent in the list metadata */
+  const keys = await ringKeys(env);
+  const mine = keys.find(k => k.id === String(id));
+  if (!mine) return null;
+  let run = null; try { run = parseRow(JSON.parse((await env.RATE.get(mine.name)) || 'null')); } catch {}
   if (!run) return null;
-  return { source: 'kv', run, children: all.filter(r => r.parent_id === id).sort((a, b) => (a.started_at < b.started_at ? -1 : 1)) };
+  /* a row with no metadata cannot be judged from the listing: it is read and checked, as before */
+  const kidKeys = keys.filter(k => k !== mine && (k.m ? (k.m.p || '') === String(id) : true));
+  const kids = [];
+  for (let i = 0; i < kidKeys.length; i += 50) {
+    const vals = await Promise.all(kidKeys.slice(i, i + 50).map(k => env.RATE.get(k.name).catch(() => null)));
+    for (const v of vals) { try { const r = parseRow(JSON.parse(v || 'null')); if (r && r.parent_id === String(id)) kids.push(r); } catch {} }
+  }
+  return { source: 'kv', run, children: kids.sort((a, b) => (a.started_at < b.started_at ? -1 : 1)) };
 }
 /* 24h counts + last run per automation (registry view) */
 export async function runStats(env, sinceIso) {
@@ -224,10 +262,16 @@ export async function runStats(env, sinceIso) {
       return { source: 'd1', stats: out };
     } catch {}
   }
-  for (const r of filterRows((await ringAll(env)).map(parseRow), { from: sinceIso })) {
-    const o = out[r.automation_id] = out[r.automation_id] || { runs_24h: 0, by_status: {}, last_started_at: null };
-    o.runs_24h++; o.by_status[r.status] = (o.by_status[r.status] || 0) + 1;
-    if (!o.last_started_at || r.started_at > o.last_started_at) o.last_started_at = r.started_at;
+  /* counts and last-run times come from the listing alone (automation and status are in the metadata, the time is in the key): no row is read */
+  for (const k of await ringKeys(env, { fromMs: msOf(sinceIso) })) {
+    let a = k.m && k.m.a, st = k.m && k.m.s, started = new Date(k.ms).toISOString();
+    if (!a) {   /* a row with no metadata is read, as before */
+      let r = null; try { r = parseRow(JSON.parse((await env.RATE.get(k.name)) || 'null')); } catch {}
+      if (!r) continue; a = r.automation_id; st = r.status; started = r.started_at;
+    }
+    const o = out[a] = out[a] || { runs_24h: 0, by_status: {}, last_started_at: null };
+    o.runs_24h++; o.by_status[st] = (o.by_status[st] || 0) + 1;
+    if (!o.last_started_at || started > o.last_started_at) o.last_started_at = started;
   }
   return { source: 'kv', stats: out };
 }

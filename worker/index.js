@@ -92,7 +92,7 @@ import { recordChange, recordDeploy } from './changes.js';   /* 03/11 change log
 import { fixedCostAction, buildIncomeDays, editEventCosts } from './ops-money.js';   /* 03/11 recurring fixed costs */
 import BUILD_INFO from './build-info.json' with { type: 'json' };   /* written by scripts/build-info.mjs at deploy */
 import { handleOps, brainFns, buildCapacity, buildSendLive, planFns } from './ops.js';
-import { readLogValues } from './calendar-log.js';   /* 21/11 the calendar's read of the message log, old days kept */
+import { readLogValues, plannedMarks } from './calendar-log.js';   /* 21/11 the calendar's read of the message log, old days kept */
 import { cleanItems, itemsToKeep } from './seatplan-items.js';   /* 22/11 the hall's chuppah, bar, stage… kept with the table map */
 import { precomputePlans } from './ops-plan.js';   /* 04/11 the סקירה plan, precomputed every tick into plan:<period> */
 import { handleRaffle } from './raffle.js';
@@ -11104,7 +11104,8 @@ async function buildCalendarMonth(env, month) {
     }
   }
   /* which planned rows are already skipped (marker pre-set by the admin) */
-  const marks = await Promise.all(skipChecks.map(([, k]) => env.RATE.get(k).catch(() => null)));
+  /* 22/11: one listing per event and wave instead of one read per guest (calendar-log.js) */
+  const { marks, stats: markStats } = await plannedMarks(env, skipChecks.map(([, k]) => k));
   skipChecks.forEach(([e], i) => { if (marks[i]) { e.skipped = true; e.status = marks[i] === 'skip' ? 'skipped' : 'done-earlier'; } });
   /* Richard 12/10: "if it's planned I want to know for what time". The
      engine does not fire everything at 09:00: the morning run sends its
@@ -11138,7 +11139,7 @@ async function buildCalendarMonth(env, month) {
     rows.sort((a, b) => a.at < b.at ? -1 : 1);
   }
   const calOut = { ok: true, month, today, days, events: Object.values(evByTok).map(e => ({ token: e.token, tok8: e.tok8, client: e.client, event: e.event, date: e.date })) };
-  if (env.RATE) await env.RATE.put('calcache:' + month, JSON.stringify({ at: Date.now(), reads: logStats, data: calOut }), { expirationTtl: 1200 }).catch(() => {});
+  if (env.RATE) await env.RATE.put('calcache:' + month, JSON.stringify({ at: Date.now(), reads: logStats, marks: markStats, data: calOut }), { expirationTtl: 1200 }).catch(() => {});
   return calOut;
 }
 

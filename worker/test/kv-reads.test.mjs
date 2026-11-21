@@ -121,3 +121,21 @@ test('calendar log: when a build can only complete part of the month, the days t
   left = 1e9; e.RATE.n.get = 0; const r = await readLogValues(e, names, { now: now + 7200e3 });
   assert.equal(r.stats.reads, 600 + 18); assert.equal(r.stats.cached_days, 18); assert.equal(r.stats.failed, 0); assert.equal(r.vals.filter(Boolean).length, names.length);
 });
+
+test('calendar: planned rows are checked with one listing per event and wave, and only the markers that exist are read', async () => {
+  const { plannedMarks } = await import('../calendar-log.js');
+  const T = 'aaaaaaaa-0000-4000-8000-000000000001', U = 'bbbbbbbb-0000-4000-8000-000000000002';
+  const keys = []; for (let i = 0; i < 400; i++) keys.push(`wsent:${T}:2:97250${String(i).padStart(7, '0')}`); for (let i = 0; i < 300; i++) keys.push(`s5d:${T}:97250${String(i).padStart(7, '0')}`); for (let i = 0; i < 200; i++) keys.push(`s3t:${U}:97252${String(i).padStart(7, '0')}`);
+  const store = { [keys[3]]: 'skip', [keys[410]]: '1', [`wsent:${T}:2:972599999999`]: '1' /* a marker nobody asked about */ };
+  const e = { RATE: kv(store) };
+  const { marks, stats } = await plannedMarks(e, keys);
+  assert.equal(marks.length, 900); assert.equal(marks[3], 'skip'); assert.equal(marks[410], '1'); assert.equal(marks.filter(Boolean).length, 2);
+  assert.equal(stats.lists, 3); assert.equal(stats.reads, 2); assert.equal(e.RATE.n.get, 2, 'was 900 reads');
+  /* the same answers as asking one by one */
+  const direct = await Promise.all(keys.map(k => e.RATE.get(k)));
+  assert.deepEqual(marks, direct.map(v => v || null));
+  /* a listing that fails: those rows are asked one by one, nothing is guessed */
+  const f = { RATE: kv(store) }; f.RATE.list = async () => { throw new Error('list down'); };
+  const g = await plannedMarks(f, keys); assert.equal(g.marks[3], 'skip'); assert.equal(g.stats.reads, 900);
+  assert.deepEqual((await plannedMarks(e, [])).marks, []);
+});
