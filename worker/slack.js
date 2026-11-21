@@ -8,6 +8,7 @@
    ========================================================================== */
 import { logEvent, stream } from './evlog.js';
 import { gate as slackGate, info as slackInfo, autoKey, resolve as gateResolve } from './slack-gate.js';
+import { actionTask, resolveTask } from './linear-task.js';   /* 22/11 an alert that needs Richard opens a task in his Linear */
 
 /* ══ Slack quiet hours (Phase 6, rule 9) ══════════════════════════════════════
    Nothing non-urgent lands in Slack before 09:00 or after 21:00 Israel time —
@@ -72,6 +73,8 @@ export async function slackSend(env, text, opts = {}) {
     else await env.RATE.put(mk, '1', { expirationTtl: 86400 }).catch(() => {});
   }
   if (opts.cls === 'info') {
+    /* 22/11: an alert kept out of Slack can still be one that needs him (a balance, a payment method): his Linear gets it */
+    if (!opts.digest) await actionTask(env, slackFormat(text), opts).catch(() => null);
     stream(env, { kind: 'slack', area: 'סלאק·מידע', action: String(text || '').split('\n')[0].replace(/[*_>]/g, '').slice(0, 120), detail: String(text || '').slice(0, 600), ok: true }).catch(() => {});
     return slackInfo(env, text, { key: opts.key || null, now: opts.now ? +opts.now : Date.now(), notify: opts.notify || defaultInfoNotify });
   }
@@ -82,6 +85,8 @@ export async function slackSend(env, text, opts = {}) {
     text = g.text; opts = { ...opts, _gate: g.kind + (opts.key ? '' : ':auto') };
   }
   text = slackFormat(text);
+  /* 22/11 Richard: what needs him goes to his Linear, so a missed Slack line is not a missed task. Once per condition, in quiet hours too. */
+  if (!opts.digest) { const lt = await actionTask(env, text, opts).catch(() => null); if (lt && lt.created) stream(env, { kind: 'linear', area: 'לינאר', action: 'משימה נפתחה: ' + lt.identifier, detail: String(text || '').split('\n')[0].slice(0, 200), ok: true }).catch(() => {}); }
   stream(env, { kind: 'slack', area: 'סלאק', action: String(text || '').split('\n')[0].replace(/[*_>]/g, '').slice(0, 120), detail: (opts._gate ? '[' + opts._gate + '] ' : '') + String(text || '').slice(0, 600), ok: true }).catch(() => {});
   const now = opts.now || new Date();
   if (!opts.urgent && env.RATE && slackQuietHours(now)) {
@@ -136,6 +141,7 @@ export async function slackPost(env, text, opts = {}) {
 /* the condition behind `key` resolved → ONE "✅ נפתר" line (nothing when it was never open).
    `note` is appended under the title (e.g. "התקרה נפתחה"). The CLOSE line is itself the single event → oneoff. */
 export async function slackResolve(env, key, note) {
+  await resolveTask(env, key, note).catch(() => {});
   return gateResolve(env, key, { post: t => slackSend(env, note ? t.replace('\n\n• פתוח', '\n\n• ' + String(note).replace(/[*]/g, '') + '\n\n• פתוח') : t, { oneoff: true, urgent: false }) });
 }
 /* info-class posts land in the ops notifications center through notify.js (rule 'info') */

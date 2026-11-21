@@ -36,7 +36,7 @@ import { sendCtaUrl, sendReplyButtons, guestCapacity, guestCapScope, pinGuestPho
 import { fitBatch, dynamicPace } from './budget.js';
 import * as tguard from './templateguard.js';
 import { eventDayMessageFor, edMarkKey, ED_MARK_TTL, dayBeforeAllowed, dayBeforeDropped, navTarget, COMBO_NAMES, dayBeforeMessageFor, eventDayNeeded } from './eventday.js';
-import { giftActive, giftKey, declineGiftText, eventDayGiftSlot, eventHasSeating, giftVariantName, giftButtonComponent, giftSlug, planGiftBlast, giftPageHtml, cleanLink } from './gifts.js';
+import { giftActive, giftKey, declineGiftText, eventDayGiftSlot, eventHasSeating, giftVariantName, giftButtonComponent, giftSlug, planGiftBlast, giftPageHtml, cleanLink, giftRoute, giftCountable, bumpGiftStat, GIFT_METHODS } from './gifts.js';
 import { waveNoteDeps } from './whatsapp.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, isQuestion, touchConversation, guestsReady } from './whatsapp.js';
 import { isAppAutoReply, chaseStopReason, leadAlertHeader, lastInboundTs } from './inbound.js';
@@ -92,6 +92,8 @@ import { recordChange, recordDeploy } from './changes.js';   /* 03/11 change log
 import { fixedCostAction, buildIncomeDays, editEventCosts } from './ops-money.js';   /* 03/11 recurring fixed costs */
 import BUILD_INFO from './build-info.json' with { type: 'json' };   /* written by scripts/build-info.mjs at deploy */
 import { handleOps, brainFns, buildCapacity, buildSendLive, planFns } from './ops.js';
+import { readLogValues } from './calendar-log.js';   /* 21/11 the calendar's read of the message log, old days kept */
+import { cleanItems, itemsToKeep } from './seatplan-items.js';   /* 22/11 the hall's chuppah, bar, stage… kept with the table map */
 import { precomputePlans } from './ops-plan.js';   /* 04/11 the סקירה plan, precomputed every tick into plan:<period> */
 import { handleRaffle } from './raffle.js';
 import { handleMondayWebhook, reconcileLeads } from './leads-sync.js';   /* 16/11 leads screen ⇄ monday */
@@ -11048,7 +11050,8 @@ async function buildCalendarMonth(env, month) {
   const names = await kvKeys(env, 'log:', 60000);
   const fromTs = Date.parse(mFirst + 'T00:00:00+03:00'), toTs = Date.parse(mLast + 'T23:59:59+03:00');
   const inMonth = names.filter(n => { const ts = Number(n.split(':').pop()); return ts >= fromTs && ts <= toTs; });
-  const vals = await Promise.all(inMonth.map(n => env.RATE.get(n).catch(() => null)));
+  /* 21/11: days older than three are read once and kept (calendar-log.js); it used to be one KV read per message of the month, every build */
+  const { vals, stats: logStats } = await readLogValues(env, inMonth);
   inMonth.forEach((n, i) => {
     let v = null; try { v = JSON.parse(vals[i]); } catch {}
     if (!v || v.dir !== 'out') return;
@@ -11135,7 +11138,7 @@ async function buildCalendarMonth(env, month) {
     rows.sort((a, b) => a.at < b.at ? -1 : 1);
   }
   const calOut = { ok: true, month, today, days, events: Object.values(evByTok).map(e => ({ token: e.token, tok8: e.tok8, client: e.client, event: e.event, date: e.date })) };
-  if (env.RATE) await env.RATE.put('calcache:' + month, JSON.stringify({ at: Date.now(), data: calOut }), { expirationTtl: 1200 }).catch(() => {});
+  if (env.RATE) await env.RATE.put('calcache:' + month, JSON.stringify({ at: Date.now(), reads: logStats, data: calOut }), { expirationTtl: 1200 }).catch(() => {});
   return calOut;
 }
 
@@ -11559,14 +11562,23 @@ const WORKER = {
        go.ishur.io/gift/<first 8 of the token>. Lists the event's Bit / PayBox
        links (giftlinks:<token>); never shows the full token or anything else. */
     if (url.pathname.startsWith('/gift/') && request.method === 'GET') {
-      const slug = url.pathname.slice('/gift/'.length).replace(/[^0-9a-f]/gi, '').toLowerCase();
+      const slug = url.pathname.slice('/gift/'.length).split('/')[0].replace(/[^0-9a-f]/gi, '').toLowerCase();
       const html = (s, st = 200) => new Response(s, { status: st, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' } });
       if (slug.length !== 8) return html(giftPageHtml(null, ''), 404);
       const raw = await snapshotCached(env, 'dashboard').catch(() => null);
       const hits = ((raw && raw.events && raw.events.values) || []).filter(r => String((r || [])[1] || '').trim().slice(0, 8) === slug);
       if (hits.length !== 1) return html(giftPageHtml(null, ''), 404);
       const tok = String(hits[0][1]).trim();
-      return html(giftPageHtml(await giftLinksOf(env, tok), String(hits[0][34] || hits[0][2] || '').trim()));
+      /* 22/11: one way to give → straight there; two → the page; every open and every tap is counted (giftstat:<token>) */
+      const gl = await giftLinksOf(env, tok);
+      const method = (url.pathname.slice('/gift/'.length).split('/')[1] || '').toLowerCase();
+      const rt = giftRoute(gl, GIFT_METHODS.includes(method) ? method : '');
+      if (giftCountable(request.headers.get('user-agent')) && !rt.none) {
+        const what = [method ? '' : 'open', rt.go ? rt.count : ''];
+        ctx.waitUntil((async () => { let st = null; try { st = JSON.parse(await env.RATE.get('giftstat:' + tok)); } catch {} await env.RATE.put('giftstat:' + tok, JSON.stringify(bumpGiftStat(st, what)), { expirationTtl: 400 * 86400 }); })().catch(() => {}));
+      }
+      if (rt.go) return new Response('', { status: 302, headers: { Location: rt.go, 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' } });
+      return html(giftPageHtml(gl, String(hits[0][34] || hits[0][2] || '').trim(), slug));
     }
     /* 03/11: the navigation button of the one event-day message (ishur_yom_combo_*)
        — go.ishur.io/nav/<first 8 of the token> → 302 to the event's validated
@@ -13719,7 +13731,9 @@ const WORKER = {
         await env.RATE.put('giftlinks:' + tok, JSON.stringify(cur));
         await logEvent(env, { area: 'לוח', action: 'קישורי מתנה עודכנו', ok: true, token: tok, detail: `${cur.on ? 'פעיל' : 'כבוי'} · ביט ${bit ? 'כן' : 'לא'} · פייבוקס ${paybox ? 'כן' : 'לא'}` }).catch(() => {});
       }
-      return okJson({ ok: true, ...cur }, origin);
+      /* 22/11: how many guests opened the gift link and which way they tapped (never who paid) */
+      let stats = null; try { stats = JSON.parse(await env.RATE.get('giftstat:' + tok)); } catch {}
+      return okJson({ ok: true, ...cur, stats: stats || { open: 0, bit: 0, paybox: 0 } }, origin);
     }
     /* Richard 29/09: the client's budget planner (budget.html). One KV record per
        event: items [{name, amount, notes}], gifts (total received). Prefill happens
@@ -13785,12 +13799,17 @@ const WORKER = {
         let groups = {};
         if (b.groups && typeof b.groups === 'object') {
           for (const [gid, lbl] of Object.entries(b.groups).slice(0, 2000)) { const l = String(lbl || '').trim().slice(0, 24); if (l) groups[String(gid).slice(0, 40)] = l; }
-        } else { try { groups = (JSON.parse(await env.RATE.get('seatplan:' + tok)) || {}).groups || {}; } catch {} }
-        await env.RATE.put('seatplan:' + tok, JSON.stringify({ tables, groups, at: new Date().toISOString() }));
-        return okJson({ ok: true, tables, groups }, origin);
+        }
+        /* 22/11: chuppah, bar, stage… live with the plan too. A save that carries no groups / no items (an older copy of the page) keeps what is there. */
+        let prev = null;
+        if (!(b.groups && typeof b.groups === 'object') || !Array.isArray(b.items)) { try { prev = JSON.parse(await env.RATE.get('seatplan:' + tok)); } catch {} }
+        if (!(b.groups && typeof b.groups === 'object')) groups = (prev && prev.groups) || {};
+        const items = itemsToKeep(b.items, prev && prev.items);
+        await env.RATE.put('seatplan:' + tok, JSON.stringify({ tables, groups, items, at: new Date().toISOString() }));
+        return okJson({ ok: true, tables, groups, items }, origin);
       }
       let plan = null; try { plan = JSON.parse(await env.RATE.get('seatplan:' + tok)); } catch {}
-      return okJson({ ok: true, tables: (plan && plan.tables) || [], groups: (plan && plan.groups) || {} }, origin);
+      return okJson({ ok: true, tables: (plan && plan.tables) || [], groups: (plan && plan.groups) || {}, items: cleanItems(plan && plan.items) }, origin);
     }
     if (url.pathname === '/api/seating' && request.method === 'POST') {
       return handleSeating(request, env, origin);

@@ -2822,12 +2822,10 @@ function toggleAcc(hdr){
 // ═══ COOKIE ═══
 function acceptCookies(){
   localStorage.setItem('cookies_ok','1');
-  document.getElementById('cookie-bar').classList.add('hidden');
+  var cb=document.getElementById('cookie-bar'); if(cb) cb.classList.add('hidden');
 }
 window.addEventListener('load',()=>{
-  /* 22/11: no cookie bar inside the ishur app, which tracks nobody (tracking.js does the same for its own bar) */
-  var inApp=false; try{inApp=/[?&]app=1(&|$)/.test(location.search)||sessionStorage.getItem('ishur_in_app')==='1'}catch(e){}
-  if(inApp||localStorage.getItem('cookies_ok')) document.getElementById('cookie-bar').classList.add('hidden');
+  /* the old bar was removed on 22/11; nothing to hide */
 });
 
 </script>
@@ -3009,11 +3007,7 @@ window.addEventListener('load',()=>{
   </div>
 </div>
 
-<!-- COOKIE BANNER -->
-<div id="cookie-bar">
-  <p>🍪 האתר משתמש בעוגיות לשיפור חוויית הגלישה.</p>
-  <button id="cookie-accept" onclick="acceptCookies()">הבנתי</button>
-</div>
+<!-- 22/11 Richard: two cookie bars showed on a first visit. The old "הבנתי" bar is gone; the one bar is the consent bar of assets/tracking.js (אישור / רק הכרחי). -->
 
 <script src="assets/select.js?v=19"></script>
 <script src="assets/popup.js?v=43"></script>

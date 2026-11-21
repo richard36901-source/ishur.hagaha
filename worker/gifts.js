@@ -94,18 +94,48 @@ export function planGiftBlast({ today, eventDate, hour, windowOpen, gl, guests, 
   return { refuse: false, why: '', list, counts };
 }
 
+/* ── 22/11 Richard: one link for every guest. One way to give → the link goes straight there (no page).
+   Two or more → the page, where the guest chooses. Either way we count: opened, and which way was tapped.
+   We can never know who actually paid in Bit or PayBox, only who tapped. ── */
+export const GIFT_METHODS = ['bit', 'paybox'];   /* a credit-card method joins this list when it exists */
+export function giftMethods(gl) {
+  const m = {}; if (!giftActive(gl)) return m;
+  const b = cleanLink(gl.bit), p = cleanLink(gl.paybox);
+  if (b) m.bit = b; if (p) m.paybox = p;
+  return m;
+}
+/* GET /gift/<slug>[/<method>] → { go, count } (forward) | { page:true } | { none:true } */
+export function giftRoute(gl, method) {
+  const m = giftMethods(gl), keys = Object.keys(m);
+  if (!keys.length) return { none: true };
+  if (method) return m[method] ? { go: m[method], count: method } : { page: keys.length > 1, go: keys.length === 1 ? m[keys[0]] : '', count: keys.length === 1 ? keys[0] : '' };
+  if (keys.length === 1) return { go: m[keys[0]], count: keys[0], direct: true };
+  return { page: true };
+}
+/* link previews and crawlers open the link too; they are forwarded like anyone, never counted */
+export function giftCountable(ua) { return !/whatsapp|facebookexternalhit|facebot|bot\b|crawler|spider|preview|slack|telegram|curl|wget/i.test(String(ua || '')); }
+export function bumpGiftStat(stat, what, now = Date.now()) {
+  const s = { open: 0, bit: 0, paybox: 0, ...(stat && typeof stat === 'object' ? stat : {}) };
+  for (const k of [].concat(what)) if (k) s[k] = (Number(s[k]) || 0) + 1;
+  if (!s.first) s.first = new Date(now).toISOString();
+  s.last = new Date(now).toISOString();
+  return s;
+}
+
 /* the page behind the button (GET /gift/<slug>) */
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
-export function giftPageHtml(gl, hosts) {
+export function giftPageHtml(gl, hosts, slug) {
   const bit = giftActive(gl) ? cleanLink(gl.bit) : '', pb = giftActive(gl) ? cleanLink(gl.paybox) : '';
-  const btn = (href, label) => `<a class="b" href="${esc(href)}" rel="noopener">${label}</a>`;
+  /* with a slug the buttons pass through us (/gift/<slug>/<method>) so the tap is counted; without one they are the links themselves */
+  const via = (m, href) => (slug ? '/gift/' + esc(slug) + '/' + m : esc(href));
+  const btn = (m, href, label) => `<a class="b" href="${via(m, href)}" rel="noopener" data-direct="${esc(href)}">${label}</a>`;
   const body = bit || pb
-    ? `<h1>מתנה ל${esc(hosts || 'בעלי השמחה')} 🎁</h1><p>אפשר לשלוח מתנה ישירות, בלחיצה:</p>${bit ? btn(bit, 'ביט') : ''}${pb ? btn(pb, 'פייבוקס') : ''}`
+    ? `<h1>מתנה ל${esc(hosts || 'בעלי השמחה')}</h1><p>${bit && pb ? 'בחרו איך לתת:' : 'אפשר לשלוח מתנה ישירות, בלחיצה:'}</p>${bit ? btn('bit', bit, 'ביט') : ''}${pb ? btn('paybox', pb, 'פייבוקס') : ''}`
     : `<h1>אין כרגע קישור למתנה</h1><p>בעלי השמחה לא הוסיפו קישור ביט או פייבוקס.</p>`;
   return `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>מתנה לבעלי השמחה</title>
-<style>:root{--bg:#FAF8F3;--ink:#1B2620;--mute:#5F6B64;--card:#fff;--acc:#0F2E22}@media (prefers-color-scheme:dark){:root{--bg:#121714;--ink:#EDEFEA;--mute:#A9B3AD;--card:#1B221E;--acc:#7BC9A4}}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
-main{background:var(--card);border-radius:18px;padding:24px 20px;max-width:420px;width:100%;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.08)}h1{font-size:1.3rem;margin:0 0 .4rem}p{color:var(--mute);margin:0 0 1.2rem}
-.b{display:block;padding:14px;border-radius:12px;background:var(--acc);color:var(--card);text-decoration:none;font-weight:600;margin:.6rem 0}small{display:block;margin-top:1rem;color:var(--mute);font-size:.75rem}</style></head>
+<style>:root{--bg:#F9FAFB;--ink:#111827;--mute:#6b7280;--card:#fff;--bdr:#e5e7eb;--acc:#0F4C35;--on:#fff}@media (prefers-color-scheme:dark){:root{--bg:#0E1512;--ink:#F3F4F6;--mute:#9CA3AF;--card:#141D19;--bdr:#2B3440;--acc:#7FD1A8;--on:#0E1512}}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Heebo,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
+main{background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:24px 20px;max-width:420px;width:100%;text-align:center}h1{font-size:1.3rem;margin:0 0 .4rem}p{color:var(--mute);margin:0 0 1.2rem}
+.b{display:block;padding:15px;border-radius:8px;background:var(--acc);color:var(--on);text-decoration:none;font-weight:600;font-size:1.05rem;margin:.6rem 0}.b:active{transform:scale(.99)}small{display:block;margin-top:1rem;color:var(--mute);font-size:.75rem}</style></head>
 <body><main>${body}<small>ishur.io · אישורי הגעה</small></main></body></html>`;
 }
