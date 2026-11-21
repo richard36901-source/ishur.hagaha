@@ -103,7 +103,7 @@ test('morningRun: once a day, only in the 09:00 hour, one summary per client wit
 });
 
 test('21/11 languages: each device gets the notification in its own language; names stay as written', async () => {
-  for (const l of ['en', 'ru', 'ar', 'fr', 'es', 'yi', 'am']) for (const kind of ['answer', 'daily', 'failed']) {
+  for (const l of ['en', 'ru', 'ar', 'fr', 'es', 'yi', 'am', 'pt']) for (const kind of ['answer', 'daily', 'failed']) {
     const p = P.buildPush(kind, { guest: 'דנה כהן', seats: 3, status: 'confirmed', event: 'נועה ויונתן', confirmed: 41, pending: 12, failed: 6, answered: 2 }, l);
     assert.ok(p.title && p.body, l + kind); assert.doesNotMatch(JSON.stringify(p), /\d{7,}/);
     if (l !== 'yi') assert.doesNotMatch(p.body.replace(/דנה כהן|נועה ויונתן/g, ''), /[\u0590-\u05FF]/, l + ' ' + kind + ': ' + p.body);
