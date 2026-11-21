@@ -1,6 +1,6 @@
 # Build app · ishur client app
 
-The one file to follow. Claude updates it after every step. Last update: 21/11/2026, 04:20. Richard asked for language support (21/11); waiting on scope. Running cost notes: `app/RUNBOOK.md`. App check 47/47 for both demo clients; Worker tests 1052/1052 with the clock at morning.
+The one file to follow. Claude updates it after every step. Last update: 21/11/2026, 02:10 (night). Richard asked for language support (21/11); waiting on scope. Running cost notes: `app/RUNBOOK.md`. App check 47/47 for both demo clients; Worker tests 1052/1052 with the clock at morning.
 
 In Linear: [AUT-1141 Build app](https://linear.app/autoscalehq/issue/AUT-1141/build-app), project Ishur.io. Its 18 sub-issues are the **You** and **Together** steps below, numbered in order.
 
@@ -47,6 +47,17 @@ This adds work before the first submission: the "about a week after Apple activa
 **After 1.0:** 1.1 sign-in with Apple or Google.
 
 Decided 20/11: the group link sits in שליחות (moved from ראשי after Richard saw it). The review after the event can be skipped once. No open questions for 1.0; the build can start.
+
+## Languages (round 7, 21/11): built on staging, checking
+Plan: `.sdlc/client-app/round7-languages.md`. The client picks a language in חשבון; the app and every board page follow.
+- [x] Languages: Hebrew + English, Russian, Arabic, French, Spanish, Yiddish, Amharic (1518 texts each, written by
+  Claude's translators; Yiddish and Amharic need a native speaker's check before launch).
+- [x] App screens: `app/www/i18n.js` + `app/www/i18n/*.json`. Picker in חשבון. Notifications follow the language.
+- [x] Board pages: the site overlay `assets/i18n.js` from another session ("ishur - main ultra"), which now uses the same
+  dictionaries and added Portuguese. One layer per page; the guests' table page stays Hebrew for now (their choice).
+- [ ] Check every language (`app/scripts/i18n-check.mjs`): English passed apart from the seating page width, which was
+  fixed (it was too wide in Hebrew too). The full seven-language run is in progress.
+- [ ] Guest messages in other languages (Part B of the plan): waiting for Richard's answers, one at a time.
 
 ## Claude's own queue (no approval needed, staging only)
 
