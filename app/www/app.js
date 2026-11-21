@@ -115,7 +115,9 @@
   var TAB_TITLE = { board: '', guests: 'מוזמנים', sends: 'שליחות', account: 'חשבון' }, navEv = '';
   var bigObs = window.IntersectionObserver ? new IntersectionObserver(function (es) { es.forEach(function (en) { if (!en.target.closest('[hidden]')) $('navTitle').classList.toggle('hide', en.isIntersecting); }); }, { rootMargin: '-50px 0px 0px 0px' }) : null;
   function navTitle() {
-    var t = $('navTitle'); t.textContent = curTab === 'board' ? navEv : TAB_TITLE[curTab] || '';
+    /* on ראשי the brand (Richard 20/11: the header reads it; 22/11: a shared screenshot carries it); elsewhere the tab's name */
+    var t = $('navTitle');
+    if (curTab === 'board') t.innerHTML = 'אישורי הגעה לאירועים - <bdi>ishur<span>.io</span></bdi>'; else t.textContent = TAB_TITLE[curTab] || '';
     var shown = document.querySelector('.view:not([hidden]) h1.large');
     t.classList.toggle('hide', !!shown && shown.getBoundingClientRect().bottom > 50);
   }

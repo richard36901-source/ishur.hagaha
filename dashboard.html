@@ -84,6 +84,9 @@
   html.in-app[data-view=home] #checklistLink,html.in-app[data-view=home] #replaceLink,
   html.in-app[data-view=guests] #seatingLink,html.in-app[data-view=guests] #qrLink,html.in-app[data-view=guests] #budgetLink,html.in-app[data-view=guests] #lineupLink{display:none!important}
   html.in-app[data-view=home] #guestsCard .gl-acts{width:100%;justify-content:center;flex-wrap:wrap;overflow:visible;row-gap:.5rem}
+  /* 22/11 Richard ("aligning it properly"): in the app the four buttons sit in an even 2 x 2 grid, same width each */
+  html.in-app[data-view=home] #guestsCard .gl-acts{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+  html.in-app[data-view=home] #guestsCard .gl-acts .buy{display:flex;align-items:center;justify-content:center;gap:.35rem;width:100%;min-height:44px;text-align:center}
 </style>
 
 <style>

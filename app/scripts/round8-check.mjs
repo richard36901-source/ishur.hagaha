@@ -47,7 +47,7 @@ try {
   ok('top bar: the logo is there', await p.locator('#nav .navlogo').isVisible());
   await p.waitForTimeout(800);
   const evName = await p.locator('#navTitle').textContent();
-  ok('top bar on ראשי: the event\'s name (or the event switcher)', !!evName.trim() || await p.locator('#evSwitch').isVisible(), evName);
+  ok('top bar on ראשי: the brand, so a screenshot carries it (or the event switcher)', evName.trim() === 'אישורי הגעה לאירועים - ishur.io' || await p.locator('#evSwitch').isVisible(), evName);
   await p.click('[data-tab=guests]'); await p.waitForTimeout(500);
   ok('top bar on מוזמנים: "מוזמנים"', (await p.locator('#navTitle').textContent()) === 'מוזמנים' && !(await p.locator('#navTitle').evaluate(e => e.classList.contains('hide'))));
   /* R5 tab bar: the selected icon is filled, the others are not */
