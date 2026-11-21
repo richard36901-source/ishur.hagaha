@@ -136,7 +136,7 @@ export async function guestLangApi(env, token, body) {
     const c = norm(body);
     if (body.mode !== 'he' && c.mode === 'he') return { ok: false, status: 400, error: 'bad-choice', choice: cur, locked };
     if (c.mode === 'he') await env.RATE.delete('guestlang:' + token); else await env.RATE.put('guestlang:' + token, JSON.stringify(c));
-    return { ok: true, choice: c, locked, langs: GUEST_LANGS };
+    return { ok: true, choice: c, locked, langs: GUEST_LANGS, enabled: guestLangOn(env) };
   }
-  return { ok: true, choice: cur, locked, langs: GUEST_LANGS };
+  return { ok: true, choice: cur, locked, langs: GUEST_LANGS, enabled: guestLangOn(env) };
 }

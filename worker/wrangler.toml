@@ -135,6 +135,7 @@ HOOK_STATUS = "kv:stg:snapshot"   # 18/11: the demo sheet lives in the staging K
 APP_KEY = "aee02297c1578a7453b79cb4cf4b0c5d60b899ed45e0cfd0"   # the public app id the site already ships in config.js (not a secret)
 REVIEW_TOKEN = "eeeeeeee-0000-4000-8000-00000000000e"   # 21/11 App Store review demo event (review-demo.js); not in the sheet
 REVIEW_PHONE = "0500005201"   # its owner: a test phone
+GUEST_LANG = "on"   # 22/11 round 7 Part B: guest messages in the event's language (guest-lang.js); staging only, production stays off
 SLACK_STRICT = "1"
 SHIR_INBOUND_AGENT = "agent_c7d317f758ed084571630ce25e"
 NOA_FROM = "+972555077733"

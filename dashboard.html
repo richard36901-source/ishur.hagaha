@@ -60,7 +60,7 @@
       window.addEventListener('message', function (e) { if (e.source === window.parent && e.data && e.data.ishurView) setView(String(e.data.ishurView)); });
       document.addEventListener('DOMContentLoaded', function () {
         var MAP = { statusCard: 'home', shareCard: 'sends', afterCard: 'home', guestsCard: 'home guests', gaddCard: 'guests',
-          mediaCard: 'sends', designCard: 'sends', extraCard: 'sends', sendsCard: 'sends', changeNote: 'sends', refCard: 'account', invoiceCard: 'account', addonsCard: 'none', pwaCard: 'none' };
+          mediaCard: 'sends', designCard: 'sends', guestLangCard: 'sends', extraCard: 'sends', sendsCard: 'sends', changeNote: 'sends', refCard: 'account', invoiceCard: 'account', addonsCard: 'none', pwaCard: 'none' };
         Object.keys(MAP).forEach(function (id) { var el = document.getElementById(id); if (el) el.setAttribute('data-v', MAP[id]); });
       });
       var m = /(?:^#|&)s=(acct\.[0-9a-zA-Z._-]{20,200})(?:&|$)/.exec(location.hash || '');
@@ -768,6 +768,22 @@
   </section>
 
   <!-- 03/11: invitation design flow, only when design is paid (assets/design-card.js) -->
+  <!-- 22/11 round 7 Part B (Richard): the language of the guests' messages. Shown only while the Worker has it on. -->
+  <section class="card" id="guestLangCard" hidden>
+    <div class="card-h">🌐 שפת ההודעות למוזמנים</div>
+    <div class="card-b">
+      <p style="font-size:.85rem;color:var(--ink2);margin:0 0 .7rem">ההזמנה, התזכורות, הודעת יום האירוע והתודה יוצאות בשפה שתבחרו. הכפתורים מתורגמים גם הם.</p>
+      <div id="glModes" style="display:flex;flex-direction:column;gap:.45rem">
+        <label style="display:flex;gap:.5rem;align-items:center"><input type="radio" name="glMode" value="he"> עברית בלבד</label>
+        <label style="display:flex;gap:.5rem;align-items:center"><input type="radio" name="glMode" value="alone"> שפה אחרת במקום עברית</label>
+        <label style="display:flex;gap:.5rem;align-items:center"><input type="radio" name="glMode" value="pair"> עברית ועוד שפה, באותה הודעה</label>
+      </div>
+      <select id="glLang" style="margin-top:.6rem;font:inherit;padding:.45rem .6rem;border:1.5px solid var(--bdr);border-radius:10px;background:var(--bg2);color:var(--ink)" hidden>
+        <option value="en">English</option><option value="ru">Русский</option><option value="ar">العربية</option><option value="fr">Français</option><option value="es">Español</option><option value="pt">Português</option>
+      </select>
+      <div style="display:flex;gap:.5rem;align-items:center;margin-top:.7rem"><button type="button" class="buy" id="glSave">שמירה</button><span id="glNote" style="font-size:.8rem;color:var(--ink3)"></span></div>
+    </div>
+  </section>
   <section class="card" id="designCard" hidden>
     <div class="card-h">🎨 עיצוב ההזמנה</div>
     <div class="card-b" data-dz-body></div>
@@ -3398,6 +3414,40 @@
     }
     else showGate();
   }
+})();
+</script>
+<script>
+/* 22/11 round 7 Part B: the guests' message language (Worker /api/guest-lang, guest-lang.js). Hidden unless the Worker
+   says the feature is on; locked once the first invitations went out. */
+(function () {
+  var tok = (new URLSearchParams(location.search).get('t') || '').trim(), CFG = window.ISHUR_CONFIG;
+  if (!/^[0-9a-f-]{36}$/.test(tok) || !CFG) return;
+  var url = CFG.endpoint('status').replace(/\/api\/status$/, '/api/guest-lang'), $ = function (id) { return document.getElementById(id); };
+  function mode() { var r = document.querySelector('input[name=glMode]:checked'); return r ? r.value : 'he'; }
+  function paint(d) {
+    var c = d.choice || { mode: 'he' };
+    var r = document.querySelector('input[name=glMode][value=' + c.mode + ']'); if (r) r.checked = true;
+    if (c.lang) $('glLang').value = c.lang;
+    $('glLang').hidden = mode() === 'he';
+    document.querySelectorAll('#guestLangCard input, #guestLangCard select').forEach(function (x) { x.disabled = !!d.locked; });
+    $('glSave').hidden = !!d.locked;
+    $('glNote').textContent = d.locked ? 'ההזמנות כבר יצאו, השפה נשארת כפי שהיא.' : '';
+  }
+  function call(body) { return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { return r.json(); }); }
+  function start() {
+    call({ token: tok }).then(function (d) { if (!d || !d.ok || !d.enabled) return; $('guestLangCard').hidden = false; paint(d); }).catch(function () {});
+    $('glModes').addEventListener('change', function () { $('glLang').hidden = mode() === 'he'; $('glNote').textContent = ''; });
+    $('glSave').addEventListener('click', function () {
+      var m = mode(); $('glSave').disabled = true; $('glNote').textContent = 'שומר…';
+      call({ token: tok, mode: m, lang: m === 'he' ? '' : $('glLang').value }).then(function (d) {
+        $('glSave').disabled = false;
+        if (d && d.ok) { paint(d); $('glNote').textContent = 'נשמר ✓'; }
+        else if (d && d.error === 'already-sent') { call({ token: tok }).then(paint); }
+        else $('glNote').textContent = 'לא נשמר, נסו שוב';
+      }).catch(function () { $('glSave').disabled = false; $('glNote').textContent = 'לא נשמר, נסו שוב'; });
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();
 </script>
 </body>
