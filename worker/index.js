@@ -3043,13 +3043,13 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
      dispatcher fired 25 calls at once every tick and ~12 of each burst were refused. Never start more
      than CALL_PARALLEL (default 10) at a time, minus the calls already live at Retell. */
   const parallel = Math.max(1, Math.min(25, Number(env.CALL_PARALLEL) || 10));
-  let live = 0;
+  let live = 0, limit = 0;   /* limit: Retell's own ceiling, reported with every tick so the pace can be judged against it */
   try {
     const cr = await fetch('https://api.retellai.com/get-concurrency', { headers: { Authorization: 'Bearer ' + env.RETELL_KEY } });
-    const cj = cr.ok ? await cr.json() : null; live = Number(cj && cj.current_concurrency) || 0;
+    const cj = cr.ok ? await cr.json() : null; live = Number(cj && cj.current_concurrency) || 0; limit = Number(cj && cj.concurrency_limit) || 0;
   } catch {}
   const cap = Math.max(0, Math.min(Number(max) || 25, 25, parallel - live));
-  if (!cap) return { ok: true, dialed: 0, busy: live, queued: queue.length };
+  if (!cap) return { ok: true, dialed: 0, busy: live, limit, queued: queue.length };
   const dialed = [];
   let blocked = 0;
   for (const g of queue) {
@@ -3099,7 +3099,7 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
     const n = (parseInt(await env.RATE.get(dk) || '0', 10) || 0) + dialed.length;
     await env.RATE.put(dk, String(n), { expirationTtl: 3 * 86400 });
   }
-  return { ok: true, dialed: dialed.length, guests: dialed, queued: queue.length, blocked };
+  return { ok: true, dialed: dialed.length, guests: dialed, queued: queue.length, blocked, live, limit };
 }
 
 async function handleShirDispatch(request, env, origin) {
@@ -7332,7 +7332,7 @@ export { staleSentByEvent as _staleSentByEvent, runDailyEngine as _runDailyEngin
    queue is warm.
    ────────────────────────────────────────────────────────────────────────── */
 const PACE_SENDS = 50;    // base guest messages per tick (12/11: dynamic up to pacer_batch_max on busy days)
-const PACE_CALLS = 6;     // dials per tick — 63 ticks ≈ 375/day
+const PACE_CALLS = 12;    // dials per tick. 22/11 Richard: 6 → 12. One batch still never starts more than CALL_PARALLEL (default 10) minus the calls already live, see runShirDispatch
 const PACE_CALLBACKS = 3; // ring-backs per tick, taken OUT of PACE_CALLS
 
 
@@ -7508,7 +7508,7 @@ async function pacerCalls(env, step, out) {
         return { ok: false, why: String((e && e.message) || e) };
       })
       : { dialed: 0, why: 'callbacks-took-the-slice' };
-    out.calls = { dialed: (r && r.dialed) || 0, queued: (r && r.queued) || 0, why: r && r.why || (callCap && dialedToday >= callCap ? 'daily-call-cap' : undefined) };
+    out.calls = { dialed: (r && r.dialed) || 0, queued: (r && r.queued) || 0, live: r && r.live, limit: r && r.limit, why: r && r.why || (callCap && dialedToday >= callCap ? 'daily-call-cap' : undefined) };
     if (callCap && out.calls.dialed) await env.RATE.put(dayKey, String(dialedToday + out.calls.dialed), { expirationTtl: 2 * 86400 }).catch(() => {});
     /* נועה's slice: sales calls to leads who went silent. Small on purpose —
        two per tick is 12 an hour, plenty for the queue this funnel produces,
