@@ -7,6 +7,7 @@ window.ISHUR_ENV = {
   "board": "https://staging.ishur.io/dashboard",
   "apnsSandbox": true,
   "androidPush": false,
+  "googleClientId": "141736472121-38deufih5suu1nvrch1a4mvh53qv0qoh.apps.googleusercontent.com",
   "whatsapp": "972559504499",
   "version": "1.0.0"
 };

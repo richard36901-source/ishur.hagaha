@@ -296,7 +296,7 @@
   var SL = plugin('SocialLogin'), slReady = null;
   function idInit() {
     if (!SL) return Promise.reject(new Error('no-plugin'));
-    if (!slReady) { var cfg = { apple: { clientId: 'io.ishur.client' } }; if (ENV.googleClientId) cfg.google = { iOSClientId: ENV.googleClientId, iOSServerClientId: ENV.googleServerClientId || ENV.googleClientId }; slReady = SL.initialize(cfg); }
+    if (!slReady) { var cfg = { apple: { clientId: 'io.ishur.client' } }; if (ENV.googleClientId) { cfg.google = { iOSClientId: ENV.googleClientId }; if (ENV.googleServerClientId) cfg.google.iOSServerClientId = ENV.googleServerClientId; } slReady = SL.initialize(cfg); }
     return slReady;
   }
   function idToken(provider) {
@@ -304,7 +304,9 @@
       .then(function (res) { var t = res && res.result && res.result.idToken; if (!t) throw new Error('no-token'); return t; });
   }
   var cancelled = function (e) { return /cancel|1001/i.test(String((e && (e.code || e.message)) || e)); };
-  if (SL) { $('idBtns').hidden = false; if (ENV.googleClientId) { $('googleIn').hidden = false; $('googleLink').hidden = false; } }
+  /* Google only on iPhone for now: Android needs its own Google client (signing key fingerprint), not made yet */
+  var googleOn = !!ENV.googleClientId && !!(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios');
+  if (SL) { $('idBtns').hidden = false; if (googleOn) { $('googleIn').hidden = false; $('googleLink').hidden = false; } }
   function idSignIn(provider) {
     var note = $('signinNote');
     idToken(provider).then(function (t) { note.textContent = 'בודקים…'; return post('/api/account/id-login', { provider: provider, id_token: t }); }).then(function (r) {
