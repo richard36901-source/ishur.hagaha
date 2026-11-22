@@ -2,6 +2,17 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.141736472121-38deufih5suu1nvrch1a4mvh53qv0qoh</string>
+			</array>
+		</dict>
+	</array>
+	<key>GIDClientID</key>
+	<string>141736472121-38deufih5suu1nvrch1a4mvh53qv0qoh.apps.googleusercontent.com</string>
 	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
@@ -19,7 +30,7 @@
 		<string>he</string>
 	</array>
 	<key>CFBundleName</key>
-	<string>$(PRODUCT_NAME)</string>
+	<string>ishur</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
