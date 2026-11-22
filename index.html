@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
+<script>/* 22/11: the visitor's own light/dark choice, applied before the first paint */try{var __t=localStorage.getItem('ishur_theme');if(__t==='dark'||__t==='light')document.documentElement.setAttribute('data-theme',__t)}catch(e){}</script>
 <meta charset="UTF-8">
 <meta name="facebook-domain-verification" content="sit2y0wo8hge473jshdqoh2czat1xb">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
@@ -1782,8 +1783,9 @@ body.has-promo #nav{top:var(--promo-h,34px)}
    and the gold stay exactly as they are; only what was white or light goes dark. Small green TEXT on a dark
    surface uses a lighter tint (--green-t), because the brand green on near-black cannot be read.
    Phone mockups and the promo pieces above keep their light look on purpose. ═══ */
+/* the device decides, unless the visitor chose with the switch in the footer (html[data-theme], kept in localStorage) */
 @media (prefers-color-scheme:dark){
-  :root{
+  :root:not([data-theme="light"]){
     --bg:#0E1512; --bg2:#121A16; --bg3:#18221D; --card:#16201B; --cream:#111915; --cream2:#1B2620;
     --ink:#F1F3F0; --ink2:#CFD6D1; --ink3:#9AA59E;
     --bdr:#27332C; --bdr2:rgba(127,209,168,.28);
@@ -1793,11 +1795,34 @@ body.has-promo #nav{top:var(--promo-h,34px)}
     --sh:0 1px 3px rgba(0,0,0,.5),0 4px 16px rgba(0,0,0,.35);
     --sh2:0 4px 12px rgba(0,0,0,.5),0 16px 48px rgba(0,0,0,.45);
   }
-  html{color-scheme:dark}
-  #nav{background:rgba(14,21,18,.94)}
-  input,select,textarea{background:var(--card);color:var(--ink);border-color:var(--bdr)}
-  input::placeholder,textarea::placeholder{color:var(--ink3)}
+  :root:not([data-theme="light"]){color-scheme:dark}
+  :root:not([data-theme="light"]) #nav{background:rgba(14,21,18,.94)}
+  :root:not([data-theme="light"]) input,:root:not([data-theme="light"]) select,:root:not([data-theme="light"]) textarea{background:var(--card);color:var(--ink);border-color:var(--bdr)}
+  :root:not([data-theme="light"]) input::placeholder,:root:not([data-theme="light"]) textarea::placeholder{color:var(--ink3)}
 }
+:root[data-theme="dark"]{
+  --bg:#0E1512; --bg2:#121A16; --bg3:#18221D; --card:#16201B; --cream:#111915; --cream2:#1B2620;
+  --ink:#F1F3F0; --ink2:#CFD6D1; --ink3:#9AA59E;
+  --bdr:#27332C; --bdr2:rgba(127,209,168,.28);
+  --green3:#1E3A2E; --green4:#14221B;   /* the light green tints go dark; the brand green itself is not touched (Richard 22/11) */
+  --green-t:#7FD1A8; --green2-t:#A6E3C3; --pine-t:#DCEBE2; --navy-t:#C9D6EE;
+  --gold-pale:rgba(199,174,122,.22);   /* gold stays as it is */
+  --sh:0 1px 3px rgba(0,0,0,.5),0 4px 16px rgba(0,0,0,.35);
+  --sh2:0 4px 12px rgba(0,0,0,.5),0 16px 48px rgba(0,0,0,.45);
+}
+:root[data-theme="dark"]{color-scheme:dark}
+:root[data-theme="dark"] #nav{background:rgba(14,21,18,.94)}
+:root[data-theme="dark"] input,:root[data-theme="dark"] select,:root[data-theme="dark"] textarea{background:var(--card);color:var(--ink);border-color:var(--bdr)}
+:root[data-theme="dark"] input::placeholder,:root[data-theme="dark"] textarea::placeholder{color:var(--ink3)}
+:root[data-theme="dark"] #promo-bar,:root[data-theme="dark"] #promo-modal,:root[data-theme="dark"] #promo-card{color-scheme:light}
+:root[data-theme="dark"] #promo-bar{color:var(--paper)}
+:root[data-theme="dark"] #promo-card{background:#FBF8F1;color:var(--pine);border-color:var(--gold-pale)}
+:root[data-theme="dark"] #promo-title{color:var(--pine)}
+:root[data-theme="dark"] #promo-greeting{color:#2E4238}
+:root[data-theme="dark"] #promo-ok{background:var(--pine);color:var(--paper)}
+:root[data-theme="dark"] .promo-msg{color:#6b7280}
+.f-theme{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;opacity:.85}
+.f-theme:hover{opacity:1;text-decoration:underline}
 
 </style>
 </head>
@@ -2167,6 +2192,7 @@ body.has-promo #nav{top:var(--promo-h,34px)}
     <a href="terms.html">תנאי שימוש</a>
     <a href="faq.html">שאלות נפוצות</a>
     <a href="terms.html#privacy">פרטיות</a>
+    <button type="button" class="f-theme" id="themeBtn" aria-label="החלפת מצב תצוגה">מצב כהה</button>
   </div>
   <div class="f-links2" style="flex-wrap:wrap;max-width:640px;margin-inline:auto;font-size:.72rem;opacity:.85">
     <a href="hatuna.html">חתונה</a>
@@ -3032,6 +3058,15 @@ window.addEventListener('load',()=>{
 
 <!-- 22/11 Richard: two cookie bars showed on a first visit. The old "הבנתי" bar is gone; the one bar is the consent bar of assets/tracking.js (אישור / רק הכרחי). -->
 
+<script>
+/* 22/11 Richard: a light/dark switch, in the footer so the top bar keeps its focus on "הזמינו עכשיו" */
+(function(){var b=document.getElementById('themeBtn');if(!b)return;var R=document.documentElement;
+  function isDark(){var t=R.getAttribute('data-theme');return t?t==='dark':!!(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)}
+  function paint(){b.textContent=isDark()?'מצב בהיר':'מצב כהה'}
+  b.addEventListener('click',function(){var t=isDark()?'light':'dark';R.setAttribute('data-theme',t);try{localStorage.setItem('ishur_theme',t)}catch(e){}paint()});
+  try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',paint)}catch(e){}
+  paint();})();
+</script>
 <script src="assets/select.js?v=19"></script>
 <script src="assets/popup.js?v=43"></script>
 </body>
