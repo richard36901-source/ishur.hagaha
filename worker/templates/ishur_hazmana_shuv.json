@@ -1,0 +1,18 @@
+{
+  "_note": "22/11/2026: the wording LIVE at Meta (status APPROVED), read through /api/template-text for the translations. This file is a record, not a submission: the template already exists. The route returns the body and the button labels only, so the button type (QUICK_REPLY) is inferred from the labels being the answer buttons; no header, no footer.",
+  "channel": "guests",
+  "method": "POST",
+  "path": "/1378764257421712/message_templates",
+  "payload": {
+    "name": "ishur_hazmana_shuv",
+    "language": "he",
+    "category": "MARKETING",
+    "allow_category_change": false,
+    "components": [
+      {
+        "type": "BODY",
+        "text": "היי {{1}}, שולחים שוב את פרטי ה{{2}} של {{3}} 🎉\n📅 {{4}} בשעה {{5}}\n📍 {{6}}\n\nכבר עדכנתם אותנו: {{7}}. אין צורך לענות שוב, ואם משהו משתנה פשוט כתבו לנו כאן."
+      }
+    ]
+  }
+}
