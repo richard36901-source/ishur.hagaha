@@ -27,7 +27,11 @@
 import { record } from './audit.js';
 
 export const SHEET_ID = '1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q';   /* production; staging overrides with [env.staging.vars] SHEET_ID */
-export function sheetId(env) { return (env && env.SHEET_ID) || SHEET_ID; }
+/* 22/11: the name `sheetId` is also a local variable (a tab's numeric id) inside the functions below, where it hid this
+   function: "sheetId is not a function" on the first run in production. Inside this file and sheetlogs.js the
+   spreadsheet's id is read through `bookId`; `sheetId(env)` stays for the callers in index.js. */
+export function bookId(env) { return (env && env.SHEET_ID) || SHEET_ID; }
+export function sheetId(env) { return bookId(env); }
 export const LOG_TAB = 'יומן מערכת';
 const HEADER = ['זמן', 'תחום', 'פעולה', 'סטטוס', 'דורש בדיקה', 'טלפון', 'אירוע', 'מזהה', 'פירוט'];
 const MAX_FLUSH = 400;          // rows per flush — well under the ceiling
@@ -95,13 +99,13 @@ export async function ensureLogSheet(env) {
   const cached = await env.RATE.get('evlog:sheetId');
   if (cached) return Number(cached);
 
-  const meta = await proxy(env, `spreadsheets/${sheetId(env)}`, { qk: 'fields', qv: 'sheets.properties' });
+  const meta = await proxy(env, `spreadsheets/${bookId(env)}`, { qk: 'fields', qv: 'sheets.properties' });
   const sheets = (meta && meta.sheets) || [];
   let found = sheets.find(s => s.properties && s.properties.title === LOG_TAB);
   let sheetId = found ? found.properties.sheetId : null;
 
   if (sheetId == null) {
-    const res = await proxy(env, `spreadsheets/${sheetId(env)}:batchUpdate`, {
+    const res = await proxy(env, `spreadsheets/${bookId(env)}:batchUpdate`, {
       method: 'POST',
       payload: { requests: [{ addSheet: { properties: {
         title: LOG_TAB, gridProperties: { frozenRowCount: 1 }, tabColor: { red: 0.66, green: 0.52, blue: 0.24 },
@@ -112,7 +116,7 @@ export async function ensureLogSheet(env) {
     if (sheetId == null) return null;
 
     /* header + the red rule, once */
-    await proxy(env, `spreadsheets/${sheetId(env)}:batchUpdate`, {
+    await proxy(env, `spreadsheets/${bookId(env)}:batchUpdate`, {
       method: 'POST',
       payload: { requests: [
         { updateCells: {
@@ -168,7 +172,7 @@ export async function flushEventLog(env) {
   const sheetId = await ensureLogSheet(env);
   if (sheetId == null) return { ok: false, why: 'no-sheet' };
 
-  const res = await proxy(env, `spreadsheets/${sheetId(env)}:batchUpdate`, {
+  const res = await proxy(env, `spreadsheets/${bookId(env)}:batchUpdate`, {
     method: 'POST',
     payload: { requests: [{ appendCells: {
       sheetId,
@@ -191,14 +195,14 @@ export async function ensureTab(env, title, header) {
   const ck = 'evlog:tab:' + title;
   const cached = await env.RATE.get(ck);
   if (cached) return Number(cached);
-  const meta = await proxy(env, `spreadsheets/${sheetId(env)}`, { qk: 'fields', qv: 'sheets.properties' });
+  const meta = await proxy(env, `spreadsheets/${bookId(env)}`, { qk: 'fields', qv: 'sheets.properties' });
   const found = ((meta && meta.sheets) || []).find(s => s.properties && s.properties.title === title);
   let sheetId = found ? found.properties.sheetId : null;
   if (sheetId == null) {
-    const res = await proxy(env, `spreadsheets/${sheetId(env)}:batchUpdate`, { method: 'POST', payload: { requests: [{ addSheet: { properties: { title, gridProperties: { frozenRowCount: 1 }, tabColor: { red: 0.2, green: 0.4, blue: 0.7 } } } }] } });
+    const res = await proxy(env, `spreadsheets/${bookId(env)}:batchUpdate`, { method: 'POST', payload: { requests: [{ addSheet: { properties: { title, gridProperties: { frozenRowCount: 1 }, tabColor: { red: 0.2, green: 0.4, blue: 0.7 } } } }] } });
     sheetId = res && res.replies && res.replies[0] && res.replies[0].addSheet && res.replies[0].addSheet.properties.sheetId;
     if (sheetId == null) return null;
-    await proxy(env, `spreadsheets/${sheetId(env)}:batchUpdate`, { method: 'POST', payload: { requests: [{ updateCells: { start: { sheetId, rowIndex: 0, columnIndex: 0 }, rows: [{ values: header.map(h => ({ userEnteredValue: { stringValue: h }, userEnteredFormat: { textFormat: { bold: true } } })) }], fields: 'userEnteredValue,userEnteredFormat.textFormat' } }] } });
+    await proxy(env, `spreadsheets/${bookId(env)}:batchUpdate`, { method: 'POST', payload: { requests: [{ updateCells: { start: { sheetId, rowIndex: 0, columnIndex: 0 }, rows: [{ values: header.map(h => ({ userEnteredValue: { stringValue: h }, userEnteredFormat: { textFormat: { bold: true } } })) }], fields: 'userEnteredValue,userEnteredFormat.textFormat' } }] } });
   }
   await env.RATE.put(ck, String(sheetId));
   return sheetId;
@@ -206,13 +210,13 @@ export async function ensureTab(env, title, header) {
 export async function appendTab(env, title, header, rows) {
   const sheetId = await ensureTab(env, title, header);
   if (sheetId == null) return false;
-  const res = await proxy(env, `spreadsheets/${sheetId(env)}:batchUpdate`, { method: 'POST', payload: { requests: [{ appendCells: { sheetId, rows: rows.map(r => ({ values: r.map(v => ({ userEnteredValue: { stringValue: String(v ?? '').slice(0, 49000) } })) })), fields: 'userEnteredValue' } }] } });
+  const res = await proxy(env, `spreadsheets/${bookId(env)}:batchUpdate`, { method: 'POST', payload: { requests: [{ appendCells: { sheetId, rows: rows.map(r => ({ values: r.map(v => ({ userEnteredValue: { stringValue: String(v ?? '').slice(0, 49000) } })) })), fields: 'userEnteredValue' } }] } });
   return !!(res && Array.isArray(res.replies));
 }
 
 /* the last rows of the tab, for the admin endpoint / verification */
 export async function readLogTail(env, n = 20) {
-  const res = await proxy(env, `spreadsheets/${sheetId(env)}/values:batchGet`, { qk: 'ranges', qv: `${LOG_TAB}!A1:I5000` });
+  const res = await proxy(env, `spreadsheets/${bookId(env)}/values:batchGet`, { qk: 'ranges', qv: `${LOG_TAB}!A1:I5000` });
   const values = (res && res.valueRanges && res.valueRanges[0] && res.valueRanges[0].values) || [];
   return { total: Math.max(0, values.length - 1), header: values[0] || [], rows: values.slice(-n) };
 }
