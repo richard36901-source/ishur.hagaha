@@ -8,7 +8,7 @@
    Footer from guest-lang.js; buttons from the table. Same shape as the Hebrew files (submit through /api/meta-admin).
    Nothing is sent to Meta here.   node worker/scripts/translate-templates.mjs   (exit 1 = a line has no translation) */
 import fs from 'node:fs'; import path from 'node:path'; import { fileURLToPath } from 'node:url';
-import { GUEST_LANGS, guestFooter, templateLang } from '../guest-lang.js';
+import { GUEST_LANGS, guestFooter, templateLang, guestButtons } from '../guest-lang.js';
 
 const DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'templates');
 const T = JSON.parse(fs.readFileSync(path.join(DIR, 'i18n', 'lines.json'), 'utf8'));
@@ -28,7 +28,10 @@ export function translateBody(text, lang, shift = 0) {
   }).join('\n');
 }
 
+const RSVP = ['מגיע/ה', 'לא מגיע/ה', 'עדיין לא ידוע'];
 function button(b, lang, pair) {
+  /* the answer buttons come from guest-lang.js, the same words the reply reader turns back into Hebrew */
+  if (b.type === 'QUICK_REPLY' && RSVP.includes(b.text)) return { ...b, text: guestButtons({ mode: pair ? 'pair' : 'alone', lang })[RSVP.indexOf(b.text)] };
   const e = T.buttons[b.text];
   if (!e || !e[lang]) { missing.add('button ' + b.text + ' [' + lang + ']'); return { ...b }; }
   const [full, short] = e[lang];

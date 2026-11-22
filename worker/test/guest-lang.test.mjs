@@ -125,8 +125,9 @@ test('switch on, Hebrew + Russian: the pair copy (labelled he) gets every value 
   assert.equal(paramsOfPost(posts[0]).length, 10);
 });
 test('a template with no translation (the client\'s own invitation, say) goes out in Hebrew', async () => {
-  await send(envWith({ ['guestlang:' + TOKEN]: '{"mode":"alone","lang":"en"}' }, ON), 'hazmana_ishur', ['דנה', 'x', 'y', 'z', 'w', 'v']);
-  assert.deepEqual(sentAs(), ['hazmana_ishur/he']);
+  /* a client's own wording is submitted under its own name (custom_…), never one of ours */
+  await send(envWith({ ['guestlang:' + TOKEN]: '{"mode":"alone","lang":"en"}' }, ON), 'custom_dana_wedding_1', []);
+  assert.deepEqual(sentAs(), ['custom_dana_wedding_1/he']);
 });
 test('Meta does not know the copy (132001): the Hebrew goes out at once, and the copy is not tried again for 6 hours', async () => {
   fail['ishur_yom_plain_t_en'] = 132001;
