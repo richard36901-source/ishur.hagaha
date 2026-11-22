@@ -166,3 +166,19 @@ test('the board\'s choice: saved, read back, Hebrew removes it, refused once the
   const r = await G.guestLangApi(env, TOKEN, { mode: 'alone', lang: 'en' });
   assert.equal(r.error, 'already-sent'); assert.equal(r.locked, true);
 });
+
+test('fixed Hebrew words in a message are translated; names and places are not', () => {
+  assert.equal(G.translateValue('חתונה', 'en'), 'wedding');
+  assert.equal(G.translateValue('החתונה של דנה ויואב', 'en'), 'the wedding of דנה ויואב');
+  assert.equal(G.translateValue('הבר מצווה של איתי', 'fr'), 'bar-mitsva de איתי');
+  assert.equal(G.translateValue('מגיעים, 3 אורחים', 'es'), 'vamos, 3 invitados');
+  assert.equal(G.translateValue('לא מגיעים', 'ru'), 'не придём');
+  assert.equal(G.translateValue('פרטים בהמשך', 'pt'), 'detalhes em breve');
+  for (const keep of ['דנה', 'אולמי הגן, רמת גן', '19:30', '03.12.2026', 'החתונה שלנו בגן', 'חתונה בגן']) assert.equal(G.translateValue(keep, 'en'), keep, keep);
+  assert.equal(G.translateValue('חתונה', 'yi'), 'חתונה', 'not a guest language');
+});
+test('alone: the values are translated; pair: the Hebrew half keeps Hebrew values, the second half gets translated ones', () => {
+  const p = ['דנה', 'החתונה של נועה ויונתן', '19:30'];
+  assert.deepEqual(G.variantFor('ishur_shulchan', { mode: 'alone', lang: 'en' }, p).params, ['דנה', 'the wedding of נועה ויונתן', '19:30']);
+  assert.deepEqual(G.variantFor('ishur_shulchan', { mode: 'pair', lang: 'en' }, p).params, [...p, 'דנה', 'the wedding of נועה ויונתן', '19:30']);
+});

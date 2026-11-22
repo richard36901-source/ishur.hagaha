@@ -105,12 +105,49 @@ export async function readGuestLang(env, token) {
   try { return norm(JSON.parse((await env.RATE.get('guestlang:' + token)) || 'null')); } catch { return { mode: 'he' }; }
 }
 
+/* Fixed Hebrew words the engine puts into a message (the occasion, "the wedding of …", the guest's earlier answer,
+   fallbacks) are translated too; names and places stay as the client wrote them. Whole values or the pattern
+   "ה<occasion> של <names>" only, so nothing inside a name is ever touched. */
+const OCC = {
+  'חתונה': { en: 'wedding', ru: 'свадьба', ar: 'حفل الزفاف', fr: 'mariage', es: 'boda', pt: 'casamento' },
+  'בר מצווה': { en: 'bar mitzvah', ru: 'бар-мицва', ar: 'بار متسفا', fr: 'bar-mitsva', es: 'bar mitzvá', pt: 'bar mitzvá' },
+  'בת מצווה': { en: 'bat mitzvah', ru: 'бат-мицва', ar: 'بات متسفا', fr: 'bat-mitsva', es: 'bat mitzvá', pt: 'bat mitzvá' },
+  'חינה': { en: 'henna', ru: 'хина', ar: 'الحنّاء', fr: 'henné', es: 'jina', pt: 'hena' },
+  'ברית': { en: 'brit', ru: 'брит-мила', ar: 'الختان', fr: 'brit-mila', es: 'brit milá', pt: 'brit milá' },
+  'בריתה': { en: 'baby naming', ru: 'праздник имянаречения', ar: 'حفل تسمية المولودة', fr: 'fête de naissance', es: 'fiesta de nombre', pt: 'festa do nome' },
+  'יום הולדת': { en: 'birthday', ru: 'день рождения', ar: 'عيد الميلاد', fr: 'anniversaire', es: 'cumpleaños', pt: 'aniversário' },
+  'אירוע חברה': { en: 'company event', ru: 'корпоративное мероприятие', ar: 'فعالية الشركة', fr: 'événement d’entreprise', es: 'evento de empresa', pt: 'evento da empresa' },
+  'אחר': { en: 'event', ru: 'мероприятие', ar: 'المناسبة', fr: 'événement', es: 'evento', pt: 'evento' }
+};
+/* "ה<occasion> של <names>" in each language; {o} the occasion, {n} the names */
+const OF = { en: 'the {o} of {n}', ru: '{o}: {n}', ar: '{o} — {n}', fr: '{o} de {n}', es: '{o} de {n}', pt: '{o} de {n}' };
+const WORDS = {
+  'מגיעים': { en: 'coming', ru: 'придём', ar: 'سنحضر', fr: 'nous venons', es: 'vamos', pt: 'vamos' },
+  'לא מגיעים': { en: 'not coming', ru: 'не придём', ar: 'لن نحضر', fr: 'nous ne venons pas', es: 'no vamos', pt: 'não vamos' },
+  'פרטים בהמשך': { en: 'details to follow', ru: 'подробности позже', ar: 'التفاصيل لاحقًا', fr: 'détails à venir', es: 'detalles más adelante', pt: 'detalhes em breve' },
+  'פרטים אצל בעלי השמחה': { en: 'details from the hosts', ru: 'подробности у организаторов', ar: 'التفاصيل لدى أصحاب المناسبة', fr: 'détails auprès des hôtes', es: 'detalles con los anfitriones', pt: 'detalhes com os anfitriões' },
+  'האירוע': { en: 'the event', ru: 'мероприятие', ar: 'المناسبة', fr: 'l’événement', es: 'el evento', pt: 'o evento' },
+  'אירוע': { en: 'event', ru: 'мероприятие', ar: 'مناسبة', fr: 'événement', es: 'evento', pt: 'evento' },
+  'אורח יקר': { en: 'dear guest', ru: 'дорогой гость', ar: 'ضيفنا العزيز', fr: 'cher invité', es: 'querido invitado', pt: 'querido convidado' }
+};
+const GUESTS_N = { en: n => 'coming, ' + n + ' guests', ru: n => 'придём, гостей: ' + n, ar: n => 'سنحضر، عدد الضيوف ' + n, fr: n => 'nous venons, ' + n + ' invités', es: n => 'vamos, ' + n + ' invitados', pt: n => 'vamos, ' + n + ' convidados' };
+export function translateValue(v, lang) {
+  const s = String(v == null ? '' : v), t = s.trim();
+  if (!GUEST_LANGS.includes(lang) || !t) return s;
+  if (WORDS[t]) return WORDS[t][lang];
+  if (OCC[t]) return OCC[t][lang];
+  const n = /^מגיעים, (\d+) אורחים$/.exec(t); if (n) return GUESTS_N[lang](n[1]);
+  const m = /^ה(.+?) של (.+)$/.exec(t); if (m && OCC[m[1]]) return OF[lang].replace('{o}', OCC[m[1]][lang]).replace('{n}', m[2]);
+  return s;
+}
+
 /* the copy to send instead of <name>, or null when Hebrew goes out as today */
 export function variantFor(name, choice, params) {
   const c = norm(choice);
   if (c.mode === 'he' || !TRANSLATED.has(name)) return null;
   const pair = c.mode === 'pair';
-  return { name: name + '_' + (pair ? 'he' : '') + c.lang, lang: templateLang(c), params: pair ? [...params, ...params] : params.slice() };
+  const tr = params.map(v => translateValue(v, c.lang));
+  return { name: name + '_' + (pair ? 'he' : '') + c.lang, lang: templateLang(c), params: pair ? [...params, ...tr] : tr };
 }
 
 /* the hook sendTemplate calls; returns the send's result, or null to go on with the Hebrew template */
