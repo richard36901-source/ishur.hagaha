@@ -38,6 +38,14 @@ try {
   await p.locator('#phone').focus(); const box = await p.locator('#signinForm h1').boundingBox();
   await drag(p, box.x + 40, box.y + 5, box.x + 40, box.y + 120);
   ok('drag down while typing hides the keyboard', await p.evaluate(() => document.activeElement.id !== 'phone'), await p.evaluate(() => document.activeElement.id || document.activeElement.tagName));
+  /* code as four boxes (Richard 22/11) */
+  ok('code: four boxes', (await p.locator('#otp .otp-box').count()) === 4);
+  await p.locator('#code').focus(); await p.keyboard.type('12');
+  ok('code: two digits typed show in the first two boxes, the third is next', JSON.stringify(await p.locator('#otp .otp-box').allTextContents()) === '["1","2","",""]' && await p.locator('#otp .otp-box').nth(2).evaluate(e => e.classList.contains('on')));
+  await p.locator('#code').fill(''); await p.evaluate(() => { const f = document.getElementById('code'); f.value = 'a9-8 7 6'; f.dispatchEvent(new Event('input')); });
+  ok('code: a pasted code fills all four, letters and spaces dropped', JSON.stringify(await p.locator('#otp .otp-box').allTextContents()) === '["9","8","7","6"]');
+  await p.screenshot({ path: path.join(SHOTS, 'r8-code-boxes.png') });
+  await p.locator('#code').fill('');
   /* sign in */
   await p.fill('#phone', PHONE); await p.fill('#code', pin); await p.click('#go');
   await p.waitForSelector('#tabs:not([hidden])', { timeout: 30000 }).catch(async () => { console.log('     sign-in note: ' + await p.locator('#signinNote').textContent() + ' · pin ' + (pin ? 'ok' : 'missing')); throw new Error('sign-in failed'); });

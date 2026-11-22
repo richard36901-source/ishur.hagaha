@@ -11,10 +11,10 @@ Legend: `[x]` done · `[ ]` open · **You** = only Richard can do it · **Claude
 | # | Milestone | Status |
 |---|---|---|
 | M1 | App built and checked on staging | done 20/11 |
-| M2 | Apple Developer account active | paid 20/11, waiting for Apple (up to 2 days) |
-| M3 | Server and site changes live on production | open |
-| M4 | App signed, App Store record created | open, needs M2 |
-| M5 | App on your own iPhone through TestFlight | open, needs M3 + M4 |
+| M2 | Apple Developer account active | **active since 21/11 06:31** ("Welcome to the Apple Developer Program" and "Welcome to App Store Connect", in the richardtomskiy mailbox) |
+| M3 | Server and site changes live on production | **done 22/11** (main session's promote, production 44e7737; checked by Claude: new site files served, /api/guest-lang live, guest languages off in production) |
+| M4 | App signed, App Store record created | **done 22/11** (team L8468XN7L4, App Store Connect id 6837931770) |
+| M5 | App on your own iPhone through TestFlight | **done 22/11**: installed from TestFlight on Richard's iPhone; the launch screen shows green with the logo (his words) |
 | M6 | Approved on the App Store | open, roughly two weeks after M2 (the redesign was added on 20/11) |
 | M7 | On Google Play | open, 3 weeks or more |
 | M8 | Real clients using it | open |

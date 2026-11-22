@@ -147,3 +147,21 @@ message ever sent from it, and not blocked by the sign-in limits.
 
 ## Not written yet
 FCM sender in the Worker, release signing for Android.
+
+## TestFlight build (worked 22/11/2026)
+Team L8468XN7L4 (Richard Tomskiy), automatic signing, App Store Connect app id 6837931770 ("אישורי הגעה לאירועים", SKU
+ishur-client), internal group "ishur team". No iPhone is registered, so Xcode cannot make a development profile; the
+App Store export makes its own distribution profile. Steps (raise N each time):
+```
+cd app && npx cap copy ios && cd ios/App
+xcodebuild -project App.xcodeproj -scheme App -configuration Release -destination 'generic/platform=iOS' \
+  -archivePath /tmp/ishur.xcarchive -derivedDataPath ../DerivedData CODE_SIGNING_ALLOWED=NO CURRENT_PROJECT_VERSION=N archive
+# carry the push permission into the archive (the export keeps it and turns it into aps-environment production)
+APP=/tmp/ishur.xcarchive/Products/Applications/App.app
+for f in "$APP"/Frameworks/*.framework; do codesign -f -s - "$f"; done
+codesign -f -s - --entitlements App/App.entitlements "$APP"
+xcodebuild -exportArchive -archivePath /tmp/ishur.xcarchive -exportPath /tmp/ishur-upload \
+  -exportOptionsPlist UploadOptions.plist -allowProvisioningUpdates
+```
+UploadOptions.plist: method app-store-connect, teamID L8468XN7L4, signingStyle automatic, destination upload.
+Pass: "Uploading “App.ipa” is complete" and EXPORT SUCCEEDED; the build shows in TestFlight after Apple's processing.

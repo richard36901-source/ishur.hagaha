@@ -86,7 +86,7 @@
   function splashOut() { var sp = $('splash'); if (!sp || sp.classList.contains('out')) return; setTimeout(function () { sp.classList.add('out'); setTimeout(function () { sp.hidden = true; }, 400); }, Math.max(0, 800 - (Date.now() - BOOT))); }
   setTimeout(splashOut, 5000);
   function show(signedIn) {
-    $('signin').hidden = signedIn; $('app').hidden = !signedIn; $('tabs').hidden = !signedIn;
+    $('signin').hidden = signedIn; $('app').hidden = !signedIn; $('tabs').hidden = !signedIn; $('connect').hidden = true;
     splashOut();
   }
   /* Home ("ראשי") is the regular client board itself, so the app looks and works like the board clients know.
@@ -254,7 +254,7 @@
     document.dispatchEvent(new CustomEvent('ishur:signed-out', { detail: { session: s } }));
     if (s && !silent) post('/api/account/logout', { session: s });
     session = ''; events = []; current = ''; data = null; filter = 'all'; boardFor = ''; $('boardFrame').removeAttribute('src');
-    store.clear(); $('code').value = ''; $('signinNote').textContent = '';
+    store.clear(); $('code').value = ''; if (window.IshurOtpPaint) IshurOtpPaint(); $('signinNote').textContent = '';
     show(false);
   }
 
@@ -265,9 +265,10 @@
     if (phone.replace(/\D/g, '').length < 9) { note.textContent = 'כתבו את מספר הטלפון המלא שנרשמתם איתו.'; return; }
     if (code.length !== 4) { note.textContent = 'הקוד הוא 4 ספרות.'; return; }
     go.disabled = true; note.textContent = 'בודקים…';
-    post('/api/account/pin-login', { phone: phone, pin: code }).then(function (r) {
+    post('/api/account/pin-login', { phone: phone, pin: code, app: 1 }).then(function (r) {
       go.disabled = false;
-      if (r.status === 200 && r.body.session) { session = r.body.session; store.set('session', session); note.textContent = ''; haptic(); T('signin_ok'); start(); return; }
+      if (r.status === 200 && r.body.session) { session = r.body.session; store.set('session', session); note.textContent = ''; haptic(); T('signin_ok'); afterCode(); return; }
+      if (r.status === 403 && r.body && r.body.error === 'use-identity') { T('signin_fail', { kind: 'use-identity' }); note.textContent = 'החשבון שלכם מחובר ל-Apple או ל-Google. היכנסו עם הכפתור למטה.'; return; }
       T('signin_fail', { kind: String(r.status) });
       if (r.status === 429) note.textContent = 'נעשו כמה ניסיונות ברצף. נסו שוב בעוד שעה, או כתבו לנו בוואטסאפ ונעזור מיד.';
       else if (r.status === 403) note.textContent = 'הטלפון והקוד לא תואמים. בדקו את הקוד בהודעה ששלחנו, או כתבו לנו בוואטסאפ.';
@@ -275,6 +276,64 @@
     });
   });
   $('forgot').addEventListener('click', function (e) { e.preventDefault(); T('whatsapp_tap', { from: 'signin' }); openUrl(waLink('היי, אני צריך/ה את קוד הכניסה לאפליקציה של ishur')); });
+  /* 22/11 the code's four boxes follow the one real field underneath (typing, autofill from a message, paste) */
+  (function () {
+    var f = $('code'), boxes = document.querySelectorAll('#otp .otp-box');
+    function paint() {
+      var v = f.value.replace(/\D/g, '').slice(0, 4); if (v !== f.value) f.value = v;
+      var focus = document.activeElement === f;
+      Array.prototype.forEach.call(boxes, function (b, i) { b.textContent = v[i] || ''; b.classList.toggle('full', !!v[i]); b.classList.toggle('on', focus && i === Math.min(v.length, 3)); });
+      if (v.length === 4 && focus) haptic();
+    }
+    ['input', 'focus', 'blur', 'change'].forEach(function (ev) { f.addEventListener(ev, paint); });
+    window.IshurOtpPaint = paint;
+    paint();
+  })();
+  /* 22/11 Sign in with Apple / Google (plan round 6 §3; server: worker/identity.js). Only in the installed app.
+     After the first sign-in with the code the app asks once to connect Apple (or Google); from then on the server
+     refuses the code in the app for that phone and these buttons sign in. The App Store reviewer's demo phone is
+     never asked. ENV.googleClientId turns the Google button on once Richard's Google Cloud client exists. */
+  var SL = plugin('SocialLogin'), slReady = null;
+  function idInit() {
+    if (!SL) return Promise.reject(new Error('no-plugin'));
+    if (!slReady) { var cfg = { apple: { clientId: 'io.ishur.client' } }; if (ENV.googleClientId) cfg.google = { iOSClientId: ENV.googleClientId, iOSServerClientId: ENV.googleServerClientId || ENV.googleClientId }; slReady = SL.initialize(cfg); }
+    return slReady;
+  }
+  function idToken(provider) {
+    return idInit().then(function () { return SL.login({ provider: provider, options: provider === 'apple' ? { scopes: ['email', 'name'] } : { scopes: ['email', 'profile'] } }); })
+      .then(function (res) { var t = res && res.result && res.result.idToken; if (!t) throw new Error('no-token'); return t; });
+  }
+  var cancelled = function (e) { return /cancel|1001/i.test(String((e && (e.code || e.message)) || e)); };
+  if (SL) { $('idBtns').hidden = false; if (ENV.googleClientId) { $('googleIn').hidden = false; $('googleLink').hidden = false; } }
+  function idSignIn(provider) {
+    var note = $('signinNote');
+    idToken(provider).then(function (t) { note.textContent = 'בודקים…'; return post('/api/account/id-login', { provider: provider, id_token: t }); }).then(function (r) {
+      if (r.status === 200 && r.body.session) { session = r.body.session; store.set('session', session); note.textContent = ''; haptic(); T('signin_ok', { via: provider }); start(); return; }
+      T('signin_fail', { kind: provider + ':' + (r.body && r.body.error || r.status) });
+      note.textContent = r.status === 404 ? 'החשבון הזה עוד לא מחובר. היכנסו פעם אחת עם הטלפון והקוד, ואז חברו אותו.' : 'לא הצלחנו להתחבר כרגע. נסו שוב, או היכנסו עם הטלפון והקוד.';
+    }).catch(function (e) { if (!cancelled(e)) note.textContent = 'לא הצלחנו להתחבר כרגע. נסו שוב, או היכנסו עם הטלפון והקוד.'; });
+  }
+  $('appleIn').addEventListener('click', function () { T('id_tap', { provider: 'apple', from: 'signin' }); idSignIn('apple'); });
+  $('googleIn').addEventListener('click', function () { T('id_tap', { provider: 'google', from: 'signin' }); idSignIn('google'); });
+  /* right after a sign-in with the code: ask once to connect, unless already linked, the review phone, or no plugin */
+  function afterCode() {
+    if (!SL) { start(); return; }
+    post('/api/account/identities', { session: session }).then(function (r) {
+      if (r.status !== 200 || (r.body.linked || []).length || r.body.review) { start(); return; }
+      $('signin').hidden = true; $('connect').hidden = false; T('connect_view');
+    }).catch(function () { start(); });
+  }
+  function idLink(provider) {
+    var note = $('connectNote');
+    idToken(provider).then(function (t) { note.textContent = 'מחברים…'; return post('/api/account/link-identity', { session: session, provider: provider, id_token: t }); }).then(function (r) {
+      if (r.status === 200) { note.textContent = ''; haptic(); T('connect_ok', { provider: provider }); start(); return; }
+      T('connect_fail', { kind: provider + ':' + (r.body && r.body.error || r.status) });
+      note.textContent = r.status === 409 ? 'החשבון הזה כבר מחובר לטלפון אחר. נסו חשבון אחר, או כתבו לנו בוואטסאפ.' : 'לא הצלחנו לחבר כרגע. נסו שוב.';
+    }).catch(function (e) { if (!cancelled(e)) note.textContent = 'לא הצלחנו לחבר כרגע. נסו שוב.'; });
+  }
+  $('appleLink').addEventListener('click', function () { idLink('apple'); });
+  $('googleLink').addEventListener('click', function () { idLink('google'); });
+  $('connectHelp').addEventListener('click', function (e) { e.preventDefault(); T('whatsapp_tap', { from: 'connect' }); openUrl(waLink('היי, צריך/ה עזרה בחיבור Apple או Google לאפליקציה')); });
   $('contactWa').addEventListener('click', function (e) { e.preventDefault(); T('whatsapp_tap', { from: 'contact' }); openUrl(waLink('היי, יש לי שאלה על האירוע שלי')); });
   $('contactMail').addEventListener('click', function () { T('mail_tap', { from: 'contact' }); });
   /* 22/11 appearance: light, dark, or as the phone; the board inside the app follows */
