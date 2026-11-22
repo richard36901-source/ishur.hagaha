@@ -4337,7 +4337,7 @@ async function notifyDesigner(env, token, what, text) {
 export async function sayDeclined(env, guest, from, say, plain) {
   let gl = null;
   try { gl = env.RATE ? JSON.parse((await env.RATE.get('giftlinks:' + guest.token)) || 'null') : null; } catch {}
-  const txt = declineGiftText(gl);
+  const txt = declineGiftText(gl, guest.token);   /* 22/11: the one gift link, not the raw Bit / PayBox links */
   const k = giftKey(guest.token, normPhone(from));
   if (!txt || !env.RATE || await env.RATE.get(k).catch(() => null)) return say(plain);
   const r = await say(txt);

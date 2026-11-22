@@ -79,6 +79,7 @@ test('webhook: a guest who wrote to 055-308-9799 gets the decline (gift) reply F
   const replies = sent.filter(s => s.body.type === 'text' && s.body.to === '972501112222');
   assert.ok(replies.length >= 1, 'a reply went out: ' + JSON.stringify(sent.map(s => s.body.type)));
   for (const s of replies) assert.equal(s.pid, N9799, 'reply must leave from the number the guest wrote to');
-  assert.ok(replies.some(s => s.body.text.body.includes(BIT) && s.body.text.body.includes(PB)), 'the decline reply carries the gift links');
+  /* 22/11 (Richard's yes): the decline reply carries the ONE gift link of the event, not the raw Bit / PayBox links */
+  assert.ok(replies.some(s => s.body.text.body.includes('https://go.ishur.io/gift/' + TOK.slice(0, 8))), 'the decline reply carries the gift link');
   assert.equal(env.RATE.m.get('gph:972501112222'), N9799, 'the number is remembered for later replies and templates');
 });

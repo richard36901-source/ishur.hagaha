@@ -120,7 +120,8 @@ test('decline reply: gift links exactly once per guest, plain thank-you otherwis
   const guest = { token: TOK, guest_id: 'G1' };
   await sayDeclined(env, guest, '0500000009', say, 'חבל שלא תהיו');
   await sayDeclined(env, guest, '0500000009', say, 'חבל שלא תהיו');
-  assert.ok(said[0].includes(BIT) && said[0].includes(PB));
+  /* 22/11 (Richard's yes): the reply carries the ONE gift link of the event, not the raw Bit / PayBox links */
+  assert.ok(said[0].includes('https://go.ishur.io/gift/' + TOK.slice(0, 8)) && !said[0].includes(BIT) && !said[0].includes(PB));
   assert.equal(said[1], 'חבל שלא תהיו');
   assert.ok(env.RATE.m.has(giftKey(TOK, '972500000009')));
 });
@@ -177,4 +178,11 @@ test('gift link counting: every open and tap is its own key, so nothing is overw
   assert.deepEqual(giftStatsFromKeys([]), { open: 0, bit: 0, paybox: 0 });
   assert.equal(giftCountable('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1'), true);
   for (const ua of ['WhatsApp/2.23.20.0', 'facebookexternalhit/1.1', 'Googlebot/2.1', 'TelegramBot (like TwitterBot)', 'curl/8.0']) assert.equal(giftCountable(ua), false, ua);
+});
+
+test('decline reply text: with the event it is one link; the wording before the link is unchanged', () => {
+  const both = declineGiftText({ on: true, bit: BIT, paybox: PB }, TOK), one = declineGiftText({ on: true, bit: '', paybox: PB }, TOK);
+  assert.equal(both, 'תודה שעדכנתם 🙏 אם תרצו לתת מתנה לבעלי השמחה, אפשר כאן:\nhttps://go.ishur.io/gift/c1c5fcf5');
+  assert.equal(one, both);
+  assert.equal(declineGiftText({ on: false, bit: BIT }, TOK), '');
 });

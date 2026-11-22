@@ -29,8 +29,11 @@ export function giftSlug(token) { return String(token || '').slice(0, 8); }
 export function giftPageUrl(token) { return 'https://go.ishur.io/gift/' + giftSlug(token); }
 
 /* a) the reply to "לא מגיע". Plural address, no "הנחה". '' = nothing to add. */
-export function declineGiftText(gl) {
+export function declineGiftText(gl, token) {
   if (!giftActive(gl)) return '';
+  /* 22/11 Richard: one link for every guest (go.ishur.io/gift/<slug>). With one way to give it forwards straight there,
+     with two it shows the choose page, and the open and the tap are counted. Without a token: the two links, as before. */
+  if (token) return 'תודה שעדכנתם 🙏 אם תרצו לתת מתנה לבעלי השמחה, אפשר כאן:\n' + giftPageUrl(token);
   const bit = cleanLink(gl.bit), pb = cleanLink(gl.paybox);
   return ['תודה שעדכנתם 🙏 אם תרצו לתת מתנה לבעלי השמחה, אפשר כאן:', bit ? 'ביט: ' + bit : '', pb ? 'פייבוקס: ' + pb : ''].filter(Boolean).join('\n');
 }
