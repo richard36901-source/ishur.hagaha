@@ -302,6 +302,7 @@
      { Hebrew: translation }. They are fetched once, when the language is chosen. ROWS above stays the first word on
      the board's own texts; the file covers everything else. A number inside a text is lifted out here too, so
      "3 מגיעים" in the file also answers "7 מגיעים". */
+  var DICT_V = '20261122b';
   var BASE = (function () { try { var cs = document.currentScript && document.currentScript.src; return cs ? cs.replace(/i18n\.js(\?.*)?$/, 'i18n/') : 'assets/i18n/'; } catch (e) { return 'assets/i18n/'; } })();
   var EXTRA = Object.create(null), LOADING = Object.create(null);
   function indexFile(obj) {
@@ -330,7 +331,8 @@
   function loadFile(c, then) {
     if (c === 'he' || EXTRA[c] || LOADING[c]) { if (EXTRA[c] && then) then(); return; }
     LOADING[c] = 1;
-    fetch(BASE + c + '.json').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+    /* 22/11: the dictionaries change more often than this file; DICT_V is bumped with every dictionary change so a returning device does not keep an old copy */
+    fetch(BASE + c + '.json?v=' + DICT_V).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
       LOADING[c] = 0; if (j && typeof j === 'object') { EXTRA[c] = indexFile(j); if (then) then(); }
     }).catch(function () { LOADING[c] = 0; });
   }

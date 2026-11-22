@@ -142,6 +142,9 @@ export async function giftStats(env, token) {
 
 /* the page behind the button (GET /gift/<slug>) */
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+/* Bit and PayBox open only on a phone with the app. On a computer the page also shows a code to scan with the phone. */
+const QR_BLOCK = `<div id="qr" hidden style="margin-top:1.2rem;padding-top:1rem;border-top:1px solid var(--bdr)"><p style="margin:0 0 .7rem">במחשב? סרקו עם הטלפון:</p><div id="qrc" style="display:inline-block;background:#fff;padding:10px;border-radius:8px"></div></div>
+<script>(function(){try{if(!(matchMedia('(hover:hover) and (pointer:fine)').matches&&innerWidth>700))return;var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';s.onload=function(){try{new QRCode(document.getElementById('qrc'),{text:location.origin+location.pathname,width:160,height:160});document.getElementById('qr').hidden=false}catch(e){}};document.head.appendChild(s)}catch(e){}})()</script>`;
 export function giftPageHtml(gl, hosts, slug) {
   const bit = giftActive(gl) ? cleanLink(gl.bit) : '', pb = giftActive(gl) ? cleanLink(gl.paybox) : '';
   /* with a slug the buttons pass through us (/gift/<slug>/<method>) so the tap is counted; without one they are the links themselves */
@@ -155,5 +158,5 @@ export function giftPageHtml(gl, hosts, slug) {
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Heebo,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
 main{background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:24px 20px;max-width:420px;width:100%;text-align:center}h1{font-size:1.3rem;margin:0 0 .4rem}p{color:var(--mute);margin:0 0 1.2rem}
 .b{display:block;padding:15px;border-radius:8px;background:var(--acc);color:var(--on);text-decoration:none;font-weight:600;font-size:1.05rem;margin:.6rem 0}.b:active{transform:scale(.99)}small{display:block;margin-top:1rem;color:var(--mute);font-size:.75rem}</style></head>
-<body><main>${body}<small>ishur.io · אישורי הגעה</small></main></body></html>`;
+<body><main>${body}${bit || pb ? QR_BLOCK : ''}<small>ishur.io · אישורי הגעה</small></main></body></html>`;
 }

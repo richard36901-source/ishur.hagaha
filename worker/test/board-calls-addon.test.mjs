@@ -29,7 +29,11 @@ test('round armed by hand on the regular round day shows once', () => {
 });
 test('calls row is done once every waiting guest used all tries', () => {
   const g = Array(35).fill(''); g[1]='g'; g[2]='G1'; g[4]='972501234567'; g[21]='נדרשת שיחה'; g[28]='TOK'; g[29]='1';
-  const r2 = { events: raw.events, guests: { values: [Array(35).fill('h'), g] } };
+  /* 22/11/2026 (Richard's OK): the sample event was dated 20/11/2026 and this test began to fail the day after, because a
+     passed event reads 'passed'. The dates are now relative to today, with the same gaps as before (event in 5 days, first wave 14 days ago). */
+  const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  const liveRow = raw.events.values[1].slice(); liveRow[6] = day(5); liveRow[39] = day(-14);
+  const r2 = { events: { values: [Array(45).fill('h'), liveRow] }, guests: { values: [Array(35).fill('h'), g] } };
   const d = buildDashboard('TOK', r2, 0, { callsAddon: true });
   const row = d.sends.find(s => s.key === 'calls');
   assert.equal(row.status, 'sent', JSON.stringify(row));
