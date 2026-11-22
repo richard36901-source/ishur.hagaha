@@ -11,7 +11,7 @@ Legend: `[x]` done · `[ ]` open · **You** = only Richard can do it · **Claude
 | # | Milestone | Status |
 |---|---|---|
 | M1 | App built and checked on staging | done 20/11 |
-| M2 | Apple Developer account active | paid 20/11, waiting for Apple (up to 2 days) |
+| M2 | Apple Developer account active | **active since 21/11 06:31** ("Welcome to the Apple Developer Program" and "Welcome to App Store Connect", in the richardtomskiy mailbox) |
 | M3 | Server and site changes live on production | open |
 | M4 | App signed, App Store record created | open, needs M2 |
 | M5 | App on your own iPhone through TestFlight | open, needs M3 + M4 |
