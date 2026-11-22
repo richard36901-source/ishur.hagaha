@@ -23,6 +23,7 @@
    'acct:'+nonce+':'+phone)[0..32]. Verifies on any edge without a KV read
    (KV is eventually consistent); the KV row only revokes. Never in a URL.
    ========================================================================== */
+import { verifyIdToken, linkIdentity, phoneForIdentity, linkedTo, unlinkAll, PROVIDERS } from './identity.js';
 
 /* 21/11 Richard: no credit for a Google review. Google's policy ("Rating Manipulation") forbids incentives and asking
    only satisfied customers, so a Google review is asked of everyone and earns nothing. The video testimonial is our
@@ -302,6 +303,10 @@ export async function handleAccount(request, env, origin, url, d) {
     const raw = await d.readSnapshot(env, 'dashboard').catch(() => null);
     if (!raw) { await pinFail('הגיליון לא נקרא', { phone }); return d.deny(502, 'reader-failed', origin); }
     if (!d.eventsForPhone(raw, phone).length) { await pinFail('הקוד נכון אבל אין אירוע משולם על המספר הזה בגיליון', { phone }); return d.deny(403, 'bad-login', origin); }
+    /* 22/11 Richard: once a phone is linked to Apple or Google, the APP signs it in only that way (the website keeps the
+       code; the App Store reviewer's demo phone stays on the code). Asked only after a correct code, so this tells a
+       guesser nothing. */
+    if (b.app && !isReviewPhone(env, phone) && (await linkedTo(env, phone)).length) return d.deny(403, 'use-identity', origin);
     const session = await mintSession(env, phone);
     await d.logEvent(env, { area: 'אזור אישי', action: 'כניסה לאזור האישי עם קוד קבוע', ok: true, phone }).catch(() => {});
     return d.okJson({ ok: true, session }, origin);
@@ -376,6 +381,23 @@ export async function handleAccount(request, env, origin, url, d) {
     return d.deny(403, 'email-account', origin);
   }
 
+  /* 22/11 Sign in with Apple / Google (identity.js): a linked account signs in to the app */
+  if (path === 'id-login') {
+    if (!PROVIDERS.includes(b.provider)) return d.deny(400, 'unknown-provider', origin);
+    if ((d.memOver && d.memOver('idlogin:' + ip, 30, 3600)) || await d.overBudget(env, 'rl:idlogin:' + ip, 30, 3600)) return d.deny(429, 'rate-limited', origin);
+    const id = await verifyIdToken(env, b.provider, b.id_token);
+    if (!id.ok) { await d.logEvent(env, { area: 'אזור אישי', action: 'כניסה עם ' + b.provider + ' נדחתה: ' + id.error, ok: false }).catch(() => {}); return d.deny(id.error === 'not-configured' ? 503 : 403, id.error, origin); }
+    const owner = await phoneForIdentity(env, id);
+    if (!owner) return d.deny(404, 'not-linked', origin);
+    await d.logEvent(env, { area: 'אזור אישי', action: 'כניסה לאפליקציה עם ' + (b.provider === 'apple' ? 'Apple' : 'Google'), ok: true, phone: owner }).catch(() => {});
+    return d.okJson({ ok: true, session: await mintSession(env, owner) }, origin);
+  }
+  /* an admin unlinks a phone (the client lost the Apple/Google account; the code then works in the app once more) */
+  if (path === 'unlink-identity') {
+    if (!env.ADMIN_KEY || !d.safeEqual(String(b.admin_key || ''), String(env.ADMIN_KEY))) return d.deny(403, 'bad-admin-key', origin);
+    return d.okJson({ ok: true, removed: await unlinkAll(env, d.normPhone(b.phone || '')) }, origin);
+  }
+
   /* everything below needs a session */
   const phone = await verifySession(env, b.session, d.safeEqual);
   if (!phone) return d.deny(403, 'bad-session', origin);
@@ -385,6 +407,21 @@ export async function handleAccount(request, env, origin, url, d) {
     await env.RATE.put('acctrev:' + n, '1', { expirationTtl: SESSION_DAYS * 86400 }).catch(() => {});
     await env.RATE.delete('acctsess:' + n).catch(() => {});
     return d.okJson({ ok: true }, origin);
+  }
+
+  /* 22/11 link Apple / Google to this phone (asked in the app right after the first sign-in with the code) */
+  if (path === 'link-identity') {
+    if (!PROVIDERS.includes(b.provider)) return d.deny(400, 'unknown-provider', origin);
+    const id = await verifyIdToken(env, b.provider, b.id_token);
+    if (!id.ok) return d.deny(id.error === 'not-configured' ? 503 : 403, id.error, origin);
+    const r = await linkIdentity(env, phone, id);
+    if (!r.ok) return d.deny(409, r.error, origin);
+    await d.logEvent(env, { area: 'אזור אישי', action: 'חשבון ' + (b.provider === 'apple' ? 'Apple' : 'Google') + ' חובר לאפליקציה', ok: true, phone }).catch(() => {});
+    return d.okJson({ ok: true, linked: r.linked }, origin);
+  }
+  if (path === 'identities') {
+    const mine = await linkedTo(env, phone);
+    return d.okJson({ ok: true, linked: mine.map(x => x.provider), review: isReviewPhone(env, phone) }, origin);
   }
 
   if (path === 'contact') {
