@@ -10,6 +10,7 @@ const DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'templ
 const T = JSON.parse(fs.readFileSync(path.join(DIR, 'i18n', 'lines.json'), 'utf8'));
 const SRC = fs.readdirSync(DIR).filter(f => f.endsWith('.json')).map(f => JSON.parse(fs.readFileSync(path.join(DIR, f), 'utf8'))).filter(s => !T.skip.includes(s.payload.name));
 const HEB = /[֐-׿]/;
+const RSVP = ['מגיע/ה', 'לא מגיע/ה', 'עדיין לא ידוע'];
 const vars = t => [...t.matchAll(/\{\{(\d+)\}\}/g)].map(m => Number(m[1]));
 const comp = (p, type) => p.components.find(c => c.type === type);
 
@@ -20,7 +21,8 @@ test('every Hebrew line and button has all six translations', () => {
       const e = T.lines[line.replace(/\{\{\d+\}\}/g, '{{#}}')];
       for (const l of GUEST_LANGS) if (!e || !e[l]) miss.push(l + ': ' + line);
     }
-    for (const b of (comp(s.payload, 'BUTTONS') || { buttons: [] }).buttons) for (const l of GUEST_LANGS) if (!(T.buttons[b.text] || {})[l]) miss.push(l + ' button: ' + b.text);
+    /* the three answer buttons come from guest-lang.js (guestButtons), every other button from the table */
+    for (const b of (comp(s.payload, 'BUTTONS') || { buttons: [] }).buttons) for (const l of GUEST_LANGS) if (!(b.type === 'QUICK_REPLY' && RSVP.includes(b.text)) && !(T.buttons[b.text] || {})[l]) miss.push(l + ' button: ' + b.text);
   }
   assert.deepEqual(miss, []);
 });
