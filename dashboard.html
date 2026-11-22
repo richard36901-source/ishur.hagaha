@@ -2483,7 +2483,17 @@
   /* ── gift links (Bit / PayBox), under the navigation link ── */
   (function () {
     if (!$('giftBox')) return;
-    function paint(j) { if (!j) return; $('giftBit').value = j.bit || ''; $('giftPaybox').value = j.paybox || ''; $('giftOn').checked = !!j.on; }
+    /* 22/11: how many guests opened the gift link and which way they tapped. We never know who paid, only who tapped. */
+    function paintStats(j) {
+      var st = (j && j.stats) || {}, el = $('giftStats');
+      if (!el) { el = document.createElement('div'); el.id = 'giftStats'; el.style.cssText = 'font-size:.8rem;color:var(--ink2);margin-top:.5rem;line-height:1.5'; $('giftBox').appendChild(el); }
+      if (!j || !j.on || !(st.open || st.bit || st.paybox)) { el.hidden = true; return; }
+      el.hidden = false; el.textContent = '';
+      var a = document.createElement('div'); a.textContent = 'פתחו את קישור המתנה: ' + (st.open || 0) + ' · נגעו בביט: ' + (st.bit || 0) + ' · נגעו בפייבוקס: ' + (st.paybox || 0);
+      var b = document.createElement('div'); b.style.color = 'var(--ink3)'; b.textContent = 'זה מי שנכנס לקישור, לא מי ששילם בפועל.';
+      el.appendChild(a); el.appendChild(b);
+    }
+    function paint(j) { if (!j) return; $('giftBit').value = j.bit || ''; $('giftPaybox').value = j.paybox || ''; $('giftOn').checked = !!j.on; paintStats(j); }
     fetch(CFG.endpoint('giftlinks'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token }) })
       .then(function (r) { return r.json(); }).then(paint).catch(function () {});
     $('giftSave').addEventListener('click', function () {
