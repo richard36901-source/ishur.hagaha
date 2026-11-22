@@ -320,3 +320,11 @@ html[data-theme=dark] .skel .sk::after{background:linear-gradient(90deg,transpar
 /* the skeleton covers the board's frame from the top while it loads, instead of sitting under it */
 .view.board{position:relative}
 #boardWait.skel{position:absolute;top:0;inset-inline:0;bottom:0;background:var(--bg);z-index:1}
+/* 22/11 Richard: the sign-in code as four boxes, one per digit (as banks and WhatsApp do) */
+.otp{position:relative;display:flex;gap:.6rem;justify-content:center;margin:.2rem 0 .4rem}
+.otp-box{width:56px;height:60px;border-radius:12px;background:var(--fill);display:flex;align-items:center;justify-content:center;
+  font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink);box-shadow:inset 0 0 0 1.5px transparent;transition:box-shadow .15s}
+.otp-box.on{box-shadow:inset 0 0 0 2px var(--gold)}
+.otp-box.full{box-shadow:inset 0 0 0 1.5px var(--hair)}
+.otp-box.full.on{box-shadow:inset 0 0 0 2px var(--gold)}
+.otp input{position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:16px;caret-color:transparent;color:transparent;background:transparent;border:0;min-height:0}

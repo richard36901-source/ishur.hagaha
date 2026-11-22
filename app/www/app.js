@@ -254,7 +254,7 @@
     document.dispatchEvent(new CustomEvent('ishur:signed-out', { detail: { session: s } }));
     if (s && !silent) post('/api/account/logout', { session: s });
     session = ''; events = []; current = ''; data = null; filter = 'all'; boardFor = ''; $('boardFrame').removeAttribute('src');
-    store.clear(); $('code').value = ''; $('signinNote').textContent = '';
+    store.clear(); $('code').value = ''; if (window.IshurOtpPaint) IshurOtpPaint(); $('signinNote').textContent = '';
     show(false);
   }
 
@@ -275,6 +275,19 @@
     });
   });
   $('forgot').addEventListener('click', function (e) { e.preventDefault(); T('whatsapp_tap', { from: 'signin' }); openUrl(waLink('היי, אני צריך/ה את קוד הכניסה לאפליקציה של ishur')); });
+  /* 22/11 the code's four boxes follow the one real field underneath (typing, autofill from a message, paste) */
+  (function () {
+    var f = $('code'), boxes = document.querySelectorAll('#otp .otp-box');
+    function paint() {
+      var v = f.value.replace(/\D/g, '').slice(0, 4); if (v !== f.value) f.value = v;
+      var focus = document.activeElement === f;
+      Array.prototype.forEach.call(boxes, function (b, i) { b.textContent = v[i] || ''; b.classList.toggle('full', !!v[i]); b.classList.toggle('on', focus && i === Math.min(v.length, 3)); });
+      if (v.length === 4 && focus) haptic();
+    }
+    ['input', 'focus', 'blur', 'change'].forEach(function (ev) { f.addEventListener(ev, paint); });
+    window.IshurOtpPaint = paint;
+    paint();
+  })();
   $('contactWa').addEventListener('click', function (e) { e.preventDefault(); T('whatsapp_tap', { from: 'contact' }); openUrl(waLink('היי, יש לי שאלה על האירוע שלי')); });
   $('contactMail').addEventListener('click', function () { T('mail_tap', { from: 'contact' }); });
   /* 22/11 appearance: light, dark, or as the phone; the board inside the app follows */

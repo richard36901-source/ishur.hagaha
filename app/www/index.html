@@ -38,7 +38,12 @@
     <label for="phone">טלפון</label>
     <input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="050-0000000" dir="ltr">
     <label for="code">קוד</label>
-    <input id="code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="••••" dir="ltr">
+    <!-- 22/11 Richard: four small boxes, one per digit. One real field sits invisibly over them, so the phone can
+         still fill the code from a message, a pasted code lands whole, and backspace works as usual. -->
+    <div class="otp" id="otp" dir="ltr">
+      <input id="code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="one-time-code" aria-label="קוד בן 4 ספרות">
+      <span class="otp-box"></span><span class="otp-box"></span><span class="otp-box"></span><span class="otp-box"></span>
+    </div>
     <button id="go" class="btn" type="submit">כניסה</button>
     <p id="signinNote" class="note" role="status" aria-live="polite"></p>
     <a id="forgot" class="link" href="#">אין לי קוד · כתבו לנו בוואטסאפ</a>
