@@ -12,7 +12,7 @@ Legend: `[x]` done · `[ ]` open · **You** = only Richard can do it · **Claude
 |---|---|---|
 | M1 | App built and checked on staging | done 20/11 |
 | M2 | Apple Developer account active | **active since 21/11 06:31** ("Welcome to the Apple Developer Program" and "Welcome to App Store Connect", in the richardtomskiy mailbox) |
-| M3 | Server and site changes live on production | open |
+| M3 | Server and site changes live on production | **done 22/11** (main session's promote, production 44e7737; checked by Claude: new site files served, /api/guest-lang live, guest languages off in production) |
 | M4 | App signed, App Store record created | open, needs M2 |
 | M5 | App on your own iPhone through TestFlight | open, needs M3 + M4 |
 | M6 | Approved on the App Store | open, roughly two weeks after M2 (the redesign was added on 20/11) |
