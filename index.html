@@ -1779,15 +1779,17 @@ body.has-promo #nav{top:var(--promo-h,34px)}
 .addon-q-note{font-size:.72rem;color:var(--ink3);margin-top:.6rem;line-height:1.45}
 
 /* ═══ DARK (Richard 22/11/2026): follows the device. Surfaces go dark green-black, text goes light, the brand green
-   stays on buttons. Phone mockups and the promo pieces above keep their light look on purpose. ═══ */
+   and the gold stay exactly as they are; only what was white or light goes dark. Small green TEXT on a dark
+   surface uses a lighter tint (--green-t), because the brand green on near-black cannot be read.
+   Phone mockups and the promo pieces above keep their light look on purpose. ═══ */
 @media (prefers-color-scheme:dark){
   :root{
     --bg:#0E1512; --bg2:#121A16; --bg3:#18221D; --card:#16201B; --cream:#111915; --cream2:#1B2620;
     --ink:#F1F3F0; --ink2:#CFD6D1; --ink3:#9AA59E;
     --bdr:#27332C; --bdr2:rgba(127,209,168,.28);
-    --green:#1B6B4C; --green2:#23805C; --green3:#1E3A2E; --green4:#14221B;
+    --green3:#1E3A2E; --green4:#14221B;   /* the light green tints go dark; the brand green itself is not touched (Richard 22/11) */
     --green-t:#7FD1A8; --green2-t:#A6E3C3; --pine-t:#DCEBE2; --navy-t:#C9D6EE;
-    --gold:#C7AE7A; --gold-pale:rgba(199,174,122,.22);
+    --gold-pale:rgba(199,174,122,.22);   /* gold stays as it is */
     --sh:0 1px 3px rgba(0,0,0,.5),0 4px 16px rgba(0,0,0,.35);
     --sh2:0 4px 12px rgba(0,0,0,.5),0 16px 48px rgba(0,0,0,.45);
   }
