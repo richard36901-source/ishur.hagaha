@@ -547,6 +547,19 @@
     var b = ev.target.closest && ev.target.closest('[data-pin]'); if (!b) return;
     var box = document.getElementById('popPin'), v = document.getElementById('popPinV'), pop = document.querySelector('#pop .pop'); if (!box || !v || !pop) return;
     var tg = box.querySelector('[data-pin="toggle"]'), cp = box.querySelector('[data-pin="copy"]');
+    if (b.dataset.pin === 'send') {
+      var ev0 = events.filter(function (x) { return x.token === pop.dataset.t; })[0] || {};
+      askConfirm('הלקוח יקבל עכשיו הודעה עם קוד הכניסה שלו, למספר ' + (ev0.phone || 'שרשום באירוע') + '.', { title: 'לשלוח ל' + (ev0.client || 'לקוח') + ' את קוד הכניסה?', ok: 'כן, לשלוח' }).then(function (y) {
+        if (!y) return;
+        b.disabled = true;
+        api('client-pin', { token: pop.dataset.t, send: true }).then(function (r) { return r.json(); }).then(function (j) {
+          b.disabled = false;
+          if (j && j.ok) toast('הקוד נשלח ללקוח' + (j.via === 'email' ? ' במייל' : ' בוואטסאפ'));
+          else toast(j && j.error === 'quiet-hours' ? 'אפשר לשלוח ללקוחות רק בין 09:00 ל-21:00' : j && j.error === 'rate-limited' ? 'כבר נשלח כמה פעמים בשעה האחרונה' : 'הקוד לא נשלח, נסו שוב');
+        }).catch(function () { b.disabled = false; toast('הקוד לא נשלח, נסו שוב'); });
+      });
+      return;
+    }
     if (b.dataset.pin === 'copy') { var c = box.dataset.code || ''; if (c && navigator.clipboard) navigator.clipboard.writeText(c).then(function () { toast('הקוד הועתק'); }, function () { toast('לא הועתק'); }); return; }
     if (box.dataset.shown === '1') { box.dataset.shown = ''; v.textContent = '••••'; tg.textContent = 'הצג'; cp.hidden = true; return; }
     tg.disabled = true;
@@ -566,7 +579,9 @@
       '<div class="meta">' + esc(e.plan || '') + (e.tier ? ' עד ' + esc(e.tier) : '') + (e.sum ? ' · ₪' + esc(e.sum) : '') + ' · <span dir="ltr">' + esc(e.phone || '') + '</span></div>' +
       /* 18/11 Richard: the client's sign-in code at the top of the popup, hidden until asked for */
       '<div class="meta" id="popPin" style="margin:.45rem 0;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">קוד כניסה של הלקוח: <b id="popPinV" dir="ltr" style="font-size:1.05rem;letter-spacing:.15em">••••</b>' +
-        '<button type="button" class="btn g" data-pin="toggle">הצג</button><button type="button" class="btn g" data-pin="copy" hidden>📋 העתק</button></div>' +
+        '<button type="button" class="btn g" data-pin="toggle">הצג</button><button type="button" class="btn g" data-pin="copy" hidden>📋 העתק</button>' +
+        /* 22/11 Richard: send the client their sign-in code from here */
+        '<button type="button" class="btn g" data-pin="send">שליחת הקוד ללקוח</button></div>' +
       /* 18/11 Richard: the client's phone on this event, replaceable from here */
       '<div class="meta" style="margin:.45rem 0;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">טלפון הלקוח: <input type="tel" id="popPhone" dir="ltr" inputmode="tel" autocomplete="off" value="' + esc(e.phone || '') + '" style="flex:1;min-width:11rem;font:inherit;padding:.3rem .5rem;border:1px solid var(--bdr,#ccc);border-radius:6px;background:transparent;color:inherit">' +
         '<button type="button" class="btn g" data-phone="save">החלף</button></div>' +

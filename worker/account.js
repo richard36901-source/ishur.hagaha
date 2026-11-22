@@ -221,6 +221,22 @@ export async function sendLoginCode(env, phone, code, { email = '', d }) {
 const code6 = () => String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
 
 /* POST /api/account/otp · login · me · logout · contact */
+/* 22/11 Richard: "send the sign-in code to the client" from the clients screen. The same message and the same order as
+   when the client asks for it on the board: a WhatsApp text inside the 24h window, otherwise the ishur_kod template or
+   the email on file. Only to the phone of the event, only 09:00–21:00 (no WhatsApp to clients at night), 5 an hour. */
+export async function adminSendPin(env, d, phone, { now = new Date() } = {}) {
+  const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(now));
+  if (hour < 9 || hour >= 21) return { ok: false, why: 'quiet-hours' };
+  if (await d.overBudget(env, 'rl:apinsend:' + phone, 5, 3600)) return { ok: false, why: 'rate-limited' };
+  const pin = await pinFor(env, phone);
+  let sent = d.sendText ? await d.sendText(env, phone, `קוד הכניסה שלכם ללוח הבקרה ולאזור האישי ב-ishur.io: ${pin}\nהוא קבוע, כדאי לשמור אותו.`, 'client').catch(() => null) : null;
+  let via = 'whatsapp';
+  if (!sent || !sent.ok) { const r = await sendLoginCode(env, phone, pin, { email: '', d }); sent = r; via = (r && r.via) || ''; }
+  const ok = !!(sent && sent.ok);
+  await d.logEvent(env, { area: 'אזור אישי', action: ok ? `קוד הכניסה הקבוע נשלח ללקוח ע"י מנהל (${via})` : 'קוד הכניסה הקבוע לא נשלח (מנהל)', ok, review: !ok, phone }).catch(() => {});
+  return ok ? { ok: true, via } : { ok: false, why: 'send-failed' };
+}
+
 export async function handleAccount(request, env, origin, url, d) {
   const path = url.pathname.replace(/^\/api\/account\//, '');
   if (request.method !== 'POST') return d.deny(404, 'unknown-account-route', origin);

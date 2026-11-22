@@ -83,7 +83,7 @@ import { venueFor, parseCommit, writeCommit } from './venue-commit.js';
 import { packageFor } from './package.js';
 import { reviewOn, demoGate, withDemo, rekey as reviewRekey } from './review-demo.js';   /* 21/11 App Store review demo */
 import { suggest as lineupSuggest, clean as lineupClean, ics as lineupIcs, feedKey as lineupKey, readRec as lineupRead, writeRec as lineupWrite } from './lineup.js';   /* 21/11 לוז אירוע */   /* 20/11 "החבילה שלי" in the app */   /* 20/11 the board's venue-commitment tile */   /* 20/11 client app */
-import { handleAccount, handleReviewClaim, sendLoginCode, reviewState, readLedger, ledgerBalance, emailFromLeads, readContact, validEmail, pinFor, resetPin, boardLockOn, boardSessionOk, mintSession as mintAcctSession, verifySession as verifyAcctSession } from './account.js';   /* 12/11 personal-area */
+import { handleAccount, handleReviewClaim, sendLoginCode, adminSendPin, reviewState, readLedger, ledgerBalance, emailFromLeads, readContact, validEmail, pinFor, resetPin, boardLockOn, boardSessionOk, mintSession as mintAcctSession, verifySession as verifyAcctSession } from './account.js';   /* 12/11 personal-area */
 import { sendEmail as sendPlainEmail } from './outreach.js';
 import { navLinkOk, giftLinkOk } from './links.js';
 import { handleSubeventCreate, handleSubeventSend, handleSubeventRemind, handleSubeventSummary, continueSubevents, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
@@ -12461,6 +12461,8 @@ const WORKER = {
       let phone = normPhone(b.phone || '');
       if (!phone && b.token) { const rec = await tokenRecord(env, String(b.token).trim()); phone = rec ? normPhone(rec.phone || '') : ''; }
       if (!/^972\d{8,9}$/.test(phone)) return deny(404, 'no-phone', origin);
+      /* 22/11 Richard: {send:true} sends the client their code (WhatsApp, else the template or email). The code itself is not returned. */
+      if (b.send) { const r = await adminSendPin(env, accountDeps(), phone); return okJson(r.ok ? { ok: true, via: r.via } : { ok: false, error: r.why }, origin); }
       const pin = b.reset ? await resetPin(env, phone) : await pinFor(env, phone);
       if (b.reset) await logEvent(env, { area: 'אזור אישי', action: 'קוד כניסה הוחלף ע"י מנהל', ok: true, phone }).catch(() => {});
       return okJson({ ok: true, pin, locked: !!(await env.RATE.get('acctpinlock:' + phone).catch(() => null)) }, origin);
