@@ -94,6 +94,7 @@ import { fixedCostAction, buildIncomeDays, editEventCosts } from './ops-money.js
 import BUILD_INFO from './build-info.json' with { type: 'json' };   /* written by scripts/build-info.mjs at deploy */
 import { handleOps, brainFns, buildCapacity, buildSendLive, planFns } from './ops.js';
 import { readLogValues, plannedMarks } from './calendar-log.js';   /* 21/11 the calendar's read of the message log, old days kept */
+import { parkPayment, drainParked } from './parked-payments.js';   /* 22/11 a payment that arrived without the payer's phone waits, then runs as a real payment */
 import { cleanItems, itemsToKeep } from './seatplan-items.js';   /* 22/11 the hall's chuppah, bar, stage… kept with the table map */
 import { precomputePlans } from './ops-plan.js';   /* 04/11 the סקירה plan, precomputed every tick into plan:<period> */
 import { handleRaffle } from './raffle.js';
@@ -843,7 +844,9 @@ async function processGrowPayment(env, flat) {
         body: JSON.stringify({ problem: 'missing-ref-or-phone', raw: flat }),
       }).catch(() => {});
     }
-    await alert(env, 'תשלום Grow', 'הגיע תשלום בלי אסמכתא או טלפון — טיפול ידני', JSON.stringify(flat).slice(0, 400), { oneoff: true });   /* oneoff: one payment */
+    /* 22/11: the payment is kept (ipnwait:<ref>) and waits for the phone; money that came in and was not handled always reaches Slack */
+    if (ref) await parkPayment(env, ref, flat);
+    await alert(env, 'תשלום Grow', `הגיע תשלום${sum ? ' של ₪' + sum : ''}${name ? ' מ' + name : ''} בלי ${!ref ? 'אסמכתא' : 'טלפון'}: הלקוח עדיין לא נפתח במערכת.\n\n🔴 *נדרשת פעולה ממך:* לבדוק מי הקונה ולהשלים את הרכישה. התשלום שמור וממתין.`, '', { oneoff: true, important: true });   /* oneoff: one payment */
     return new Response('accepted-incomplete', { status: 200 });
   }
 
@@ -11361,6 +11364,7 @@ const WORKER = {
       ctx.waitUntil(opsJob(env, 'drainPartyNudges', () => drainPartyNudges(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'runEventDayBlasts', () => runEventDayBlasts(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'drainLateInvites', () => drainLateInvites(env)).catch(() => {}));
+      ctx.waitUntil(drainParked(env, flat => processGrowPayment(env, flat), { log: r => logEvent(env, { area: 'תשלום', action: r.ok ? 'תשלום שחיכה לטלפון הופעל' : 'תשלום שחיכה לטלפון לא הופעל', ok: r.ok, review: !r.ok, phone: r.phone, ref: r.ref, detail: String(r.text || '').slice(0, 200) }) }).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'drainCallRounds', () => drainCallRounds(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'runQaDigests', () => runQaDigests(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'checkCustomTemplates', () => checkCustomTemplates(env)).catch(() => {}));
