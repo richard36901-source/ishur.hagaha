@@ -1887,9 +1887,10 @@
       return !!digits && String(g.phone || '').replace(/\D/g, '').indexOf(digits) > -1;
     });
     /* 18/11 Richard (evening): "הכל" and every other tab keep the order the list was uploaded in, status beside the name.
-       Only the "אישרו" tab is sorted: the newest confirmation on top, down to the first one. */
-    if (filter === 'confirmed') list = list.map(function (g, i) { return { g: g, i: i }; }).sort(function (a, b) {
-      var ca = a.g.status === 'confirmed' ? 1 : 0, cb = b.g.status === 'confirmed' ? 1 : 0;
+       Only the "אישרו" tab is sorted: the newest confirmation on top, down to the first one.
+       23/11 Shalev: the "לא מגיעים" tab the same way, whoever pressed last is on top. */
+    if (filter === 'confirmed' || filter === 'declined') list = list.map(function (g, i) { return { g: g, i: i }; }).sort(function (a, b) {
+      var ca = a.g.status === filter ? 1 : 0, cb = b.g.status === filter ? 1 : 0;
       if (ca !== cb) return cb - ca;
       if (ca) { var ta = String(a.g.at_ts || a.g.at || ''), tb = String(b.g.at_ts || b.g.at || ''); if (ta !== tb) return ta < tb ? 1 : -1; }
       return a.i - b.i;
