@@ -2047,7 +2047,7 @@ async function deleteGuestRows(env, token) {
     if (env.RATE) await env.RATE.put('sheetid:guests', gid).catch(() => {});
   }
   /* the Make proxy takes Hebrew ranges raw — encoding them returns nothing */
-  const vals = await evProxy(env, `spreadsheets/${SID}/values/אורחים!AC1:AC6000`);
+  const vals = await evProxy(env, `spreadsheets/${SID}/values/אורחים!AC1:AC30000`);
   const col = (vals && vals.values) || [];
   const rows = [];
   col.forEach((r, i) => { if (String((r || [])[0] || '').trim() === token) rows.push(i); });
@@ -2080,8 +2080,8 @@ async function handleSheetCleanup(request, env, origin) {
   let tab, rows = [];
   if (b.action === 'dedupe-guests') {
     tab = 'אורחים';
-    const ids = (await evProxy(env, `spreadsheets/${SID}/values/אורחים!C1:C6000`) || {}).values || [];
-    const toks = (await evProxy(env, `spreadsheets/${SID}/values/אורחים!AC1:AC6000`) || {}).values || [];
+    const ids = (await evProxy(env, `spreadsheets/${SID}/values/אורחים!C1:C30000`) || {}).values || [];
+    const toks = (await evProxy(env, `spreadsheets/${SID}/values/אורחים!AC1:AC30000`) || {}).values || [];
     const seen = new Set();
     toks.forEach((r, i) => {
       if (String((r || [])[0] || '').trim() !== token) return;
@@ -3191,6 +3191,7 @@ const CBQ_GRACE_MS = 5 * 60 * 1000;
 const CBQ_MAX_TRIES = 3;
 const CBQ_TTL_S = 3 * 86400;
 const CBQ_RETRY_MS = 45 * 60 * 1000;
+const CBQ_STALE_MS = 24 * 3600 * 1000;
 
 /* Only two things stop a callback: Richard pulled the number out of calling
    by hand (nocall:), or the number is blocked outright (block:).
@@ -3253,7 +3254,7 @@ async function cbqEnqueue(env, phone, why) {
   let cur = null;
   try { cur = JSON.parse(await env.RATE.get('cbq:' + p)); } catch {}
   const rec = {
-    at: (cur && cur.at) || Date.now(),
+    at: (cur && cur.at && Date.now() - Number(cur.at) < CBQ_STALE_MS) ? cur.at : Date.now(),   /* 23/11: somebody who rings again after a day starts a fresh entry */
     tries: (cur && Number(cur.tries)) || 0,
     last: (cur && Number(cur.last)) || 0,
     why: String(why || 'inbound'),
@@ -3300,6 +3301,8 @@ async function runShirCallbacks(env, { max = 3, force = false } = {}) {
   for (const r of rows) {
     if (dialed.length >= max) break;
     if (Number(r.tries) >= CBQ_MAX_TRIES) { await cbqClear(env, r.phone); skipped++; continue; }
+    /* 23/11: ringing somebody back a day or more after they rang is not a callback any more */
+    if (Number(r.at) && now - Number(r.at) > CBQ_STALE_MS && !force) { await cbqClear(env, r.phone); skipped++; continue; }
     /* a call still in progress, or one that just ended and will clear itself */
     if (now - (Number(r.at) || 0) < CBQ_GRACE_MS && !force) { waiting++; continue; }
     if (Number(r.last) && now - Number(r.last) < CBQ_RETRY_MS && !force) { waiting++; continue; }
@@ -3323,7 +3326,10 @@ async function runShirCallbacks(env, { max = 3, force = false } = {}) {
        client, a lead or a stranger is rung back by Noa from hers. Never the
        other way round. Without Noa's line configured the entry waits. */
     const noaLine = hit.caller_kind !== 'guest';
-    if (isTestPhone(env, target)) { await logEvent(env, { area: 'שיחות', action: 'חזרה למספר בדיקה דולגה', ok: true, phone: target, detail: 'why:test-number' }).catch(() => {}); continue; }
+    /* 23/11: the guard was handed the whole target object since 11/09, so every number read as a test number: no callback
+       was ever dialled and the same line was written to the log ~130 times an hour. It checks the phone now; a real test
+       number is dropped from the queue (one log line), not skipped forever. */
+    if (isTestPhone(env, r.phone)) { await cbqClear(env, r.phone); skipped++; await logEvent(env, { area: 'שיחות', action: 'חזרה למספר בדיקה דולגה', ok: true, phone: r.phone, detail: 'why:test-number' }).catch(() => {}); continue; }
     if (noaLine && !(env.NOA_FROM && env.NOA_INBOUND_AGENT)) { waiting++; continue; }
     const payload = buildCallPayload(target, noaLine ? env.NOA_FROM : env.SHIR_FROM,
       { override_agent_id: noaLine ? env.NOA_INBOUND_AGENT : (env.SHIR_INBOUND_AGENT || '') });

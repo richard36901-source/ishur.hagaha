@@ -102,9 +102,22 @@ export function parseGuestFile(fileName, buf) {
   const isCfb = m[0] === 0xD0 && m[1] === 0xCF && m[2] === 0x11 && m[3] === 0xE0;
   if (!isZip && !isCfb) throw new Error('not-a-spreadsheet');
   const wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
-  const first = wb.SheetNames[0];
-  if (!first) throw new Error('empty-workbook');
-  return XLSX.utils.sheet_to_json(wb.Sheets[first], { header: 1, raw: false, defval: '' });
+  if (!wb.SheetNames[0]) throw new Error('empty-workbook');
+  /* 23/11 (לירן ביטון: 14 tabs, one per side of the family, 370 rows, and only the first tab's 147 were read): every tab
+     is read, one after the other, in the same three columns. A tab's own header row is dropped unless it is the first
+     one, so row numbers in the report still start from the top of the first tab. Hidden tabs are left out. */
+  const hidden = new Set(((wb.Workbook && wb.Workbook.Sheets) || []).filter(x => x && x.Hidden).map(x => x.name));
+  const out = [];
+  for (const name of wb.SheetNames) {
+    if (hidden.has(name) || !wb.Sheets[name]) continue;
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: false, defval: '' });
+    if (!out.length) { out.push(...rows); continue; }
+    const r0 = rows[0] || [];
+    /* a header has words in the phone column; a guest row with a bad number has digits and must reach the report */
+    const headerLike = rows.length > 0 && !/\d/.test(String(r0[1] ?? '')) && (String(r0[0] ?? '').trim() !== '' || String(r0[1] ?? '').trim() !== '');
+    out.push(...(headerLike ? rows.slice(1) : rows));
+  }
+  return out;
 }
 
 /* Rows → guests, applying the column contract.

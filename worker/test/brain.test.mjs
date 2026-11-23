@@ -430,6 +430,21 @@ test('call_round_not_dialing: stays quiet when a dial happened <60 min ago, befo
   assert.equal(finding(h, 'call_round_not_dialing:395962fa'), null);
 });
 
+/* 23/11: one dialer, several rounds. While it dials for one round the others wait for their turn. */
+test('call_round_not_dialing: a round with no dial is not reported while another round had a dial in the last 30 minutes; it is once the dialer has been silent for 30', async () => {
+  const OTHER = '6a3155cc-0000-4000-8000-0000000000dd';
+  const mk = (lastOtherMinAgo) => {
+    const { h } = callHarness({ kvx: { ['callround:' + OTHER]: J({ at: '2026-11-04', guest_ids: ['X1'], flagged: 1 }), ['calllast:' + OTHER]: new Date(WED1030 - lastOtherMinAgo * MIN).toISOString() },
+      dx: { buildCallQueue: () => ({ queue: [...Array.from({ length: 73 }, (_, i) => ({ token: SHILAT, guest_id: 'G' + i, phone: '97250' + String(1000000 + i), event_date: '2026-11-12' })), { token: OTHER, guest_id: 'X1', phone: '972501999999', event_date: '2026-11-12' }] }) } });
+    return h;
+  };
+  const busy = mk(8); await busy.run({ now: WED1030, only: 'call_round_not_dialing' });
+  assert.equal(finding(busy, 'call_round_not_dialing:395962fa'), null, 'waiting for its turn');
+  assert.equal(busy.slack.filter(s => /שילת ושי/.test(s.t)).length, 0, 'no Slack line');
+  const silent = mk(45); await silent.run({ now: WED1030, only: 'call_round_not_dialing' });
+  assert.ok(finding(silent, 'call_round_not_dialing:395962fa'), 'the dialer has been silent for 45 minutes: reported');
+});
+
 test('call_round_kick: approved → runShirDispatch (max 6); dry → preview only', async () => {
   const { h } = callHarness();
   const pb = PLAYBOOKS.find(p => p.id === 'call_round_kick');

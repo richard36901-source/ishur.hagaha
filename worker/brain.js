@@ -81,7 +81,8 @@ export const CHECKS = [
         if (st === 'PENDING' && c.now - s.since > 24 * H) out.push({ id: `template_watch:pending:${t.name}:${t.language || ''}`, status: 'warn', severity: 'P2', playbook: 'template_variant',
           title_he: `תבנית ${t.name} ממתינה לאישור ${Math.round((c.now - s.since) / H)} שעות`, detail: `${w.name} · ${t.category || ''}`, evidence: [`status=${st}`, `since=${new Date(s.since).toISOString()}`],
           data: { waba: w.waba, tok: w.name, name: t.name, language: t.language || 'he', category: t.category || '' } });
-        if (st === 'REJECTED' && s.since && c.now - s.since < 7 * 86400e3) out.push({ id: `template_watch:rejected:${t.name}:${t.language || ''}`, status: 'fail', severity: 'P2',
+        /* 23/11: said once, in the first 6 hours after the rejection (it used to come back every 6 hours for a week: ishur_doch_kod, 7 times). The change itself stays in the changes log. */
+        if (st === 'REJECTED' && s.since && c.now - s.since < 6 * H) out.push({ id: `template_watch:rejected:${t.name}:${t.language || ''}`, status: 'fail', severity: 'P2',
           title_he: `תבנית ${t.name} נדחתה במטא`, detail: String(t.rejected_reason || '').slice(0, 200), evidence: [`${w.name}`, `rejected_reason=${t.rejected_reason || '—'}`] });
       }
     }
@@ -314,6 +315,12 @@ export const CHECKS = [
     const evRow = t => ((raw.events && raw.events.values) || []).find(e => String(e[1] || '').trim() === t) || null;
     const out = [];
     let shared = null;
+    /* 23/11: ONE dialer serves the rounds one after the other. While it is dialing for any round, the rounds that have not
+       had a dial yet are waiting for their turn, not stalled (23/11 10:23: five rounds were reported while Shir was dialing
+       ten calls a tick for a sixth). A round is reported only when no round at all had a dial in the last 30 minutes. */
+    let lastAny = 0;
+    for (const tok of Object.keys(byTok)) { const t = Date.parse((await kget(c.env, 'calllast:' + tok)) || '') || 0; if (t > lastAny) lastAny = t; }
+    if (lastAny && c.now - lastAny < 30 * MIN) { c.log('החייגן מחייג עכשיו לסבב אחר — הסבבים האחרים מחכים לתורם'); return []; }
     for (const [tok, gs] of Object.entries(byTok)) {
       const ev = evRow(tok);
       const [roundRaw, addon] = await Promise.all([kget(c.env, 'callround:' + tok), kget(c.env, 'callsaddon:' + tok)]);
@@ -375,8 +382,11 @@ export const CHECKS = [
     const prev = await kjson(c.env, 'brain:progress');
     const { state, stuck } = progressStep(prev, cand, { now: c.now, today: c.today });
     await kput(c.env, 'brain:progress', state, 2 * 86400);
-    c.log(`מתוכנן להיום: ${cand.length} שורות בתנועה צפויה · ${stuck.length} לא זזו 30 דקות`);
-    return stuck.map(({ it, mins }) => ({ id: 'planned_not_progressing:' + it.id, status: 'fail', severity: 'P1', slack_key: 'stuck:' + it.id,
+    /* 23/11: call rounds share one dialer. While one round's count moved in the last 30 minutes, the others wait in line. */
+    const callMoving = cand.some(it => it.kind === 'call' && state.items[it.id] && c.now - state.items[it.id].since < 30 * MIN && (Number(it.done_n) || 0) > 0);
+    const real = callMoving ? stuck.filter(x => x.it.kind !== 'call') : stuck;
+    c.log(`מתוכנן להיום: ${cand.length} שורות בתנועה צפויה · ${real.length} לא זזו 30 דקות${callMoving && real.length !== stuck.length ? ` · ${stuck.length - real.length} סבבי שיחות מחכים לתור` : ''}`);
+    return real.map(({ it, mins }) => ({ id: 'planned_not_progressing:' + it.id, status: 'fail', severity: 'P1', slack_key: 'stuck:' + it.id,
       title_he: `תקוע: ${it.label_he} — ${it.done_n} מתוך ${it.planned_n}, לא זז ${mins} דקות`, detail: it.reason_he || '',
       evidence: [`plan:today at=${new Date(hit.at).toISOString()}`, `status=${it.status}`, `done_n=${it.done_n}`, `planned_n=${it.planned_n}`, `planned_at=${it.planned_at}`],
       data: { item_id: it.id, kind: it.kind, done_n: it.done_n, planned_n: it.planned_n, deep_link: it.deep_link || '' } }));
