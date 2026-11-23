@@ -15068,6 +15068,7 @@ const WORKER = {
         /* wave 3 is a paid add-on: the dashboard shows it only once Grow
            confirmed the payment (Richard 12/10) */
         sentWaves.callDate = await env.RATE.get('calldate:' + token).catch(() => null);
+        sentWaves.escDate = await env.RATE.get('esc:' + token).catch(() => null);   /* 23/11: the day the plan's call rounds really opened */
         sentWaves.noCalls = !!(await env.RATE.get('nocalls:' + token).catch(() => null));   /* 19/11: this event asked for no phone calls */
         sentWaves.todaDate = await env.RATE.get('todadate:' + token).catch(() => null);
         sentWaves.extraPaid = !!(await env.RATE.get('extrasend:' + token));

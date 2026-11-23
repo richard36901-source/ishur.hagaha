@@ -83,3 +83,14 @@ test('23/11 a call round that already dialled never shows a day in the future', 
   assert.deepEqual(rows.map(r => r.status), ['sent', 'sent', 'sent']);
   for (const r of rows) assert.ok(r.date <= day(0), r.key + ' ' + r.date);
 });
+test('23/11 the rounds are dated from the day they really opened, not from a day set by hand later', () => {
+  const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  const evRow = Array(45).fill(''); evRow[1] = 'TOK5'; evRow[6] = day(6); evRow[31] = 'הכל כלול'; evRow[39] = day(-12); evRow[40] = day(-10);
+  const g = Array(35).fill(''); g[1] = 'c'; g[2] = 'G1'; g[3] = 'a'; g[4] = '972501234561'; g[28] = 'TOK5'; g[29] = '3';
+  const d = buildDashboard('TOK5', { events: { values: [Array(45).fill('h'), evRow] }, guests: { values: [Array(35).fill('h'), g] } }, 0, { callDate: day(0), escDate: day(-6) });
+  const rows = d.sends.filter(s => /^calls/.test(s.key));
+  assert.equal(rows[0].date, day(-6));
+  assert.ok(rows[1].date > rows[0].date && rows[2].date > rows[1].date && rows[2].date <= day(0), rows.map(r => r.date).join(' '));
+  const later = buildDashboard('TOK5', { events: { values: [Array(45).fill('h'), evRow] }, guests: { values: [Array(35).fill('h'), g] } }, 0, { callDate: day(-8), escDate: day(-6) });
+  assert.equal(later.sends.find(s => s.key === 'calls').date, day(-8), 'an earlier hand-set day still wins');
+});

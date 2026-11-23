@@ -289,7 +289,11 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
       d.setUTCDate(d.getUTCDate() + 1);
       /* 18/11 Richard: a round that falls on Friday (the send was on Thursday) starts on Sunday; never on Shabbat */
       if (d.getUTCDay() === 5) d.setUTCDate(d.getUTCDate() + 2); else if (d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);
-      const start = (sent.callDate && /^\d{4}-\d{2}-\d{2}$/.test(sent.callDate)) ? sent.callDate : d.toISOString().slice(0, 10);   /* 12/11: admin-set day wins */
+      let start = (sent.callDate && /^\d{4}-\d{2}-\d{2}$/.test(sent.callDate)) ? sent.callDate : d.toISOString().slice(0, 10);   /* 12/11: admin-set day wins */
+      /* 23/11: the rounds really opened on esc:<token>. A day set by hand AFTER that (שילת: opened 19/11, the day moved to
+         23/11 for a later round) must not push the first round's date forward. */
+      const escDay = String(sent.escDate || '').slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(escDay) && escDay < start) start = escDay;
       /* 04/11: a guest who used up every try is not waiting any more - the
          round is over even though the sheet still flags them */
       const cap = planMaxCallTries(planKeyOf(ev)) || (sent.callsAddon ? 1 : 0);
