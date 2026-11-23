@@ -315,7 +315,10 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
         const reached = guests.filter(g => g.tries >= k).length;
         const waitingK = guests.filter(g => g.status === 'awaiting_call' && g.tries < k).length;
         const stK = dk > todayIso && !reached ? 'scheduled' : over ? (reached ? 'sent' : 'passed') : waitingK ? (reached || dk <= todayIso ? 'running' : 'scheduled') : (reached || status === 'sent') ? 'sent' : 'scheduled';
-        sends.push({ key: 'calls_r' + k, label: 'שיחה טלפונית למי שלא ענה · סבב ' + k, date: dk, status: stK, auto: true, queued: waitingK, round: k, dialed_n: reached });
+        /* a round that already dialled cannot carry a day that has not come yet (the first round's day was moved by hand
+           after it started: שילת 23/11, rounds 2 and 3 were shown as done on 24/11 and 25/11) */
+        const shownDay = reached && dk > todayIso ? todayIso : dk;
+        sends.push({ key: 'calls_r' + k, label: 'שיחה טלפונית למי שלא ענה · סבב ' + k, date: shownDay, status: stK, auto: true, queued: waitingK, round: k, dialed_n: reached });
       }
     }
   }

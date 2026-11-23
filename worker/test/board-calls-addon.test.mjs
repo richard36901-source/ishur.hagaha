@@ -74,3 +74,12 @@ test('23/11 הכל כלול: three call rows, a day apart, each with its own sta
   const r3 = d3.sends.filter(s => /^calls/.test(s.key));
   assert.equal(r3.length, 1); assert.equal(r3[0].label, 'שיחה טלפונית למי שלא ענה');
 });
+test('23/11 a call round that already dialled never shows a day in the future', () => {
+  const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  const evRow = Array(45).fill(''); evRow[1] = 'TOK4'; evRow[6] = day(6); evRow[31] = 'הכל כלול'; evRow[39] = day(-12); evRow[40] = day(-10);
+  const g = Array(35).fill(''); g[1] = 'c'; g[2] = 'G1'; g[3] = 'a'; g[4] = '972501234561'; g[28] = 'TOK4'; g[29] = '3';
+  const d = buildDashboard('TOK4', { events: { values: [Array(45).fill('h'), evRow] }, guests: { values: [Array(35).fill('h'), g] } }, 0, { callDate: day(0) });
+  const rows = d.sends.filter(s => /^calls/.test(s.key));
+  assert.deepEqual(rows.map(r => r.status), ['sent', 'sent', 'sent']);
+  for (const r of rows) assert.ok(r.date <= day(0), r.key + ' ' + r.date);
+});
