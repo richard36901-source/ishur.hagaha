@@ -56,6 +56,8 @@
      enqueue is older than 90 s — list() lags its own writes.
    ========================================================================== */
 
+import { readSnapshotDirect } from './gsheets.js';
+
 export const K = {
   cache: 'snapcache', last: 'snaplast', patch: 'snappatch', dirty: 'snapdirty', dirtyAct: 'snapdirty:act', fail: 'snapfail',
   q: 'sheetq:e:', qPending: 'sheetq:pending', qLock: 'sheetq:lock', wfail: 'sheetq:fail',
@@ -113,6 +115,13 @@ export async function fetchRaw(env) {
   /* 18/11 staging: the development environment has no Make scenario behind it. Its sheet is an invented demo kept in its
      own KV (seeded by scripts/staging-seed.mjs); HOOK_STATUS = "kv:<key>" names it. Never true in production. */
   if (env.STAGING === '1' && String(env.HOOK_STATUS).startsWith('kv:')) return kjson(env, String(env.HOOK_STATUS).slice(3));
+  /* 23/11 (Make credits ran out a third time): with GOOGLE_SA set the sheet is read straight from Google, no Make
+     operation at all. Make stays the fallback for the case Google does not answer. gsheets.js. */
+  if (env.GOOGLE_SA) {
+    const direct = await readSnapshotDirect(env).catch(() => null);
+    if (direct) { stateOf(env).via = 'google'; return direct; }
+  }
+  if (env.RATE) stateOf(env).via = 'make';
   const r = await fetch(env.HOOK_STATUS, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'snapshot' }) }).catch(() => null);
   if (!r || r.status !== 200) return null;
   try { return await r.json(); } catch { return null; }
