@@ -49,3 +49,16 @@ test('brain planned_not_progressing: rounds that wait while another round is bei
   const g = await run(NOW + 62 * 60e3, [item('a', 30, 100, 'in_progress'), item('b', 0, 234, 'waiting'), item('c', 0, 296, 'waiting')]);
   assert.deepEqual(g.map(x => x.data.item_id).sort(), ['a', 'b', 'c']);
 });
+
+test('23/11 call pace: a calls-only cron on the 5s, wired to the calls part, batch size untouched', async () => {
+  const { readFileSync } = await import('node:fs');
+  const toml = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
+  const src = readFileSync(new URL('../index.js', import.meta.url), 'utf8');
+  assert.ok(/^crons = \[[^\]]*"5,15,25,35,45,55 \* \* \* \*"/m.test(toml), 'the cron is in wrangler.toml');
+  const i = src.indexOf("startsWith('5,15,25')");
+  assert.ok(i > 0);
+  const block = src.slice(i, src.indexOf('return;', i));
+  assert.ok(block.includes("part: 'calls'") && !block.includes("part: 'main'"), 'calls only');
+  assert.ok(src.indexOf("startsWith('5,15,25')") < src.indexOf("startsWith('5-55/10')"), 'checked before the plan tick');
+  assert.ok(/Number\(env\.CALL_PARALLEL\) \|\| 10/.test(src), '10 at a time stays');
+});

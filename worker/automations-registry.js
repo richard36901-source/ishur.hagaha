@@ -97,7 +97,7 @@ export const AUTOMATIONS = [
     trigger: { cron: '*/10 * * * *', il: 'כל 10 דקות; שליחות רק בחלון השליחה, חיוג רק בחלון השיחות', via: 'audit.job runPacer' },
     conditions: ['חג (isNoContactDay) → רק בדיקת תבניות', 'paused → יוצא אחרי ריקון תור הסלאק ובדיקת פרסום', 'מריץ את המנוע עם תקציב 25 רק אם pacer:pending = היום'],
     kv_markers: { global: ['pacer:pending', 'pacer:last', 'paused', 'slackqflush:<יום>', 'autoretry:<יום>'] },
-    budget: '25 הודעות לאורחים לפעימה (PACE_SENDS) · 12 חיוגים לפעימה (PACE_CALLS), עד 10 במקביל (CALL_PARALLEL) · 3 חזרות שיחה מתוכם',
+    budget: '25 הודעות לאורחים לפעימה (PACE_SENDS) · 12 חיוגים לפעימה (PACE_CALLS), עד 10 במקביל (CALL_PARALLEL), פעימת שיחות כל 5 דקות · 3 חזרות שיחה מתוכם',
     live: { jobs: ['runPacer'], kv: 'pacer:last' },
     source: S(5491, 'async function runPacer'),
     evidence: [E(5392, 'const PACE_SENDS = 25', '25 לפעימה'), E(5393, 'const PACE_CALLS = 12', '12 חיוגים לפעימה'), E(5516, 'if (await sendingPaused(env)) return { ok: true, paused: true };', 'עצירה ידנית'), E(5544, "await env.RATE.get('pacer:pending') === today", 'המנוע רץ רק כשיש עבודה ממתינה'), E(5613, "await env.RATE.put('pacer:last'", 'דופק הפייסר')] },

@@ -11354,6 +11354,13 @@ const WORKER = {
     /* 04/11: the heavy read-only jobs live on their own cron, 5 minutes after the
        pacer, so they get their own invocation budget. On the 10-minute invocation they
        starved the main pacer pass (regular sends) and the סקירה precompute. */
+    /* 23/11 Richard ("יש לנו מספיק קיבולת"): 878 guests waited and the dialer placed 10 every 10 minutes. The batch stays
+       10 at a time (CALL_PARALLEL, the 04/11 carrier refusals), it now also runs on the 5s: a calls-only invocation. */
+    if (String(event.cron || '').startsWith('5,15,25')) {
+      ctx.waitUntil(opsJob(env, 'runPacer', (run) => runPacer(env, run, { part: 'calls' })).catch(e =>
+        alert(env, 'פייסר', 'סבב שיחות נפל', String((e && e.message) || e), { key: 'pacer_calls_crash', sev: 'P1' })));
+      return;
+    }
     if (String(event.cron || '').startsWith('5-55/10')) {
       ctx.waitUntil(opsJob(env, 'buildCalendarMonth', () => buildCalendarMonth(env, ilDate().slice(0, 7))).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'auditMeta', async () => audit.refreshMeta(env, await readSnapshot(env, 'background'))).catch(() => {}));
