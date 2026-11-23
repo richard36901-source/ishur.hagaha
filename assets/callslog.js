@@ -34,6 +34,7 @@
     '.clx .lc{white-space:nowrap}.clx .lc small{display:block;color:var(--x-mute);font-size:.7rem;white-space:normal}' +
     '.clx .lc button{font:inherit;font-size:.68rem;padding:.08rem .45rem;border-radius:99px;border:1px solid var(--line,#E3E1D8);background:transparent;color:inherit;cursor:pointer;margin-inline-start:.2rem}' +
     '.clx .lc audio{display:block;width:220px;height:30px;margin-top:.25rem}' +
+    '.clx tr.x-play td{padding:.35rem .6rem .6rem;display:table-cell}.clx tr.x-play td::before{content:none}.clx tr.x-play audio{display:block;width:100%;height:48px}' +
     '.clx .x-more{display:flex;gap:.6rem;align-items:center;justify-content:center;padding:.7rem 0;color:var(--x-mute);font-size:.76rem}' +
     '.clx .x-empty{color:var(--x-mute);text-align:center;padding:1.2rem 0}' +
     /* phones: the table becomes cards */
@@ -257,7 +258,13 @@
         /* our kept copy (audit.js:166) as a blob with the key in a header, so it never sits in a link or a request URL */
         fetch((opt.base || 'https://go.ishur.io') + c.recording, { headers: { 'X-Admin-Key': opt.adminKey || '' } })   /* 12/11 security: header, not URL */
           .then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
-          .then(function (b) { var a = document.createElement('audio'); a.controls = true; a.src = URL.createObjectURL(b); pl.closest('.lc').appendChild(a); a.play().catch(function () {}); pl.remove(); })
+          .then(function (b) { var a = document.createElement('audio'); a.controls = true; a.src = URL.createObjectURL(b);
+            /* 23/11 Richard: the player was 220px inside the cell and the seek line could not be grabbed. It now gets a row of its own, the full width of the table; one player at a time. */
+            var tr = pl.closest('tr'), cell = pl.closest('.lc');
+            Array.prototype.forEach.call(el.querySelectorAll('tr.x-play'), function (r) { r.remove(); });
+            if (tr && tr.parentNode) { var pr = document.createElement('tr'); pr.className = 'x-play'; var td = document.createElement('td'); td.colSpan = tr.children.length || 9; td.appendChild(a); pr.appendChild(td); tr.parentNode.insertBefore(pr, tr.nextSibling); }
+            else cell.appendChild(a);
+            a.play().catch(function () {}); pl.remove(); })
           .catch(function () { pl.textContent = 'אין הקלטה'; });
         return;
       }
