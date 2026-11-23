@@ -21,6 +21,7 @@
    then older days. Each request scans at most MAX_DAYS days, so one request
    never reads the whole log; a short page with a cursor means "more below".
    ========================================================================== */
+import { textHit, phoneHit } from './inbox-search.js';
 
 export const AUDIT_START = '2026-10-22';
 export const MAX_DAYS = 4;
@@ -103,7 +104,8 @@ export function matches(row, f = {}) {
   if (f.review && !row.review) return false;
   if (f.event && row.event !== f.event && !String(row.token).startsWith(f.event)) return false;
   if (f.outcome && row.outcome !== f.outcome && row.answer !== f.outcome) return false;
-  if (f.q) { const n = String(f.q).toLowerCase(); if ((row.name + ' ' + row.phone + ' ' + row.event + ' ' + row.answer).toLowerCase().indexOf(n) < 0) return false; }
+  /* 23/11 Richard could not find a call: a phone typed 052-… now matches 97252…, words in any order, "חגאי" finds "חגי" */
+  if (f.q && !phoneHit(row.phone, f.q) && !textHit(row.name + ' ' + row.phone + ' ' + row.event + ' ' + row.answer, f.q)) return false;
   return true;
 }
 

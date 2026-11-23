@@ -86,6 +86,7 @@ import { suggest as lineupSuggest, clean as lineupClean, ics as lineupIcs, feedK
 import { handleAccount, handleReviewClaim, sendLoginCode, adminSendPin, reviewState, readLedger, ledgerBalance, emailFromLeads, readContact, validEmail, pinFor, resetPin, boardLockOn, boardSessionOk, mintSession as mintAcctSession, verifySession as verifyAcctSession } from './account.js';   /* 12/11 personal-area */
 import { sendEmail as sendPlainEmail } from './outreach.js';
 import { navLinkOk, giftLinkOk } from './links.js';
+import { cleanQuery, inboxSearch } from './inbox-search.js';   /* 23/11 inbox search box */
 import { handleSubeventCreate, handleSubeventSend, handleSubeventRemind, handleSubeventSummary, continueSubevents, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
 import { cleanParam } from './whatsapp.js';   /* 02/11 audit: links that reach guests */
 import { withRun, isOff } from './ops-run.js';   /* 03/11 ops center: runs ledger + kill switches */
@@ -8074,7 +8075,32 @@ async function inboxData(env, body = {}) {
     } catch {}
   }
   list.sort((a, b) => b.last_ts - a.last_ts);
-  const page = list.slice(0, 400);
+  /* the sheet's phone → name map, cached 2 minutes so the list does not wait on the sheet.
+     23/11: it also carries the event's name, for the search box. */
+  const loadNames = async () => {
+    const hit = env.RATE ? await env.RATE.get('inboxnames:cache2').catch(() => null) : null;
+    if (hit) { try { return JSON.parse(hit); } catch {} }
+    const raw = await readSnapshot(env, 'ops');
+    if (!raw) return null;
+    const m = {}, evName = {};
+    for (const ev of (raw.events && raw.events.values) || []) {
+      const en = String(ev[34] || '').trim();
+      if (ev[1]) evName[String(ev[1])] = en || String(ev[2] || '').trim();
+      const p = normPhone(ev[3] || '');
+      if (p && !m[p]) m[p] = { name: String(ev[2] || '').trim(), kind: 'לקוח', event: en };
+    }
+    for (const g of (raw.guests && raw.guests.values) || []) {
+      const p = normPhone(g[4] || '');
+      if (p && !m[p]) m[p] = { name: String(g[3] || '').trim(), kind: 'אורח', event: evName[String(g[28] || '')] || '' };
+    }
+    if (env.RATE) await env.RATE.put('inboxnames:cache2', JSON.stringify(m), { expirationTtl: 120 }).catch(() => {});
+    return m;
+  };
+  /* 23/11 Richard: search by phone, name or event name, over every conversation and not only the 400 shown */
+  const q = cleanQuery(body.q);
+  let namesPre = null, shownList = list;
+  if (q) { namesPre = await loadNames().catch(() => null); shownList = inboxSearch(list, namesPre, q); }
+  const page = shownList.slice(0, 400);
 
   /* the name, best source first: what they call themselves on WhatsApp, then
      the sheet. A number in no sheet at all still shows a person. */
@@ -8083,36 +8109,20 @@ async function inboxData(env, body = {}) {
   const [waNames, nrs, nameOf] = await Promise.all([
     Promise.all(page.map(c => env.RATE.get('waname:' + c.phone).catch(() => ''))),
     Promise.all(page.map(c => env.RATE.get('nr:' + c.phone).catch(() => null))),
-    (async () => {
-      const hit = env.RATE ? await env.RATE.get('inboxnames:cache').catch(() => null) : null;
-      if (hit) { try { return JSON.parse(hit); } catch {} }
-      const raw = await readSnapshot(env, 'ops');
-      if (!raw) return null;
-      const m = {};
-      for (const ev of (raw.events && raw.events.values) || []) {
-        const p = normPhone(ev[3] || '');
-        if (p && !m[p]) m[p] = { name: String(ev[2] || '').trim(), kind: 'לקוח' };
-      }
-      for (const g of (raw.guests && raw.guests.values) || []) {
-        const p = normPhone(g[4] || '');
-        if (p && !m[p]) m[p] = { name: String(g[3] || '').trim(), kind: 'אורח' };
-      }
-      if (env.RATE) await env.RATE.put('inboxnames:cache', JSON.stringify(m), { expirationTtl: 120 }).catch(() => {});
-      return m;
-    })(),
+    namesPre ? Promise.resolve(namesPre) : loadNames(),
   ]);
   page.forEach((c, i) => { c.wa_name = waNames[i] || ''; c.nonrelevant = !!nrs[i]; });
   if (nameOf) {
     for (const c of page) {
       const hit = nameOf[c.phone];
-      if (hit) { c.name = hit.name; c.kind = hit.kind; }
+      if (hit) { c.name = hit.name; c.kind = hit.kind; if (hit.event) c.event = hit.event; }
       if (!c.name) c.name = c.wa_name || '';
     }
   } else {
     for (const c of page) if (!c.name) c.name = c.wa_name || '';
   }
   return {
-    ok: true, conversations: page, total: list.length,
+    ok: true, conversations: page, total: list.length, q, found: q ? shownList.length : undefined,
     counts: {
       all: list.length,
       client: list.filter(c => (c.ch || []).includes('client')).length,
