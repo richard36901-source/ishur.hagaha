@@ -54,7 +54,18 @@ test('23/11 הכל כלול: three call rows, a day apart, each with its own sta
   assert.equal(rows[1].date, next(rows[0].date)); assert.equal(rows[2].date, next(rows[1].date));
   assert.equal(rows[1].status, 'running'); assert.equal(rows[1].dialed_n, 2); assert.equal(rows[1].queued, 1);   /* G1 still owes round 2 */
   assert.equal(rows[2].status, 'running'); assert.equal(rows[2].dialed_n, 1); assert.equal(rows[2].queued, 2);
-  assert.ok(!rows[1].stats && !rows[2].stats && rows[0].stats, 'answers stay on the first calls row');
+  /* 23/11 (later the same evening, Richard): every round carries its own result. tries = the round of the guest's last call. */
+  const pick = t => ({ dialed: t.dialed, answered: t.answered, no_answer: t.no_answer, waiting: t.waiting, later: t.later });
+  assert.deepEqual(pick(rows[0].stats), { dialed: 4, answered: 0, no_answer: 3, waiting: 0, later: 1 });   /* G4 answered later in WhatsApp */
+  assert.deepEqual(pick(rows[1].stats), { dialed: 2, answered: 0, no_answer: 2, waiting: 1, later: 0 });
+  assert.deepEqual(pick(rows[2].stats), { dialed: 1, answered: 0, no_answer: 1, waiting: 2, later: 0 });
+  /* a guest who picked up on the second call: silent in round 1, the answer belongs to round 2 */
+  const g5 = G('G5', 2, '', 'לא מגיע'); g5[22] = 'ענה';
+  const d5 = buildDashboard('TOK3', { events: { values: [Array(45).fill('h'), evRow] }, guests: { values: [Array(35).fill('h'), ...guests, g5] } }, 0, {});
+  const r5 = d5.sends.filter(s => /^calls/.test(s.key));
+  assert.equal(r5[0].stats.no_answer, 4); assert.equal(r5[0].stats.answered, 0);
+  assert.equal(r5[1].stats.answered, 1); assert.equal(r5[1].stats.declined, 1); assert.equal(r5[1].stats.dialed, 3);
+  assert.equal(r5[2].stats.answered, 0);
   const done = [G('G1', 3, ''), G('G4', 1, '', 'מגיע')];
   const d2 = buildDashboard('TOK3', { events: { values: [Array(45).fill('h'), evRow] }, guests: { values: [Array(35).fill('h'), ...done] } }, 0, {});
   assert.deepEqual(d2.sends.filter(s => /^calls/.test(s.key)).map(r => r.status), ['sent', 'sent', 'sent']);

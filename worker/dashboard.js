@@ -352,9 +352,29 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
   const per = {};
   for (const x of sends) per[x.key] = tally();
   per.calls = Object.assign(tally(), { dialed: 0, no_answer: 0, waiting: 0, later: 0, later_confirmed: 0, later_declined: 0, later_undecided: 0 });
+  /* 23/11 Richard: on a plan with several call rounds every round shows its own result, like the message rounds.
+     Shir adds one try per call she places, so a guest's tries = the round of their last call: they were dialled in
+     rounds 1..tries, did not answer in the earlier ones, and whatever happened last belongs to round `tries`. */
+  const ROUNDS = sends.some(x => x.key === 'calls_r2') ? (planMaxCallTries(planKeyOf(ev)) || 0) : 0;
+  const perR = {};
+  for (let k = 1; k <= ROUNDS; k++) perR[k] = Object.assign(tally(), { dialed: 0, no_answer: 0, waiting: 0, later: 0, later_confirmed: 0, later_declined: 0, later_undecided: 0 });
   for (const g of guests) {
     if (g.self) continue;
     const isCall = viaCall(g) || dialed.has(g.id) || g.tries > 0;
+    if (ROUNDS) {
+      const last = isCall ? Math.min(ROUNDS, Math.max(1, g.tries || 0)) : 0;
+      const byPhoneNow = viaCall(g) && /^ענה/.test(g.call_ans) && answered(g);
+      for (let k = 1; k <= ROUNDS; k++) {
+        const t = perR[k];
+        if (k <= last) {
+          t.dialed++;
+          if (k < last) t.no_answer++;
+          else if (byPhoneNow) { t.answered++; t[g.status]++; }
+          else if (answered(g)) { t.later++; t['later_' + g.status]++; }
+          else t.no_answer++;
+        } else if (!answered(g) && g.status === 'awaiting_call') t.waiting++;
+      }
+    }
     if (per.calls && isCall) per.calls.dialed++;
     if (!answered(g)) {
       /* Richard 21/10: dialed and still silent is "לא ענו" whatever the
@@ -378,6 +398,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
     t.answered++; t[g.status]++;
   }
   for (const x of sends) if (per[x.key] && x.key !== 'event_day' && x.key !== 'day_after' && !/^calls_r\d$/.test(x.key)) x.stats = per[x.key];
+  if (ROUNDS) for (const x of sends) { const k = x.key === 'calls' ? 1 : (/^calls_r(\d)$/.exec(x.key) || [])[1]; if (k && perR[k]) { if (x.key === 'calls') x.stats_all = x.stats; x.stats = perR[k]; } }
 
   return {
     ok: true,

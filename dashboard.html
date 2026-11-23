@@ -2180,11 +2180,10 @@
      has not started yet has nothing to report. */
   var openInfo = {};
   function sendInfo(s) {
-    /* 23/11 Shalev: rounds 2 and 3 of a plan with three call rounds */
-    if (/^calls_r\d$/.test(s.key)) return s.dialed_n ? 'חויגו בסבב הזה ' + s.dialed_n + (s.queued ? ' · עוד לא חויגו ' + s.queued : '') : '';
     var t = s.stats;
     if (!t) return '';
-    if (s.key === 'calls') {
+    /* 23/11: every call round of a three-round plan has its own row and its own result */
+    if (s.key === 'calls' || /^calls_r\d$/.test(s.key)) {
       if (!t.dialed && !t.waiting) return '';
       return 'חויגו ' + t.dialed + ' · ענו בשיחה ' + t.answered + ' (מגיעים ' + t.confirmed + ' · לא מגיעים ' + t.declined +
              (t.undecided ? ' · מתלבטים ' + t.undecided : '') + ')' +
