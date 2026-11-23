@@ -28,6 +28,7 @@ import { logRow, logUpdate, flushSheetLogs, readTabTail, readTabAll, upsertClien
 import { proxy as evProxy, appendTab, sheetId } from './evlog.js';
 import { installStagingGuard, wrapEmail, isStaging, isAllowedPhone } from './staging-guard.js';   /* dev-staging 12/11: staging never reaches a real guest */
 import { createInvoice, token as morningToken, invoiceTerms, HOSTESS_TERMS } from './invoice.js';
+import { safeCallParty, invitedFromCall } from './shir.js';   /* 23/11 headcount guard */
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
 import { mondayMarkWon, mondayUpsertLead, mondayGql, mondayFindLead, mondayLeadNotes } from './monday.js';
 import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, groupsOf, LEAD_STATUSES, LEAD_OWNERS, LEAD_GROUPS } from './leads.js';
@@ -2514,6 +2515,15 @@ async function waGuestFile(env, from, doc) {
    contract the calls page uses; dispatch places the day's calls.
    ─────────────────────────────────────────────────────────────────────────── */
 
+/* 23/11: every headcount that comes out of a phone call passes here first (see safeCallParty in shir.js) */
+async function guardCallParty(env, body, guestId, partySize, src) {
+  const g = safeCallParty(partySize, invitedFromCall(body));
+  if (g.held) {
+    await logEvent(env, { area: 'שיחות', action: 'מספר מגיעים חריג משיחה — לא נרשם, לבדיקה', ok: false, review: true, token: String(guestId || '').replace(/^G-([0-9a-f]{8}).*/, '$1'),
+      detail: `${guestId} · נשמע ${g.reported}, הוזמנו ${invitedFromCall(body)} (עד ${g.limit}) · ${src}` }).catch(() => {});
+  }
+  return g.party;
+}
 async function writeCallResult(env, guestId, result, partySize) {
   const r = await hookFetch(env, env.HOOK_EVENTS, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -2884,7 +2894,7 @@ async function processRetellEvent(env, body) {
     if (action.call_id && env.RATE) {
       await env.RATE.put('shirtool:' + action.call_id, '1', { expirationTtl: 3 * 86400 });
     }
-    await writeCallResult(env, action.guest_id, action.result, action.party_size);
+    await writeCallResult(env, action.guest_id, action.result, await guardCallParty(env, body, action.guest_id, action.party_size, 'נרשם בשיחה'));
     return okJsonPlain({ response: action.reply });
   }
 
@@ -2926,7 +2936,7 @@ async function processRetellEvent(env, body) {
         const qa = callFromRetell(c0, action, { event: evName0 });
         qa.tool_recorded = !!(action.call_id && env.RATE && await env.RATE.get('shirtool:' + action.call_id));
         const review = await reviewCall(env, qa);
-        const qout = await applyReview(env, qa, review, { writeCallResult: (gid, res, party) => writeCallResult(env, gid, res, party) });
+        const qout = await applyReview(env, qa, review, { writeCallResult: async (gid, res, party) => writeCallResult(env, gid, res, await guardCallParty(env, c0, gid, party, 'בקרת השיחות')) });
         /* 08/11 (Richard): the daily / weekly QA digest counts what the reviewer did */
         if (meta0.kind !== 'lead') await bumpQaStat(env, { reviewed: 1, fixed: qout && qout.applied ? 1 : 0,
           gap: review && review.verdict === 'mismatch' && !(qout && qout.applied) ? 1 : 0, manual: review && review.verdict === 'review' ? 1 : 0 }).catch(() => {});
@@ -2971,7 +2981,7 @@ async function processRetellEvent(env, body) {
   if (action.kind === 'end-untracked') return okJsonPlain({ ok: true });
 
   if (action.kind === 'end') {
-    await writeCallResult(env, action.guest_id, action.result, action.party_size);
+    await writeCallResult(env, action.guest_id, action.result, await guardCallParty(env, body, action.guest_id, action.party_size, 'סיכום השיחה'));
   } else if (action.kind === 'end-no-outcome') {
     if (!toolRanHere) await writeCallResult(env, action.guest_id, action.result);
   }

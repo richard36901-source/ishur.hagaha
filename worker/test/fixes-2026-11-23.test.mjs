@@ -62,3 +62,21 @@ test('23/11 call pace: a calls-only cron on the 5s, wired to the calls part, bat
   assert.ok(src.indexOf("startsWith('5,15,25')") < src.indexOf("startsWith('5-55/10')"), 'checked before the plan tick');
   assert.ok(/Number\(env\.CALL_PARALLEL\) \|\| 10/.test(src), '10 at a time stays');
 });
+
+test('23/11 headcount from a phone call: far above the invitation is held, the rest passes', async () => {
+  const { safeCallParty, callPartyLimit, invitedFromCall } = await import('../shir.js');
+  assert.equal(callPartyLimit(1), 4); assert.equal(callPartyLimit(2), 5); assert.equal(callPartyLimit(4), 8); assert.equal(callPartyLimit(''), 4);
+  assert.deepEqual(safeCallParty(15, 1), { party: undefined, held: true, reported: 15, limit: 4 });   /* נתני חגי */
+  assert.equal(safeCallParty(10, 1).held, true);                                                        /* סימה מירב */
+  assert.deepEqual(safeCallParty(2, 1), { party: 2, held: false });
+  assert.deepEqual(safeCallParty(4, 1), { party: 4, held: false });
+  assert.deepEqual(safeCallParty(6, 3), { party: 6, held: false });
+  assert.deepEqual(safeCallParty(undefined, 1), { party: undefined, held: false });
+  assert.deepEqual(safeCallParty(0, 2), { party: undefined, held: false });
+  assert.equal(invitedFromCall({ call: { retell_llm_dynamic_variables: { party_size_invited: '3' } } }), 3);
+  assert.equal(invitedFromCall({ retell_llm_dynamic_variables: { party_size_invited: '2' } }), 2);
+  assert.equal(invitedFromCall({}), 1);
+  const src = (await import('node:fs')).readFileSync(new URL('../index.js', import.meta.url), 'utf8');
+  const writes = src.match(/writeCallResult\(env, [^;]*party[^;]*;/gi) || [];
+  for (const w of writes) if (!/__keep__|partySize\) \{|null\)/.test(w)) assert.ok(/guardCallParty/.test(w), 'a call headcount write without the guard: ' + w.slice(0, 90));
+});

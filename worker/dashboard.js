@@ -301,7 +301,22 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
       /* once the event day has passed the round is over whatever is still flagged */
       const over = /^\d{4}-\d{2}-\d{2}$/.test(c(6)) && c(6).slice(0, 10) < todayIso;
       const status = start > todayIso ? 'scheduled' : over ? (called ? 'sent' : 'passed') : queued ? 'running' : called ? 'sent' : 'scheduled';
-      sends.push({ key: 'calls', label: 'שיחה טלפונית למי שלא ענה', date: start, status, auto: true, queued });
+      /* 23/11 Shalev: a plan with several call rounds (הכל כלול: three) shows a row per round, not one row.
+         Round 2 is the calling day after round 1, round 3 the one after (never Friday or Shabbat). A guest is
+         dialled once a day, so the number of tries a guest has IS the round that reached them:
+         done = nobody still waits for this round · running = some were dialled or it is its day · else scheduled. */
+      const ownRounds = planMaxCallTries(planKeyOf(ev)) || 0;
+      sends.push({ key: 'calls', label: 'שיחה טלפונית למי שלא ענה' + (ownRounds > 1 ? ' · סבב 1' : ''), date: start, status, auto: true, queued });
+      let prev = start;
+      for (let k = 2; k <= ownRounds; k++) {
+        const nd = new Date(prev + 'T12:00:00Z'); nd.setUTCDate(nd.getUTCDate() + 1);
+        if (nd.getUTCDay() === 5) nd.setUTCDate(nd.getUTCDate() + 2); else if (nd.getUTCDay() === 6) nd.setUTCDate(nd.getUTCDate() + 1);
+        const dk = nd.toISOString().slice(0, 10); prev = dk;
+        const reached = guests.filter(g => g.tries >= k).length;
+        const waitingK = guests.filter(g => g.status === 'awaiting_call' && g.tries < k).length;
+        const stK = dk > todayIso && !reached ? 'scheduled' : over ? (reached ? 'sent' : 'passed') : waitingK ? (reached || dk <= todayIso ? 'running' : 'scheduled') : (reached || status === 'sent') ? 'sent' : 'scheduled';
+        sends.push({ key: 'calls_r' + k, label: 'שיחה טלפונית למי שלא ענה · סבב ' + k, date: dk, status: stK, auto: true, queued: waitingK, round: k, dialed_n: reached });
+      }
     }
   }
   /* Richard 21/10: an extra round booked by hand shows as its own row.
@@ -331,7 +346,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
   const dialed = sent.dialed || new Set();
   const viaCall = g => /^ענה($| - )/.test(g.call_ans) || g.call_ans === 'לא ענה' || /מוצו/.test(g.call_ans);
   const answered = g => g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided';
-  const waveDates = sends.filter(x => x.key !== 'calls' && x.key !== 'event_day' && x.key !== 'day_after').map(x => ({ key: x.key, d: String(x.date).slice(0, 10) }))
+  const waveDates = sends.filter(x => x.key !== 'calls' && !/^calls_r\d$/.test(x.key) && x.key !== 'event_day' && x.key !== 'day_after').map(x => ({ key: x.key, d: String(x.date).slice(0, 10) }))
     .sort((x, y) => x.d < y.d ? -1 : 1);
   const tally = () => ({ answered: 0, confirmed: 0, declined: 0, undecided: 0 });
   const per = {};
@@ -362,7 +377,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
     if (!t) continue;
     t.answered++; t[g.status]++;
   }
-  for (const x of sends) if (per[x.key] && x.key !== 'event_day' && x.key !== 'day_after') x.stats = per[x.key];
+  for (const x of sends) if (per[x.key] && x.key !== 'event_day' && x.key !== 'day_after' && !/^calls_r\d$/.test(x.key)) x.stats = per[x.key];
 
   return {
     ok: true,

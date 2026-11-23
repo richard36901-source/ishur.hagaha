@@ -41,3 +41,25 @@ test('calls row is done once every waiting guest used all tries', () => {
   const d2 = buildDashboard('TOK', r2, 0, { callsAddon: true });
   assert.equal(d2.sends.find(s => s.key === 'calls').status, 'running');
 });
+test('23/11 הכל כלול: three call rows, a day apart, each with its own status; פרמיום keeps one row', () => {
+  const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  const next = d => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + 1); if (x.getUTCDay() === 5) x.setUTCDate(x.getUTCDate() + 2); else if (x.getUTCDay() === 6) x.setUTCDate(x.getUTCDate() + 1); return x.toISOString().slice(0, 10); };
+  const evRow = Array(45).fill(''); evRow[1] = 'TOK3'; evRow[6] = day(20); evRow[31] = 'הכל כלול'; evRow[39] = day(-12); evRow[40] = day(-10);
+  const G = (id, tries, status21, rsvp) => { const g = Array(35).fill(''); g[1] = 'c'; g[2] = id; g[3] = id; g[4] = '97250123456' + id.slice(-1); g[15] = rsvp || ''; g[21] = status21 || ''; g[28] = 'TOK3'; g[29] = String(tries); return g; };
+  const guests = [G('G1', 1, 'נדרשת שיחה'), G('G2', 2, 'נדרשת שיחה'), G('G3', 3, ''), G('G4', 1, '', 'מגיע')];
+  const d = buildDashboard('TOK3', { events: { values: [Array(45).fill('h'), evRow] }, guests: { values: [Array(35).fill('h'), ...guests] } }, 0, {});
+  const rows = d.sends.filter(s => /^calls/.test(s.key));
+  assert.deepEqual(rows.map(r => r.key), ['calls', 'calls_r2', 'calls_r3'], JSON.stringify(rows));
+  assert.ok(/סבב 1$/.test(rows[0].label) && /סבב 2$/.test(rows[1].label) && /סבב 3$/.test(rows[2].label));
+  assert.equal(rows[1].date, next(rows[0].date)); assert.equal(rows[2].date, next(rows[1].date));
+  assert.equal(rows[1].status, 'running'); assert.equal(rows[1].dialed_n, 2); assert.equal(rows[1].queued, 1);   /* G1 still owes round 2 */
+  assert.equal(rows[2].status, 'running'); assert.equal(rows[2].dialed_n, 1); assert.equal(rows[2].queued, 2);
+  assert.ok(!rows[1].stats && !rows[2].stats && rows[0].stats, 'answers stay on the first calls row');
+  const done = [G('G1', 3, ''), G('G4', 1, '', 'מגיע')];
+  const d2 = buildDashboard('TOK3', { events: { values: [Array(45).fill('h'), evRow] }, guests: { values: [Array(35).fill('h'), ...done] } }, 0, {});
+  assert.deepEqual(d2.sends.filter(s => /^calls/.test(s.key)).map(r => r.status), ['sent', 'sent', 'sent']);
+  const prem = evRow.slice(); prem[31] = 'פרמיום';
+  const d3 = buildDashboard('TOK3', { events: { values: [Array(45).fill('h'), prem] }, guests: { values: [Array(35).fill('h'), ...guests] } }, 0, {});
+  const r3 = d3.sends.filter(s => /^calls/.test(s.key));
+  assert.equal(r3.length, 1); assert.equal(r3[0].label, 'שיחה טלפונית למי שלא ענה');
+});

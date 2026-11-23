@@ -707,3 +707,24 @@ export async function verifyRetellSignature(rawBody, signature, apiKey, now = Da
   const given = String(signature).replace(/^v=|^sha256=/, '').toLowerCase();
   return same(await hmac(rawBody), given);
 }
+
+/* 23/11 Richard (נתני חגי: invited alone, a garbled sentence was recorded as 15 coming; סימה מירב 19/11: 1 → 10):
+   a headcount heard on a PHONE CALL that is far above the number invited is not written. The answer itself (מגיע)
+   is kept, the count stays what it was, and the call is flagged for a human. WhatsApp answers are typed by the
+   guest and are not touched by this. Allowed: up to invited + 3, or double the invitation, whichever is larger. */
+export function callPartyLimit(invited) {
+  const inv = Math.max(1, Math.floor(Number(invited) || 1));
+  return Math.max(inv + 3, inv * 2);
+}
+export function safeCallParty(reported, invited) {
+  const n = Number(reported);
+  if (!(n > 0)) return { party: undefined, held: false };
+  if (n > callPartyLimit(invited)) return { party: undefined, held: true, reported: n, limit: callPartyLimit(invited) };
+  return { party: n, held: false };
+}
+/* the number invited, as it was sent to the agent with the call */
+export function invitedFromCall(body) {
+  const c = (body && body.call) || body || {};
+  const v = (c.retell_llm_dynamic_variables || {}).party_size_invited;
+  return Math.max(1, Math.floor(Number(v) || 1));
+}
