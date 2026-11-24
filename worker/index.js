@@ -12942,6 +12942,32 @@ const WORKER = {
         return okJson({ ok: true, job }, origin);
       }
       if (b.action === 'clear') { await env.RATE.delete('callround:' + tok); return okJson({ ok: true }, origin); }
+      /* 24/11: dials the carrier refused were counted as tries (220 in one morning). {action:'restore', items:[{guest_id, tries}]}
+         puts each guest back as they were before the dial: waiting for a call, with the tries they had. One batched sheet
+         write; a guest who answered meanwhile is left alone; today's "already dialled" mark is lifted so they can be rung today. */
+      if (b.action === 'restore') {
+        const items = (Array.isArray(b.items) ? b.items : []).slice(0, 900).map(x => ({ id: String((x && x.guest_id) || '').trim(), tries: Math.max(0, Math.min(9, parseInt(x && x.tries, 10) || 0)) })).filter(x => x.id);
+        if (!items.length) return deny(400, 'no-items', origin);
+        const raw = await readSnapshot(env, 'write').catch(() => null);
+        const gRows = (raw && raw.guests && raw.guests.values) || [];
+        if (!gRows.length) return deny(503, snapMiss(env), origin);
+        const want = new Map(items.map(x => [x.id, x.tries]));
+        const data = []; const done = []; let answered = 0;
+        gRows.forEach((g, i) => {
+          const id = String((g || [])[2] || '').trim();
+          if (String(g[28] || '').trim() !== tok || !want.has(id)) return;
+          const rsvp = String(g[15] || '').trim();
+          if (rsvp === 'מגיע' || rsvp === 'לא מגיע') { answered++; return; }
+          const row = i + 2;
+          data.push({ range: `אורחים!V${row}`, values: [['נדרשת שיחה']] }, { range: `אורחים!W${row}`, values: [['לחייג שוב']] }, { range: `אורחים!AD${row}`, values: [[String(want.get(id))]] });
+          done.push(id);
+        });
+        if (b.dry) return okJson({ ok: true, dry: true, would_restore: done.length, answered, asked: items.length }, origin);
+        const okw = data.length ? await sheetBatchWrite(env, data) : true;
+        if (okw) await Promise.all(done.map(id => env.RATE.delete('dialed:' + id).catch(() => {})));
+        await logEvent(env, { area: 'שיחות', action: 'ניסיונות חיוג שנספרו בטעות הוחזרו', ok: !!okw, review: !okw, token: tok, detail: `${done.length} מוזמנים חזרו לתור עם מספר הניסיונות הקודם · ${answered} ענו בינתיים ולא נגעו בהם · ${String(b.note || '').slice(0, 100)}` }).catch(() => {});
+        return okw ? okJson({ ok: true, restored: done.length, answered, asked: items.length }, origin) : deny(502, 'sheet-write-failed', origin);
+      }
       return okJson(await drainCallRounds(env, { dry: b.action !== 'run', only: tok }), origin);
     }
     /* custom invitation wording: {token, action:'get'|'set', text} (client or admin) */

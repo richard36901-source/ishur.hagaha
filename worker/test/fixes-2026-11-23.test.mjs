@@ -106,3 +106,14 @@ test('24/11 a call the carrier refused is never turned into "did not answer"', a
   const src = (await import('node:fs')).readFileSync(new URL('../index.js', import.meta.url), 'utf8');
   assert.ok(/includes\('inbound'\) && action\.kind !== 'skip'\)/.test(src), 'the webhook does not send a not-connected call to the reviewer');
 });
+
+test('24/11 restoring falsely counted tries: admin only, one batched write, answered guests untouched, the day mark lifted', async () => {
+  const src = (await import('node:fs')).readFileSync(new URL('../index.js', import.meta.url), 'utf8');
+  const a = src.indexOf("url.pathname === '/api/call-round'"); const blk = src.slice(a, src.indexOf("url.pathname === '/api/oneoff-invite'", a));
+  assert.ok(blk.indexOf('isAdmin(env, b.admin_key)') < blk.indexOf("b.action === 'restore'"));
+  const r = blk.slice(blk.indexOf("b.action === 'restore'"));
+  assert.ok(/rsvp === 'מגיע' \|\| rsvp === 'לא מגיע'\) \{ answered\+\+; return; \}/.test(r), 'an answered guest is skipped');
+  assert.ok(r.includes('אורחים!V${row}') && r.includes('אורחים!AD${row}') && (r.match(/sheetBatchWrite\(/g) || []).length === 1, 'one batched write of status and tries');
+  assert.ok(r.includes("env.RATE.delete('dialed:' + id)"));
+  assert.ok(r.includes("String(g[28] || '').trim() !== tok"), 'only rows of the named event');
+});
