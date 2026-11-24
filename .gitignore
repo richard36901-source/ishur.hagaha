@@ -12,3 +12,4 @@ docs/ops-screens/live/
 # dev-staging: local staging secrets, never committed
 worker/.staging.secrets
 dist-site/
+app/store/builds/

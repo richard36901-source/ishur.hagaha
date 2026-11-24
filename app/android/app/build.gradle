@@ -1,5 +1,12 @@
 apply plugin: 'com.android.application'
 
+/* 25/11 release signing: the upload key lives outside the repo in ~/.ishur-keys (android-upload.properties points to
+   ishur-upload.jks). Losing it means asking Google to reset the upload key, so it must be backed up. Without the file the
+   release build stays unsigned. */
+def uploadProps = new Properties()
+def uploadFile = new File(System.getProperty('user.home'), '.ishur-keys/android-upload.properties')
+if (uploadFile.exists()) { uploadFile.withInputStream { uploadProps.load(it) } }
+
 android {
     namespace = "io.ishur.client"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,8 +23,19 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (uploadFile.exists()) {
+            release {
+                storeFile file(uploadProps['storeFile'])
+                storePassword uploadProps['storePassword']
+                keyAlias uploadProps['keyAlias']
+                keyPassword uploadProps['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            if (uploadFile.exists()) { signingConfig signingConfigs.release }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

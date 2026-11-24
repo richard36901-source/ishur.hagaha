@@ -63,11 +63,16 @@ collects RSVPs. Clients buy the service on our website or through a sales call, 
 them then; the app has no sign-up and sells nothing. Sign in with the demo account below to see a demo event.
 Demo phone: 050-000-5201 · Code: [read with /api/client-pin after the promote; the production code differs from staging]. The demo event is invented and sends nothing: actions that would message guests are refused. Notifications: after sign-in the app explains them and asks; they are
 optional. Account deletion: Account tab → "בקשה למחיקת החשבון והמידע".
+Sign in with Apple / Google (iPhone): these sign in an existing client only. A client signs in once with the phone and
+code, then connects Apple or Google, and uses that from then on. An Apple or Google account that was never connected gets
+a message to sign in with the phone and code first. The demo phone above always signs in with its code and is never asked
+to connect.
 
 ## Privacy answers (App Store "App Privacy" and Google "Data safety"), draft
 | Data | Collected | Linked to the user | Used for tracking | Purpose |
 |---|---|---|---|---|
 | Phone number | yes | yes | no | App functionality (sign-in) |
+| Email address and Apple/Google account ID (only if the client connects Sign in with Apple or Google; Apple may give a private relay address) | yes | yes | no | App functionality (sign-in) |
 | Name | yes | yes | no | App functionality |
 | User ID (client id) | yes | yes | no | App functionality |
 | Contacts (guest names and phones the client uploaded) | yes | yes | no | App functionality |
