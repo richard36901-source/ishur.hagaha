@@ -320,7 +320,12 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
          dialled once a day, so the number of tries a guest has IS the round that reached them:
          done = nobody still waits for this round · running = some were dialled or it is its day · else scheduled. */
       const ownRounds = planMaxCallTries(planKeyOf(ev)) || 0;
-      sends.push({ key: 'calls', label: 'שיחה טלפונית למי שלא ענה' + (ownRounds > 1 ? ' · סבב 1' : ''), date: start, status, auto: true, queued });
+      /* 24/11 Richard (שוהם: round 1 of yesterday still read "בתהליך · עוד לא חויגו 10" while round 2 was running):
+         on a plan with several rounds, round 1 waits only for guests who were never dialled, and a round whose day
+         has passed and that did dial is done - whoever it did not reach belongs to the next round. */
+      const queued1 = ownRounds > 1 ? guests.filter(g => planWaits(g) && g.tries < 1).length : queued;
+      const status1 = (ownRounds > 1 && !over && start <= todayIso) ? ((start < todayIso && called) ? 'sent' : queued1 ? 'running' : called ? 'sent' : 'scheduled') : status;
+      sends.push({ key: 'calls', label: 'שיחה טלפונית למי שלא ענה' + (ownRounds > 1 ? ' · סבב 1' : ''), date: start, status: status1, auto: true, queued: queued1 });
       let prev = start;
       for (let k = 2; k <= ownRounds; k++) {
         const nd = new Date(prev + 'T12:00:00Z'); nd.setUTCDate(nd.getUTCDate() + 1);
@@ -328,7 +333,8 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
         const dk = nd.toISOString().slice(0, 10); prev = dk;
         const reached = guests.filter(g => planTries(g) >= k).length;
         const waitingK = guests.filter(g => planWaits(g) && g.tries < k).length;
-        const stK = dk > todayIso && !reached ? 'scheduled' : over ? (reached ? 'sent' : 'passed') : waitingK ? (reached || dk <= todayIso ? 'running' : 'scheduled') : (reached || status === 'sent') ? 'sent' : 'scheduled';
+        let stK = dk > todayIso && !reached ? 'scheduled' : over ? (reached ? 'sent' : 'passed') : waitingK ? (reached || dk <= todayIso ? 'running' : 'scheduled') : (reached || status === 'sent') ? 'sent' : 'scheduled';
+        if (!over && k < ownRounds && dk < todayIso && reached) stK = 'sent';   /* 24/11: yesterday's round is done; the last round stays open while anybody still waits for it */
         /* a round that already dialled cannot carry a day that has not come yet (the first round's day was moved by hand
            after it started: שילת 23/11, rounds 2 and 3 were shown as done on 24/11 and 25/11) */
         const shownDay = reached && dk > todayIso ? todayIso : dk;
@@ -427,6 +433,9 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
   for (const x of sends) if (per[x.key] && x.key !== 'event_day' && x.key !== 'day_after' && !/^calls_r\d$/.test(x.key)) x.stats = per[x.key];
   if (xr) for (const x of sends) if (x.key === 'calls2') x.stats = perX;
   if (ROUNDS) for (const x of sends) { const k = x.key === 'calls' ? 1 : (/^calls_r(\d)$/.exec(x.key) || [])[1]; if (k && perR[k]) { if (x.key === 'calls') x.stats_all = x.stats; x.stats = perR[k]; } }
+  /* 24/11: a finished round does not say "עוד לא חויגו": whoever it did not dial moved on to the next round, and the
+     row says so (moved) */
+  for (const x of sends) if ((x.key === 'calls' || /^calls_r\d$/.test(x.key)) && x.status === 'sent' && x.stats) { x.stats = { ...x.stats, moved: x.stats.waiting || 0, waiting: 0 }; x.queued = 0; }
 
   return {
     ok: true,

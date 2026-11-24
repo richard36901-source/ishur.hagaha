@@ -52,12 +52,15 @@ test('23/11 הכל כלול: three call rows, a day apart, each with its own sta
   assert.deepEqual(rows.map(r => r.key), ['calls', 'calls_r2', 'calls_r3'], JSON.stringify(rows));
   assert.ok(/סבב 1$/.test(rows[0].label) && /סבב 2$/.test(rows[1].label) && /סבב 3$/.test(rows[2].label));
   assert.equal(rows[1].date, next(rows[0].date)); assert.equal(rows[2].date, next(rows[1].date));
-  assert.equal(rows[1].status, 'running'); assert.equal(rows[1].dialed_n, 2); assert.equal(rows[1].queued, 1);   /* G1 still owes round 2 */
+  /* 24/11 Richard changed the rule of 23/11: a round whose day has passed and that dialled is done ("אם זה אתמול אז תסמן
+     בוצע"); G1, whom it did not dial, is shown as moved on to the next round instead of "עוד לא חויגו". Was: running, queued 1. */
+  assert.equal(rows[1].status, 'sent'); assert.equal(rows[1].dialed_n, 2); assert.equal(rows[1].queued, 0); assert.equal(rows[1].stats.moved, 1);
+  assert.equal(rows[0].status, 'sent'); assert.equal(rows[0].stats.moved, 0);
   assert.equal(rows[2].status, 'running'); assert.equal(rows[2].dialed_n, 1); assert.equal(rows[2].queued, 2);
   /* 23/11 (later the same evening, Richard): every round carries its own result. tries = the round of the guest's last call. */
   const pick = t => ({ dialed: t.dialed, answered: t.answered, no_answer: t.no_answer, waiting: t.waiting, later: t.later });
   assert.deepEqual(pick(rows[0].stats), { dialed: 4, answered: 0, no_answer: 3, waiting: 0, later: 1 });   /* G4 answered later in WhatsApp */
-  assert.deepEqual(pick(rows[1].stats), { dialed: 2, answered: 0, no_answer: 2, waiting: 1, later: 0 });
+  assert.deepEqual(pick(rows[1].stats), { dialed: 2, answered: 0, no_answer: 2, waiting: 0, later: 0 });   /* 24/11: was waiting 1, now moved 1 (above) */
   assert.deepEqual(pick(rows[2].stats), { dialed: 1, answered: 0, no_answer: 1, waiting: 2, later: 0 });
   /* a guest who picked up on the second call: silent in round 1, the answer belongs to round 2 */
   const g5 = G('G5', 2, '', 'לא מגיע'); g5[22] = 'ענה';
