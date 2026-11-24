@@ -246,6 +246,15 @@ export function inboundLookup(raw, phone, todayIso, opts = {}) {
 
 /* 08/11: the guest opener — one question, then silence. An undecided guest already answered on WhatsApp. */
 export function hostExtra(s) { return String(s || '').replace(/[{}<>\n\r]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140); }
+/* callintro:<token> holds the addition as plain text, or as {"text":"…","from":"YYYY-MM-DD"} when it starts on a set
+   day (Richard 24/11: "from tomorrow, not today"). day = the Israeli date of the call; no day = a rehearsal, always on. */
+export function introFor(raw, day) {
+  const s = String(raw || '').trim(); if (!s) return '';
+  let o = null; if (s[0] === '{') { try { o = JSON.parse(s); } catch { return ''; } }
+  if (!o) return hostExtra(s);
+  if (day && /^\d{4}-\d{2}-\d{2}$/.test(String(o.from || '')) && String(day) < o.from) return '';
+  return hostExtra(o.text);
+}
 export function guestOpening(v = {}) {
   const host = String(v.host_name || '').trim(), occ = String(v.occasion || 'האירוע').trim(), when = String(v.event_date_spoken || '').trim();
   /* 24/11 (Richard, Aviv Pitusi's wedding): an event may add a few words right after the couple's names, e.g. the
