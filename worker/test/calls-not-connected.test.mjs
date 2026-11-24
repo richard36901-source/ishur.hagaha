@@ -40,3 +40,12 @@ test('giving tries back also frees the guest for a call the same day (24/11)', a
   assert.ok(block.includes("env.RATE.delete('dialed:' + id)"));
   assert.ok(block.includes('env.RATE.delete(`shirtry:${id}:${d0}`)'));
 });
+
+test('a refused dial frees the guest for one more call the same day, once (24/11)', async () => {
+  const fs = await import('node:fs');
+  const src = fs.readFileSync(new URL('../index.js', import.meta.url), 'utf8');
+  assert.ok(src.includes('seenOnce(env, `notconnfree:${meta.guest_id}:${ilDate()}`)'));
+  assert.ok(src.includes('env.RATE.delete(`shirtry:${meta.guest_id}:${ilDate()}`)'));
+  assert.match(src, /const PACE_CALLS = 18;/);
+  assert.match(fs.readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8'), /^CALL_PARALLEL = "16"/m);
+});

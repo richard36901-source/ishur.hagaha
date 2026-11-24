@@ -2852,6 +2852,12 @@ async function processRetellEvent(env, body) {
       if (action.kind === 'skip' && /^not-connected/.test(action.why || '') && !(await seenOnce(env, `notconn:${new Date().toISOString().slice(0, 13)}`))) {
         await alert(env, 'שיחות', 'שיחות לא חוברו אצל ספק הטלפוניה — לא נספרו כניסיון, יחויגו שוב', String(call.disconnection_reason || ''), { key: 'calls_notconn', sev: 'P1' }).catch(() => {});
       }
+      /* 24/11: a refused dial also gives the guest back the one call of the day, once (a second refusal the same day
+         waits for tomorrow, so an empty carrier balance cannot turn into an endless redial loop) */
+      if (action.kind === 'skip' && /^not-connected/.test(action.why || '') && meta.kind !== 'lead' && meta.guest_id && env.RATE && !(await seenOnce(env, `notconnfree:${meta.guest_id}:${ilDate()}`))) {
+        await env.RATE.delete(`shirtry:${meta.guest_id}:${ilDate()}`).catch(() => {});
+        await env.RATE.delete('dialed:' + meta.guest_id).catch(() => {});
+      }
       /* asked for a human: did anybody pick up? */
       const twc = Array.isArray(call.transcript_with_tool_calls) ? call.transcript_with_tool_calls : [];
       const tried = twc.filter(u => u && u.role === 'tool_call_invocation' && /^transfer_to_/.test(String(u.name || ''))).map(u => String(u.name).replace('transfer_to_', ''));
@@ -7367,7 +7373,7 @@ export { staleSentByEvent as _staleSentByEvent, runDailyEngine as _runDailyEngin
    queue is warm.
    ────────────────────────────────────────────────────────────────────────── */
 const PACE_SENDS = 50;    // base guest messages per tick (12/11: dynamic up to pacer_batch_max on busy days)
-const PACE_CALLS = 12;    // dials per tick. 22/11 Richard: 6 → 12. One batch still never starts more than CALL_PARALLEL (default 10) minus the calls already live, see runShirDispatch
+const PACE_CALLS = 18;    // dials per tick. 22/11 Richard: 6 → 12. 24/11 Richard ("אפשר יותר שיחות בפעימה?"): 12 → 18, with CALL_PARALLEL=16 in wrangler.toml. One batch still never starts more than CALL_PARALLEL (default 10) minus the calls already live, see runShirDispatch
 const PACE_CALLBACKS = 3; // ring-backs per tick, taken OUT of PACE_CALLS
 
 
