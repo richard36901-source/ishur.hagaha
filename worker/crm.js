@@ -517,7 +517,8 @@ async function sendLeadTemplate(env, d, store, lead, b, now = Date.now()) {
 /* ── client card (03/11): partial edit + actions ───────────────────────────
    The sheet row ('אירועים') is written cell by cell (sheetBatchWrite, RAW) and only for fields that changed.
    C/AI/D/F/G: client name · event title (hosts) · phone · occasion · event date. Never the whole row. */
-export const CLIENT_CELLS = { names: { col: 'AI', idx: 34 }, phone: { col: 'D', idx: 3 }, occasion: { col: 'F', idx: 5 }, event_date: { col: 'G', idx: 6 } };
+/* 24/11: client_name is the person who bought (column C), separate from the hosts' names on the invitation (AI) */
+export const CLIENT_CELLS = { client_name: { col: 'C', idx: 2 }, names: { col: 'AI', idx: 34 }, phone: { col: 'D', idx: 3 }, occasion: { col: 'F', idx: 5 }, event_date: { col: 'G', idx: 6 } };
 const OCC_BY_HE = Object.fromEntries(Object.entries(OCCASION_HE).map(([k, v]) => [v, k]));
 /* body → {fields} | {error}. fields carry the SHEET values (occasion in Hebrew, phone 0-prefixed like the sheet). */
 export function validClientEdit(b, today, { override = false } = {}) {
@@ -527,6 +528,7 @@ export function validClientEdit(b, today, { override = false } = {}) {
     if (!n1) return { error: 'bad-name' };
     f.names = n2 ? `${n1} ו${n2}` : n1;
   } else if (b.names !== undefined) { const n = clean(b.names, 80); if (!n) return { error: 'bad-name' }; f.names = n; }
+  if (b.client_name !== undefined) { const n = clean(b.client_name, 60); if (!n) return { error: 'bad-name' }; f.client_name = n; }
   if (b.phone !== undefined && b.phone !== '') {
     const p = digitsIl(b.phone);
     if (!/^9725\d{8}$|^972[2-9]\d{7,8}$/.test(p)) return { error: 'bad-phone' };
@@ -570,7 +572,7 @@ async function logClientChange(env, d, token, who, summary_he, details) {
   if (d.slackPost) await d.slackPost(env, `🗂 ${summary_he} · אירוע ${tok8(token)}`, { urgent: false, oneoff: true }).catch(() => {});   /* oneoff: one admin edit on a client card */
 }
 const EDIT_HE = { 'bad-phone': 'מספר טלפון לא תקין', 'bad-occasion': 'סוג אירוע לא מהרשימה', 'date-in-past': 'התאריך כבר עבר', 'bad-date': 'תאריך לא תקין', 'bad-name': 'חסר שם', 'nothing-to-change': 'אין מה לשמור', 'sheet-write-failed': 'הכתיבה לגיליון נכשלה', 'not-found': 'האירוע לא נמצא בגיליון' };
-const FIELD_HE = { names: 'שמות', phone: 'טלפון', occasion: 'סוג אירוע', event_date: 'תאריך' };
+const FIELD_HE = { client_name: 'שם הלקוח', names: 'שמות', phone: 'טלפון', occasion: 'סוג אירוע', event_date: 'תאריך' };
 async function editClient(env, d, store, token, b, who, now = Date.now()) {
   if (!/^[0-9a-f-]{36}$/.test(token)) return { status: 400, body: { ok: false, error: 'bad-token' } };
   const v = validClientEdit(b, d.ilDate(new Date(now)), { override: b.override_past === true });
@@ -580,6 +582,11 @@ async function editClient(env, d, store, token, b, who, now = Date.now()) {
   if (!hit) return { status: 404, body: { ok: false, error: 'not-found', he: EDIT_HE['not-found'] } };
   const diff = clientCellDiff(hit.row, v.fields, hit.rowNum);
   if (!diff.data.length) return { status: 200, body: { ok: true, changed: [], unchanged: true } };
+  /* the client's name is also written on each of the event's guest rows (column B) and in the event's own record */
+  if (diff.after.client_name) {
+    const raw = d.fetchSnapshot ? await d.fetchSnapshot(env).catch(() => null) : null;
+    ((raw && raw.guests && raw.guests.values) || []).forEach((g, i) => { if (String((g || [])[28] || '').trim() === token && String(g[1] || '').trim() !== diff.after.client_name) diff.data.push({ range: `אורחים!B${i + 2}`, values: [[diff.after.client_name]] }); });
+  }
   if (!d.sheetBatchWrite || !(await d.sheetBatchWrite(env, diff.data))) return { status: 502, body: { ok: false, error: 'sheet-write-failed', he: EDIT_HE['sheet-write-failed'] } };
   if (env.RATE) await env.RATE.delete('snapcache').catch(() => {});
   const changed = Object.keys(diff.after);
@@ -589,6 +596,10 @@ async function editClient(env, d, store, token, b, who, now = Date.now()) {
     if (env.RATE) await env.RATE.put('client:' + patch.phone, '1').catch(() => {});
   }
   if (diff.after.names) patch.name = diff.after.names;
+  if (diff.after.client_name) {
+    if (!diff.after.names && !String(hit.row[34] || '').trim()) patch.name = diff.after.client_name;
+    if (env.RATE) { try { const tr = JSON.parse(await env.RATE.get('token:' + token) || 'null'); if (tr) { tr.name = diff.after.client_name; await env.RATE.put('token:' + token, JSON.stringify(tr)); } } catch {} }
+  }
   await store.upsert('clients', patch);
   await store.appendActivity({ entity_type: 'client', entity_id: token, kind: 'event', text: 'עריכת פרטים: ' + changed.map(k => `${FIELD_HE[k]} ${diff.before[k] || '—'} → ${diff.after[k]}`).join(' · '), meta: { who, before: diff.before, after: diff.after } });
   await logClientChange(env, d, token, who, 'פרטי לקוח עודכנו: ' + changed.map(k => FIELD_HE[k]).join(', '), { route: 'crm/clients', before: diff.before, after: diff.after, cells: diff.data.map(x => x.range) });

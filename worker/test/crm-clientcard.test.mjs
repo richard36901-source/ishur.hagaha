@@ -194,3 +194,14 @@ test('POST /api/crm/leads/:id/send {template} previews, then sends the approved 
   assert.deepEqual(m.template.components[0].parameters.map(p => p.text), ['מיכל', 'בת מצווה']);
   assert.equal((await (await post(e, '/api/crm/leads/' + L.lead.id + '/send', { template: 'random', confirm: true })).json()).error, 'bad-template');
 });
+
+test('client_name (24/11): the buyer\'s name is column C, apart from the hosts\' names', () => {
+  const v = validClientEdit({ client_name: '  לירן סבח ' }, '2026-11-24');
+  assert.deepEqual(v.fields, { client_name: 'לירן סבח' });
+  assert.equal(validClientEdit({ client_name: ' ' }, '2026-11-24').error, 'bad-name');
+  const row = []; row[2] = 'לירן ביטון'; row[34] = '';
+  const d = clientCellDiff(row, v.fields, 77);
+  assert.deepEqual(d.data, [{ range: 'אירועים!C77', values: [['לירן סבח']] }]);
+  assert.deepEqual(d.before, { client_name: 'לירן ביטון' });
+  assert.equal(clientCellDiff(['', '', 'לירן סבח'], v.fields, 77).data.length, 0);
+});
