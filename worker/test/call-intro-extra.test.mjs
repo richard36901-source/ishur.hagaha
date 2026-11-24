@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { buildCallPayload, guestOpening, hostExtra } from '../shir.js';
+import { buildCallPayload, guestOpening, hostExtra, introFor } from '../shir.js';
 
 const G = { kind: 'guest', phone: '972500000000', guest_id: 'G-f85d36d5-1', token: 'f85d36d5-x', name: 'דנה', event_name: 'תאיר ואביב', occasion: 'חתונה', event_date: '2026-12-03', party: '2' };
 const EXTRA = 'והוריהם יעקב ומירי פיטוסי ושרון וכרמי מורי';
@@ -40,4 +40,17 @@ test('the dialer and the sample call both read the event addition', () => {
   const src = fs.readFileSync(new URL('../index.js', import.meta.url), 'utf8');
   assert.equal((src.match(/'callintro:' \+ /g) || []).length, 2);
   assert.match(src, /g\.host_extra = introCache\.get\(g\.token\)/);
+});
+
+test('an addition with a start day stays out of real calls until that day; a rehearsal always hears it', () => {
+  const raw = JSON.stringify({ text: EXTRA, from: '2026-11-25' });
+  assert.equal(introFor(raw, '2026-11-24'), '');
+  assert.equal(introFor(raw, '2026-11-25'), EXTRA);
+  assert.equal(introFor(raw, '2026-12-01'), EXTRA);
+  assert.equal(introFor(raw), EXTRA);
+  assert.equal(introFor(EXTRA, '2026-11-24'), EXTRA);
+  assert.equal(introFor('', '2026-11-24'), '');
+  assert.equal(introFor('{broken', '2026-11-24'), '');
+  const src = fs.readFileSync(new URL('../index.js', import.meta.url), 'utf8');
+  assert.ok(src.includes("introFor(await env.RATE.get('callintro:' + g.token).catch(() => null), day)"));
 });

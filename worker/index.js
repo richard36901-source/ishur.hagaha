@@ -29,7 +29,7 @@ import { proxy as evProxy, appendTab, sheetId } from './evlog.js';
 import { installStagingGuard, wrapEmail, isStaging, isAllowedPhone } from './staging-guard.js';   /* dev-staging 12/11: staging never reaches a real guest */
 import { createInvoice, token as morningToken, invoiceTerms, HOSTESS_TERMS } from './invoice.js';
 import { safeCallParty, invitedFromCall } from './shir.js';   /* 23/11 headcount guard */
-import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
+import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, introFor, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
 import { mondayMarkWon, mondayUpsertLead, mondayGql, mondayFindLead, mondayLeadNotes } from './monday.js';
 import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, groupsOf, LEAD_STATUSES, LEAD_OWNERS, LEAD_GROUPS } from './leads.js';
 import { clientWaba, clientToken, clientOnPortfolio, clientPhoneId, isGuestPhone, guestPhoneIds } from './whatsapp.js';
@@ -3085,7 +3085,7 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
     /* 08/11: one new call at a time, ~1.5 s apart — the carrier also refuses bursts per second */
     if (dialed.length) await new Promise(res => setTimeout(res, Number(env.CALL_GAP_MS) || 1500));
     /* 24/11: the event's own addition to the first sentence (callintro:<token>, e.g. the parents' names) */
-    if (!introCache.has(g.token)) introCache.set(g.token, (await env.RATE.get('callintro:' + g.token).catch(() => null)) || '');
+    if (!introCache.has(g.token)) introCache.set(g.token, introFor(await env.RATE.get('callintro:' + g.token).catch(() => null), day));
     g.host_extra = introCache.get(g.token);
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', {
       method: 'POST',
@@ -8878,7 +8878,7 @@ async function handleVoiceTools(request, env, origin) {
       Object.assign(g, { name: String(body.name || c(2).split(/\s+/)[0] || 'אורח יקר'), client_name: c(34) || c(2) || g.client_name, occasion: c(5) || g.occasion, event_name: c(34) || c(2) || evName || g.event_name,
         event_date: /^\d{4}-\d{2}-\d{2}$/.test(dDay) ? dDay : g.event_date, reception_time: c(36) || g.reception_time, venue_name: c(4) || c(38) || g.venue_name, venue_city: c(37) || g.venue_city });
     }
-    if (demoEv && env.RATE) g.host_extra = (await env.RATE.get('callintro:' + String(demoEv[1] || '').trim()).catch(() => null)) || '';
+    if (demoEv && env.RATE) g.host_extra = introFor(await env.RATE.get('callintro:' + String(demoEv[1] || '').trim()).catch(() => null));   /* a rehearsal hears it even before its start day */
     const payload = buildCallPayload(g, env.SHIR_FROM);
     payload.metadata.test = 'voice-tools-shir';
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', { method: 'POST', headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => null);
