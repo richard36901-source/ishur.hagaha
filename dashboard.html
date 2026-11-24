@@ -2773,7 +2773,8 @@
   function paintAddonPrices() {
     if (!addonQuote) return;
     $('addons').querySelectorAll('[data-addon]').forEach(function (b) {
-      var k = b.dataset.addon, it = priceOf(k, 'all');
+      /* 24/11 Shalev: the extra send goes to whoever has not answered, so its price is theirs, not the whole list's */
+      var k = b.dataset.addon, it = priceOf(k, (k === 'extra_send' || k === 'extrasend') ? 'unanswered' : 'all');
       /* the label is read back here; with another language on screen the Hebrew is kept beside it (data-he, i18n.js) */
       if (it && it.price) b.textContent = ((b.getAttribute('data-he') || b.textContent).indexOf('סבב נוסף') === 0 ? 'סבב נוסף · ₪' : 'הוספה · ₪') + it.price;
     });
@@ -2783,12 +2784,13 @@
     if (!all) return location.href = CFG.waLink('היי, רציתי שליחה נוספת לאירוע שלי.');
     /* 12/11 Richard: an empty list has nothing to send to — say so, no ₪0 popup */
     if (!all.n) { IshurUX.toast('עדיין אין מוזמנים ברשימה. אחרי שמעלים רשימה אפשר להוסיף שליחה'); return; }
+    /* 24/11 Shalev: only to whoever has not answered; when everybody answered there is nobody to send to */
+    if (!un || !un.n) { IshurUX.toast('כל המוזמנים כבר ענו, אין למי לשלוח סבב נוסף'); return; }
     var box = document.createElement('div');
     box.className = 'dpop-wrap';
     box.innerHTML = '<div class="xsend" style="max-width:360px"><h3 style="margin:0 0 .4rem">שליחה נוספת</h3>' +
-      '<p style="margin:0 0 .8rem;color:var(--ink2);font-size:.9rem">למי לשלוח את הסבב הנוסף?</p>' +
-      '<button type="button" class="buy" data-scope="all" style="width:100%;margin-bottom:.5rem">לכולם · ' + all.n + ' מוזמנים · ₪' + all.price + '</button>' +
-      (un.n ? '<button type="button" class="buy" data-scope="unanswered" style="width:100%;margin-bottom:.5rem">רק למי שלא ענה · ' + un.n + ' · ₪' + un.price + '</button>' : '') +
+      '<p style="margin:0 0 .8rem;color:var(--ink2);font-size:.9rem">הסבב הנוסף נשלח רק למי שעוד לא ענה, והמחיר לפי הכמות שלהם.</p>' +
+      '<button type="button" class="buy" data-scope="unanswered" style="width:100%;margin-bottom:.5rem">למי שלא ענה · ' + un.n + ' מוזמנים · ₪' + un.price + '</button>' +
       '<button type="button" class="btn" data-scope="x" style="width:100%">ביטול</button></div>';
     box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:90;padding:1rem';
     box.querySelector('.xsend').style.cssText = 'background:var(--card,#fff);border:1px solid var(--bdr);border-radius:8px;padding:1.1rem;width:100%;max-width:360px';

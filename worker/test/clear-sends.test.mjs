@@ -30,3 +30,13 @@ test('both client screens offer freeze and cancel-dates; freeze does not mark th
     assert.ok(h.slice(e, e + 1200).includes("flag: 'clearsends', on: true"), f);
   }
 });
+
+test('24/11 the board offers the extra send only to guests who have not answered, priced by their number', () => {
+  const h = fs.readFileSync(new URL('../../dashboard.html', import.meta.url), 'utf8');
+  const a = h.indexOf('function askScope()'), body = h.slice(a, a + 2600);
+  assert.ok(a > 0);
+  assert.ok(!body.includes('data-scope="all"'), 'no "to everybody" choice');
+  assert.ok(body.includes('data-scope="unanswered"') && body.includes("un.n + ' מוזמנים · ₪' + un.price"));
+  assert.ok(body.includes('if (!un || !un.n)'));
+  assert.ok(h.includes("priceOf(k, (k === 'extra_send' || k === 'extrasend') ? 'unanswered' : 'all')"));
+});
