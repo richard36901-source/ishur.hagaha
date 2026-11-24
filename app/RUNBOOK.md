@@ -145,8 +145,19 @@ message ever sent from it, and not blocked by the sign-in limits.
 - Push on Android is off (`androidPush: false` in `www/env.js`) until Firebase's `google-services.json` is in
   `android/app/`; registering without it crashes the app. The Worker's FCM sender is not written yet.
 
+## Android release (25/11/2026)
+- Upload key: `~/.ishur-keys/ishur-upload.jks` (alias ishur-upload), password in `~/.ishur-keys/android-upload.properties`.
+  Outside the repo on purpose. BACK IT UP (password manager or encrypted drive): losing it means asking Google to reset
+  the upload key. `app/build.gradle` signs release builds with it when the properties file exists.
+- Store build: `npm run env:production && npx cap sync android && cd android && ./gradlew bundleRelease`, then
+  `npm run env:staging`. Raise `versionCode` in `android/app/build.gradle` for every upload.
+- First bundle: `app/store/builds/ishur-android-1.0-1-production.aab` (versionCode 1, production servers, signed).
+- v1 on Android: phone and code only. Apple/Google sign-in there needs a Web OAuth client plus an Android client made
+  from Play's app-signing SHA-1 (Play Console → App integrity), so it waits for the Play account.
+- Emulator: the API 35 image is installed with AVD `ishur35`, but it needs about 7.4 GB free disk to start (25/11 only 4.8 GB free).
+
 ## Not written yet
-FCM sender in the Worker, release signing for Android.
+FCM sender in the Worker.
 
 ## TestFlight build (worked 22/11/2026)
 Team L8468XN7L4 (Richard Tomskiy), automatic signing, App Store Connect app id 6837931770 ("אישורי הגעה לאירועים", SKU
