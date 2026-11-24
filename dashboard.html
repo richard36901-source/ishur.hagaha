@@ -2183,7 +2183,7 @@
     var t = s.stats;
     if (!t) return '';
     /* 23/11: every call round of a three-round plan has its own row and its own result */
-    if (s.key === 'calls' || /^calls_r\d$/.test(s.key)) {
+    if (s.key === 'calls' || /^calls_r\d$/.test(s.key) || (s.key === 'calls2' && t.dialed != null)) {
       if (!t.dialed && !t.waiting) return '';
       return 'חויגו ' + t.dialed + ' · ענו בשיחה ' + t.answered + ' (מגיעים ' + t.confirmed + ' · לא מגיעים ' + t.declined +
              (t.undecided ? ' · מתלבטים ' + t.undecided : '') + ')' +

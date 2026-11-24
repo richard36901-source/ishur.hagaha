@@ -5896,18 +5896,20 @@ async function drainCallRounds(env, { dry = false, only = '' } = {}) {
     const gRows = ((raw && raw.guests && raw.guests.values) || []);
     const want = new Set(job.guest_ids || []);
     const data = [];
+    const prevTries = {};
     gRows.forEach((g, i) => {
       if (String((g || [])[28] || '').trim() !== token || !want.has(String(g[2] || '').trim())) return;
       const rsvp = String(g[15] || '').trim();
       if (rsvp === 'מגיע' || rsvp === 'לא מגיע') return;   // answered meanwhile — leave them alone
       if (!isIlMobile(normPhone(g[4] || ''))) return;       // abroad: WhatsApp only
       const row = i + 2;
+      prevTries[String(g[2] || '').trim()] = Number(String(g[29] || '').trim()) || 0;   /* 24/11: the board keeps the plan's rounds as they were */
       data.push({ range: `אורחים!V${row}`, values: [['נדרשת שיחה']] }, { range: `אורחים!AD${row}`, values: [['0']] });
     });
     const n = data.length / 2;
     if (dry) { res.push({ token: token.slice(0, 8), due, would_flag: n, at: job.at }); continue; }
     const okw = n ? await sheetBatchWrite(env, data) : true;
-    if (okw) { job.done = new Date().toISOString(); job.flagged = n; await env.RATE.put(k, JSON.stringify(job), { expirationTtl: 60 * 86400 }); }
+    if (okw) { job.done = new Date().toISOString(); job.flagged = n; job.prev = prevTries; await env.RATE.put(k, JSON.stringify(job), { expirationTtl: 60 * 86400 }); }
     await logEvent(env, { area: 'שיחות', action: 'סבב שיחות נוסף נפתח', ok: !!okw, review: !okw, token, detail: `${n} אורחים הוחזרו לתור של שיר · ${job.note || ''}` }).catch(() => {});
     await slackPost(env, `📞 *סבב שיחות נוסף* · אירוע ${token.slice(0, 8)}: ${n} אורחים חזרו לתור של שיר${job.note ? ' · ' + job.note : ''}`, { oneoff: true }).catch(() => {});   /* oneoff: a round was queued */
     res.push({ token: token.slice(0, 8), flagged: n, ok: !!okw });
@@ -15082,7 +15084,7 @@ const WORKER = {
         } catch {}
         /* who Shir already dialed, so the board can tell "did not answer" from
            "still waiting for a call" */
-        try { const cr = JSON.parse((await env.RATE.get('callround:' + token)) || 'null'); if (cr) sentWaves.callRound = { at: cr.at, n: (cr.guest_ids || []).length, done: !!cr.done, flagged: cr.flagged || 0 }; } catch {}
+        try { const cr = JSON.parse((await env.RATE.get('callround:' + token)) || 'null'); if (cr) sentWaves.callRound = { at: cr.at, n: (cr.guest_ids || []).length, done: !!cr.done, flagged: cr.flagged || 0, ids: cr.done ? (cr.guest_ids || []) : undefined, prev: cr.done ? (cr.prev || null) : undefined }; } catch {}
         sentWaves.dialed = new Set();
         const waitIds = ((raw.guests && raw.guests.values) || [])
           .filter(r => String(r[28] || '').trim() === token && String(r[21] || '').trim() === 'נדרשת שיחה')

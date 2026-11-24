@@ -281,6 +281,16 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
      a call"). It starts the morning after the last planned send, for whoever
      still has not answered; בסיס has no calls. */
   /* 04/11: a paid calls add-on on בסיס shows the round too */
+  /* 24/11: an extra call round (callround:<token>) puts its guests back in the queue with tries = 0. Without this the
+     plan's own rounds lost those guests the morning the extra round opened (שילת: rounds 2 and 3 fell from 178 / 129
+     dialled to 95 / 46 and went back to "בתהליך"). A guest of an opened extra round keeps, for the plan's rounds, the
+     tries they had before it (job.prev), or all of the plan's tries when that was not recorded; what happens to them
+     now belongs to the extra round's own row. */
+  const xr = sent.callRound && sent.callRound.done ? sent.callRound : null;
+  const xrIds = new Set((xr && xr.ids) || []);
+  const planCap = planMaxCallTries(planKeyOf(ev)) || 0;
+  const planTries = g => !xrIds.has(g.id) ? g.tries : (xr.prev && xr.prev[g.id] != null ? Number(xr.prev[g.id]) || 0 : planCap);
+  const planWaits = g => g.status === 'awaiting_call' && !xrIds.has(g.id);
   if (!sent.noCalls && (planMaxCallTries(planKeyOf(ev)) > 0 || sent.callsAddon)) {
     const last = [c(39), c(40), sent.extraPaid || sent[3] ? c(41) : '']
       .map(d => d.slice(0, 10)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().pop();
@@ -297,11 +307,11 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
       /* 04/11: a guest who used up every try is not waiting any more - the
          round is over even though the sheet still flags them */
       const cap = planMaxCallTries(planKeyOf(ev)) || (sent.callsAddon ? 1 : 0);
-      const queued = guests.filter(g => g.status === 'awaiting_call' && g.tries < cap).length;
+      const queued = guests.filter(g => planWaits(g) && g.tries < cap).length;
       /* a phone round happened only if somebody was dialed or answered BY PHONE
          ('ענה' / 'ענה - מתלבט' / 'לא ענה'); 'ענה בוואטסאפ' is a message answer */
       const byPhone = g => /^ענה($| - )/.test(g.call_ans) || g.call_ans === 'לא ענה' || /מוצו/.test(g.call_ans);
-      const called = guests.filter(g => g.tries > 0 || byPhone(g) || (sent.dialed && sent.dialed.has(g.id))).length;
+      const called = guests.filter(g => planTries(g) > 0 || byPhone(g) || (sent.dialed && sent.dialed.has(g.id))).length;
       /* once the event day has passed the round is over whatever is still flagged */
       const over = /^\d{4}-\d{2}-\d{2}$/.test(c(6)) && c(6).slice(0, 10) < todayIso;
       const status = start > todayIso ? 'scheduled' : over ? (called ? 'sent' : 'passed') : queued ? 'running' : called ? 'sent' : 'scheduled';
@@ -316,8 +326,8 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
         const nd = new Date(prev + 'T12:00:00Z'); nd.setUTCDate(nd.getUTCDate() + 1);
         if (nd.getUTCDay() === 5) nd.setUTCDate(nd.getUTCDate() + 2); else if (nd.getUTCDay() === 6) nd.setUTCDate(nd.getUTCDate() + 1);
         const dk = nd.toISOString().slice(0, 10); prev = dk;
-        const reached = guests.filter(g => g.tries >= k).length;
-        const waitingK = guests.filter(g => g.status === 'awaiting_call' && g.tries < k).length;
+        const reached = guests.filter(g => planTries(g) >= k).length;
+        const waitingK = guests.filter(g => planWaits(g) && g.tries < k).length;
         const stK = dk > todayIso && !reached ? 'scheduled' : over ? (reached ? 'sent' : 'passed') : waitingK ? (reached || dk <= todayIso ? 'running' : 'scheduled') : (reached || status === 'sent') ? 'sent' : 'scheduled';
         /* a round that already dialled cannot carry a day that has not come yet (the first round's day was moved by hand
            after it started: שילת 23/11, rounds 2 and 3 were shown as done on 24/11 and 25/11) */
@@ -364,11 +374,21 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
      rounds 1..tries, did not answer in the earlier ones, and whatever happened last belongs to round `tries`. */
   const ROUNDS = sends.some(x => x.key === 'calls_r2') ? (planMaxCallTries(planKeyOf(ev)) || 0) : 0;
   const perR = {};
+  const perX = Object.assign(tally(), { dialed: 0, no_answer: 0, waiting: 0, later: 0, later_confirmed: 0, later_declined: 0, later_undecided: 0 });
   for (let k = 1; k <= ROUNDS; k++) perR[k] = Object.assign(tally(), { dialed: 0, no_answer: 0, waiting: 0, later: 0, later_confirmed: 0, later_declined: 0, later_undecided: 0 });
   for (const g of guests) {
     if (g.self) continue;
     const isCall = viaCall(g) || dialed.has(g.id) || g.tries > 0;
-    if (ROUNDS) {
+    if (xrIds.has(g.id)) {
+      /* the extra round's own row */
+      const t2 = perX;
+      const phoneNow = viaCall(g) && /^ענה/.test(g.call_ans) && answered(g);
+      if (phoneNow) { t2.dialed++; t2.answered++; t2[g.status]++; }
+      else if (g.tries > 0) { t2.dialed++; if (answered(g)) { t2.later++; t2['later_' + g.status]++; } else t2.no_answer++; }
+      else if (!answered(g)) t2.waiting++;
+      /* in the plan's rounds they were dialled and did not answer: that is why they are in the extra round */
+      if (ROUNDS) for (let k = 1; k <= Math.min(ROUNDS, planTries(g)); k++) { perR[k].dialed++; perR[k].no_answer++; }
+    } else if (ROUNDS) {
       const last = isCall ? Math.min(ROUNDS, Math.max(1, g.tries || 0)) : 0;
       const byPhoneNow = viaCall(g) && /^ענה/.test(g.call_ans) && answered(g);
       for (let k = 1; k <= ROUNDS; k++) {
@@ -405,6 +425,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
     t.answered++; t[g.status]++;
   }
   for (const x of sends) if (per[x.key] && x.key !== 'event_day' && x.key !== 'day_after' && !/^calls_r\d$/.test(x.key)) x.stats = per[x.key];
+  if (xr) for (const x of sends) if (x.key === 'calls2') x.stats = perX;
   if (ROUNDS) for (const x of sends) { const k = x.key === 'calls' ? 1 : (/^calls_r(\d)$/.exec(x.key) || [])[1]; if (k && perR[k]) { if (x.key === 'calls') x.stats_all = x.stats; x.stats = perR[k]; } }
 
   return {

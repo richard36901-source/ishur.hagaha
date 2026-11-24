@@ -94,3 +94,26 @@ test('23/11 the rounds are dated from the day they really opened, not from a day
   const later = buildDashboard('TOK5', { events: { values: [Array(45).fill('h'), evRow] }, guests: { values: [Array(35).fill('h'), g] } }, 0, { callDate: day(-8), escDate: day(-6) });
   assert.equal(later.sends.find(s => s.key === 'calls').date, day(-8), 'an earlier hand-set day still wins');
 });
+test('24/11 an opened extra round does not rewrite the plan rounds; it has its own row and result', () => {
+  const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  const evRow = Array(45).fill(''); evRow[1] = 'TOK6'; evRow[6] = day(3); evRow[31] = 'הכל כלול'; evRow[39] = day(-12); evRow[40] = day(-10);
+  const G = (id, tries, v21, rsvp, ans) => { const g = Array(35).fill(''); g[1] = 'c'; g[2] = id; g[3] = id; g[4] = '97250123456' + id.slice(-1); g[15] = rsvp || ''; g[21] = v21 || ''; g[22] = ans || ''; g[28] = 'TOK6'; g[29] = String(tries); return g; };
+  /* before the extra round: A, B, C used all three tries; D answered on the second call */
+  const before = [G('GA', 3, '', '', 'לא ענה - מוצו הנסיונות'), G('GB', 3, '', '', 'לא ענה - מוצו הנסיונות'), G('GC', 3, '', '', 'לא ענה - מוצו הנסיונות'), G('GD', 2, '', 'מגיע', 'ענה')];
+  const raw = gs => ({ events: { values: [Array(45).fill('h'), evRow] }, guests: { values: [Array(35).fill('h'), ...gs] } });
+  const pick = t => ({ dialed: t.dialed, answered: t.answered, no_answer: t.no_answer, waiting: t.waiting });
+  const b = buildDashboard('TOK6', raw(before), 0, { escDate: day(-6) }).sends.filter(s => /^calls/.test(s.key));
+  assert.deepEqual(b.map(r => r.status), ['sent', 'sent', 'sent']);
+  /* the extra round opened this morning: tries back to 0, flagged again. A was already called and said no, B was called and did not answer, C still waits */
+  const after = [G('GA', 1, '', 'לא מגיע', 'ענה'), G('GB', 1, 'נדרשת שיחה', '', 'לא ענה'), G('GC', 0, 'נדרשת שיחה', '', 'לא ענה - מוצו הנסיונות'), G('GD', 2, '', 'מגיע', 'ענה')];
+  const job = { at: day(0), n: 3, done: true, flagged: 3, ids: ['GA', 'GB', 'GC'], prev: { GA: 3, GB: 3, GC: 3 } };
+  const a = buildDashboard('TOK6', raw(after), 0, { escDate: day(-6), callRound: job }).sends.filter(s => /^calls/.test(s.key));
+  assert.deepEqual(a.map(r => r.key), ['calls', 'calls_r2', 'calls_r3', 'calls2']);
+  assert.deepEqual(a.slice(0, 3).map(r => r.status), ['sent', 'sent', 'sent'], 'the plan rounds stay done');
+  for (let i = 0; i < 3; i++) assert.deepEqual(pick(a[i].stats), pick(b[i].stats), 'round ' + (i + 1) + ' is unchanged by the extra round');
+  assert.deepEqual(pick(a[3].stats), { dialed: 2, answered: 1, no_answer: 1, waiting: 1 });
+  assert.equal(a[3].stats.declined, 1); assert.equal(a[3].status, 'running');
+  /* a job that recorded no earlier tries (שילת's, opened before this fix): its guests count as having used the plan's tries */
+  const a2 = buildDashboard('TOK6', raw(after), 0, { escDate: day(-6), callRound: { ...job, prev: null } }).sends.filter(s => /^calls/.test(s.key));
+  for (let i = 0; i < 3; i++) assert.deepEqual(pick(a2[i].stats), pick(b[i].stats));
+});
