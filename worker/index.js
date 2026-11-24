@@ -5929,6 +5929,30 @@ async function drainCallRounds(env, { dry = false, only = '' } = {}) {
   const today = ilDate();
   const ilHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format());
   const res = [];
+  /* 24/11 Shalev ("מחר בשיחות של שוהם לחייג לרותם, למרות שסימנה שלא מגיעה"): ONE named guest gets ONE call on a set
+     day whatever their answer is. callone:<guest id> = {token, at, note}. The answer on the board stays as it is unless
+     the guest changes it in the call; the tries are set one short of the plan's limit, so there is no second call. */
+  if (!only) {
+    const ones = await kvPrefix(env, 'callone:');
+    for (const [gid, rawOne] of Object.entries(ones)) {
+      let one = null; try { one = JSON.parse(rawOne); } catch {}
+      if (!one || !one.token) continue;
+      const dueOne = today >= String(one.at || '');
+      if (!dry && (!dueOne || ilHour < 9)) { res.push({ one: gid, waiting: true, due: dueOne }); continue; }
+      const rawO = await readSnapshot(env, 'dial');
+      if (!rawO) { res.push({ one: gid, skipped: snapMiss(env) }); continue; }
+      const gR = (rawO.guests && rawO.guests.values) || [];
+      const i = gR.findIndex(g => String((g || [])[2] || '').trim() === gid && String(g[28] || '').trim() === one.token);
+      const evO = ((rawO.events && rawO.events.values) || []).find(r => String((r || [])[1] || '').trim() === one.token);
+      const capO = evO ? planMaxCallTries(planKeyOf(evO)) : 0;
+      if (i < 0 || !capO || !isIlMobile(normPhone(gR[i][4] || ''))) { if (!dry) { await env.RATE.delete('callone:' + gid).catch(() => {}); await logEvent(env, { area: 'שיחות', action: 'שיחה יזומה לאורח לא נפתחה', ok: false, review: true, token: one.token, detail: `${gid} · ${i < 0 ? 'האורח לא נמצא' : !capO ? 'החבילה בלי שיחות' : 'מספר לא ישראלי'}` }).catch(() => {}); } res.push({ one: gid, ok: false }); continue; }
+      if (dry) { res.push({ one: gid, due: dueOne, would_flag: 1, at: one.at }); continue; }
+      const okO = await sheetBatchWrite(env, [{ range: `אורחים!V${i + 2}`, values: [['נדרשת שיחה']] }, { range: `אורחים!AD${i + 2}`, values: [[String(capO - 1)]] }]);
+      if (okO) { await env.RATE.delete('callone:' + gid).catch(() => {}); await env.RATE.delete('snapcache').catch(() => {}); }
+      await logEvent(env, { area: 'שיחות', action: 'שיחה יזומה לאורח אחד נפתחה', ok: !!okO, review: !okO, token: one.token, detail: `${String(gR[i][3] || '').trim()} · ${one.note || ''}` }).catch(() => {});
+      res.push({ one: gid, flagged: okO ? 1 : 0, ok: !!okO });
+    }
+  }
   for (const [token, rawJob] of Object.entries(jobs)) {
     const k = 'callround:' + token;   /* kvPrefix strips the prefix */
     if (only && token !== only) continue;
@@ -13010,6 +13034,14 @@ const WORKER = {
         return okJson({ ok: true, job }, origin);
       }
       if (b.action === 'clear') { await env.RATE.delete('callround:' + tok); return okJson({ ok: true }, origin); }
+      /* 24/11: one named guest, one call on a set day, whatever they answered (drainCallRounds opens it) */
+      if (b.action === 'one') {
+        const gid = String(b.guest_id || '').trim(), at = String(b.at || ilDate()).slice(0, 10);
+        if (!/^G-[0-9a-f]{8}-L?\d+$/.test(gid) || !/^\d{4}-\d{2}-\d{2}$/.test(at) || !/^[0-9a-f-]{36}$/.test(tok)) return deny(400, 'bad-request', origin);
+        if (b.cancel === true) { await env.RATE.delete('callone:' + gid); return okJson({ ok: true, cancelled: true }, origin); }
+        await env.RATE.put('callone:' + gid, JSON.stringify({ token: tok, at, note: String(b.note || '').slice(0, 120), set_at: new Date().toISOString() }), { expirationTtl: 30 * 86400 });
+        return okJson({ ok: true, guest_id: gid, at }, origin);
+      }
       /* 24/11: dials the carrier refused were counted as tries (220 in one morning). {action:'restore', items:[{guest_id, tries}]}
          puts each guest back as they were before the dial: waiting for a call, with the tries they had. One batched sheet
          write; a guest who answered meanwhile is left alone; today's "already dialled" mark is lifted so they can be rung today. */
