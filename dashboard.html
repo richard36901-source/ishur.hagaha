@@ -235,7 +235,8 @@
   .rows{max-height:330px;overflow-y:auto}
   .row{display:flex;align-items:center;gap:.7rem;padding:.6rem 1rem;border-bottom:1px solid var(--bdr)}
   .row:last-child{border-bottom:none}
-  .row-n{flex:1;min-width:0;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* 24/11 Shalev (יעל כהן: long names were cut with …): a name is shown in full and wraps to a second line */
+  .row-n{flex:1;min-width:0;font-size:.88rem;white-space:normal;overflow-wrap:anywhere;line-height:1.3}
   .row-n.editable{cursor:pointer}
   .row-n.editable:hover{text-decoration:underline dotted;text-underline-offset:3px}
   .row-p{font-size:.74rem;color:var(--ink3);direction:ltr;text-align:right}
