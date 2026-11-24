@@ -8853,7 +8853,12 @@ async function handleVoiceTools(request, env, origin) {
       if (!demoEv) return deny(404, 'unknown-token', origin);
     }
     /* 24/11: to_team 'shalev' rings the team's own phone with the event's details, so a change to an event's call is heard before guests hear it */
-    const teamTo = body.to_team === 'shalev' ? normPhone(env.SHALEV_PHONE || '') : '';
+    let teamTo = body.to_team === 'shalev' ? normPhone(env.SHALEV_PHONE || '') : '';
+    /* no secret set: the team's own list (staff:<phone>, the back-office sign-in) knows her number */
+    if (body.to_team === 'shalev' && !teamTo && env.RATE) {
+      const lst = await env.RATE.list({ prefix: 'staff:', limit: 100 }).catch(() => null);
+      for (const k of (lst && lst.keys) || []) { let o = null; try { o = JSON.parse(await env.RATE.get(k.name) || 'null'); } catch {} if (o && String(o.name || '').trim() === 'שלו') { teamTo = normPhone(k.name.slice(6)); break; } }
+    }
     if (body.to_team && !teamTo) return deny(400, 'no-team-number', origin);
     const to = teamTo || normPhone(demoEv ? demoEv[3] || '' : body.to || '');
     const admins = String(env.ADMIN_PHONES || '').split(',').map(s => normPhone(s.trim()));
