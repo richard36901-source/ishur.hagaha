@@ -13002,6 +13002,9 @@ const WORKER = {
         if (b.dry) return okJson({ ok: true, dry: true, would_restore: done.length, answered, asked: items.length }, origin);
         const okw = data.length ? await sheetBatchWrite(env, data) : true;
         if (okw) await Promise.all(done.map(id => env.RATE.delete('dialed:' + id).catch(() => {})));
+        /* 24/11: a dial that never connected must not use up the guest's one call of the day either — 216 guests
+           whose tries were given back stayed blocked until the evening because shirtry:<guest>:<day> was left behind */
+        if (okw) { const d0 = ilDate(); await Promise.all(done.map(id => env.RATE.delete(`shirtry:${id}:${d0}`).catch(() => {}))); }
         await logEvent(env, { area: 'שיחות', action: 'ניסיונות חיוג שנספרו בטעות הוחזרו', ok: !!okw, review: !okw, token: tok, detail: `${done.length} מוזמנים חזרו לתור עם מספר הניסיונות הקודם · ${answered} ענו בינתיים ולא נגעו בהם · ${String(b.note || '').slice(0, 100)}` }).catch(() => {});
         return okw ? okJson({ ok: true, restored: done.length, answered, asked: items.length }, origin) : deny(502, 'sheet-write-failed', origin);
       }

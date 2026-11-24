@@ -31,3 +31,12 @@ test('QA digest · sums qastat days and lists lessons added in the period', asyn
   const d7 = await qaDigest(env, 7, '2026-11-08');
   assert.equal(d7.calls, 15); assert.equal(d7.talked, 9);
 });
+
+test('giving tries back also frees the guest for a call the same day (24/11)', async () => {
+  const fs = await import('node:fs');
+  const src = fs.readFileSync(new URL('../index.js', import.meta.url), 'utf8');
+  const at = src.indexOf("action === 'restore'"); assert.ok(at > 0);
+  const block = src.slice(at, at + 4000);
+  assert.ok(block.includes("env.RATE.delete('dialed:' + id)"));
+  assert.ok(block.includes('env.RATE.delete(`shirtry:${id}:${d0}`)'));
+});
