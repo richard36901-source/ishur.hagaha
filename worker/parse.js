@@ -120,6 +120,16 @@ export function parseGuestFile(fileName, buf) {
   return out;
 }
 
+/* 24/11/2026: the next guest number of an event. A guest who was removed keeps the row and its id, so "live rows + 1"
+   hands out an id that is already on the sheet (a 357-row list whose ids reach 358 would get a second 358, and every
+   write by guest id would land on the wrong person). The next number is one past the highest ever given to the event. */
+export function nextGuestSeq(rows, tok8, letter = '') {
+  const re = new RegExp('^G-' + String(tok8 || '').replace(/[^0-9a-f]/gi, '') + '-' + letter + '(\\d+)$');
+  let max = 0, n = 0;
+  for (const g of rows || []) { const m = re.exec(String((g && g[2]) || '').trim()); if (m) { n++; max = Math.max(max, Number(m[1]) || 0); } }
+  return Math.max(max, n) + 1;
+}
+
 /* Rows → guests, applying the column contract.
    Row 1 is treated as a header when its phone column is not a phone.
    Kept out: bad phones, landlines, duplicates — each with a reason, so the

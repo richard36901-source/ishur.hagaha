@@ -22,7 +22,7 @@
    ========================================================================== */
 
 import * as audit from './audit.js';
-import { parseGuestFile, guestsFromRows } from './parse.js';
+import { parseGuestFile, guestsFromRows, nextGuestSeq } from './parse.js';
 import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf, isTestEventRow, planMaxCallTries } from './dashboard.js';
 import { logRow, logUpdate, flushSheetLogs, readTabTail, readTabAll, upsertClientRow, ilTime } from './sheetlogs.js';
 import { proxy as evProxy, appendTab, sheetId } from './evlog.js';
@@ -2204,11 +2204,15 @@ async function handleGuestFile(form, file, rec, token, env, origin, target, st) 
 
     /* rows in the exact shape of the אורחים sheet, A through AC */
     const now = new Date().toISOString();
+    /* 24/11: ids continue after the highest one the event ever had (a removed guest keeps its id). On a first or a
+       replacing upload the event's own rows are gone, so only rows that stayed behind (removed guests) count. */
+    const idBase = nextGuestSeq(((capSnap && capSnap.guests && capSnap.guests.values) || [])
+      .filter(g => merge || String((g && g[28]) || '').trim() !== token), token.slice(0, 8)) - 1;
     const values = guests.map((g, i) => {
       const row = new Array(29).fill('');
       row[0] = rec.clientId;                        // מזהה לקוח
       row[1] = rec.name || '';                      // שם לקוח
-      row[2] = 'G-' + token.slice(0, 8) + '-' + (existingRows + i + 1); // מזהה אורח
+      row[2] = 'G-' + token.slice(0, 8) + '-' + (idBase + i + 1); // מזהה אורח
       row[3] = g.name;                              // שם אורח
       row[4] = g.phone;                             // טלפון אורח
       row[5] = g.party;                             // כמה הוזמנו
@@ -2477,11 +2481,12 @@ async function waGuestFile(env, from, doc) {
     return;
   }
   const now = new Date().toISOString();
+  const idBase = nextGuestSeq(((snap && snap.guests && snap.guests.values) || []).filter(g => String((g && g[28]) || '').trim() !== token), token.slice(0, 8)) - 1;   /* 24/11: never an id a removed guest still holds */
   const values = guests.map((g, i) => {
     const row = new Array(29).fill('');
     row[0] = rec.clientId;
     row[1] = rec.name || '';
-    row[2] = 'G-' + token.slice(0, 8) + '-' + (i + 1);
+    row[2] = 'G-' + token.slice(0, 8) + '-' + (idBase + i + 1);
     row[3] = g.name;
     row[4] = g.phone;
     row[5] = g.party;
@@ -13647,7 +13652,7 @@ const WORKER = {
       }
       const now = new Date().toISOString();
       const row = new Array(29).fill('');
-      row[0] = rec.clientId; row[1] = rec.name || ''; row[2] = 'G-' + tok.slice(0, 8) + '-L' + (gRows.length + 1);
+      row[0] = rec.clientId; row[1] = rec.name || ''; row[2] = 'G-' + tok.slice(0, 8) + '-L' + Math.max(gRows.length + 1, nextGuestSeq((raw && raw.guests && raw.guests.values) || [], tok.slice(0, 8), 'L'));   /* 24/11: never an id already on the sheet */
       row[3] = name; row[4] = phone; row[5] = String(party); row[13] = String(party); row[15] = 'מגיע'; row[14] = now;
       row[24] = 'נרשם מהקישור · לא בהודעות'; row[25] = now; row[28] = tok;
       const r = await hookFetch(env, env.HOOK_EVENTS, { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -14377,7 +14382,7 @@ const WORKER = {
       if (gRows.some(g => normPhone(g[4] || '') === phone)) return okJson({ ok: false, error: 'duplicate', used, left: LIMIT - used, tier }, origin);
       const now = new Date().toISOString();
       const row = new Array(29).fill('');
-      row[0] = rec.clientId; row[1] = rec.name || ''; row[2] = 'G-' + tok.slice(0, 8) + '-' + (gRows.length + 1);
+      row[0] = rec.clientId; row[1] = rec.name || ''; row[2] = 'G-' + tok.slice(0, 8) + '-' + nextGuestSeq((raw && raw.guests && raw.guests.values) || [], tok.slice(0, 8));   /* 24/11: a removed guest keeps its id, so count from the highest, not from the live rows */
       row[3] = name; row[4] = phone; row[5] = String(party);
       row[24] = 'נוסף מהדשבורד'; row[25] = now; row[28] = tok;
       const r = await hookFetch(env, env.HOOK_EVENTS, {
