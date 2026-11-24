@@ -413,7 +413,7 @@ export const AUTOMATIONS = [
   { id: 'brain_health', name_he: 'המוח · בדיקות בריאות (כל 10 דקות)', layer: 2, from: ['t_cron10'], kind: 'slack', added: '2026-11-03',
     trigger: { cron: '*/10 * * * *', il: 'כל 10 דקות (כל בדיקה לפי every_min שלה)', via: 'scheduled → runBrain · POST /api/ops/brain-run' }, routes: ['/api/ops/brain-run'],
     conditions: ['BRAIN_ENABLED != "off"', 'כל בדיקה רצה רק כשעבר every_min מהריצה הקודמת שלה'], audience: 'ריצ׳רד (סלאק + מסך המוח)',
-    checks: ['template_watch', 'cap_hold_stale', 'pacer_tick', 'snapshot_fail', 'make_down', 'noa_billing', 'telnyx_order', 'lead_monday', 'reply_wrong_number', 'capacity_overflow', 'noa_unanswered', 'balances_low', 'crm_overdue', 'd1_ledger', 'failed_runs', 'biz_verification', 'gift_blast', 'wedding_day', 'call_round_not_dialing', 'planned_not_progressing'],
+    checks: ['template_watch', 'cap_hold_stale', 'team_note_open', 'pacer_tick', 'snapshot_fail', 'make_down', 'noa_billing', 'telnyx_order', 'lead_monday', 'reply_wrong_number', 'capacity_overflow', 'noa_unanswered', 'balances_low', 'crm_overdue', 'd1_ledger', 'failed_runs', 'biz_verification', 'gift_blast', 'wedding_day', 'call_round_not_dialing', 'planned_not_progressing'],
     source: S(504, 'export async function runBrain', 'worker/brain.js'), evidence: [E(9787, 'ctx.waitUntil(runBrain(env', 'הקרון של 10 הדקות מריץ את המוח')] },
   { id: 'brain_fix', name_he: 'המוח · פלייבוקים (תיקון אוטומטי או באישור)', layer: 3, from: ['brain_health'], kind: 'internal', added: '2026-11-03',
     trigger: { cron: '', il: 'כשבדיקה מוצאת ממצא עם פלייבוק', via: 'execPlaybook · POST /api/ops/brain-decision' }, routes: ['/api/ops/brain-decision'],

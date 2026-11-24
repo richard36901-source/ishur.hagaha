@@ -87,6 +87,7 @@ import { suggest as lineupSuggest, clean as lineupClean, ics as lineupIcs, feedK
 import { handleAccount, handleReviewClaim, sendLoginCode, adminSendPin, reviewState, readLedger, ledgerBalance, emailFromLeads, readContact, validEmail, pinFor, resetPin, boardLockOn, boardSessionOk, mintSession as mintAcctSession, verifySession as verifyAcctSession } from './account.js';   /* 12/11 personal-area */
 import { sendEmail as sendPlainEmail } from './outreach.js';
 import { navLinkOk, giftLinkOk } from './links.js';
+import { isTeamNote, saveNote, listNotes, closeNote } from './teamnotes.js';   /* 24/11 the team's requests to Richard */
 import { cleanQuery, inboxSearch } from './inbox-search.js';   /* 23/11 inbox search box */
 import { handleSubeventCreate, handleSubeventSend, handleSubeventRemind, handleSubeventSummary, continueSubevents, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
 import { cleanParam } from './whatsapp.js';   /* 02/11 audit: links that reach guests */
@@ -3897,6 +3898,12 @@ async function handleWaWebhook(request, env, url) {
             at: new Date().toISOString(),
           }));
           await touchConversation(env, peer, { ts: ets, dir: 'out', text: eBody.slice(0, 80), ch: echoCh });
+          /* 24/11: a request the team wrote to Richard from the client line is kept as an open request (teamnotes.js) */
+          const noteText = eBody || String((msg[msg.type] && msg[msg.type].caption) || '').slice(0, 1200);   /* a picture's words are its caption */
+          if (isTeamNote({ peer, owner: env.OWNER_PHONE || OWNER_PHONE, ch: echoCh, appAuto, text: noteText })) {
+            const nk = await saveNote(env, { id: msg.id, ts: ets, text: noteText, type: msg.type }).catch(() => null);
+            if (nk) await logEvent(env, { area: 'צוות', action: 'בקשה מהצוות נרשמה', ok: true, ref: nk, detail: noteText.slice(0, 200) }).catch(() => {});
+          }
           if (echoCh === 'client' && !appAuto) await crmTouch(env, peer, { dir: 'out', text: eBody, ch: 'client', at: new Date(ets).toISOString(), who: 'phone', id: msg.id ? 'wa:' + msg.id : undefined }).catch(() => {});
           await logRow(env, echoCh === 'guests' ? 'msg_guests' : 'msg_clients', {
             id: msg.id || '', dir: 'יוצאת', who: appAuto ? 'הודעה אוטומטית (אפליקציית וואטסאפ)' : 'ריצ׳רד (מהטלפון)',
@@ -12931,6 +12938,18 @@ const WORKER = {
        number has used, and when the oldest conversation ages out. */
     /* event-day blast: {token, action:"set"|"dry"|"run"|"clear", time, what, address, nav, template, at} */
     /* extra call round: {token, action:"set"|"dry"|"run"|"clear", at, guest_ids, note} */
+    /* 24/11 the team's requests to Richard: {action:'list', days?} · {action:'done', key, result} (admin) */
+    if (url.pathname === '/api/team-notes' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (b.action === 'done') {
+        const okd = await closeNote(env, String(b.key || ''), String(b.result || ''));
+        if (okd) await logEvent(env, { area: 'צוות', action: 'בקשה מהצוות נסגרה', ok: true, ref: String(b.key), detail: String(b.result || '').slice(0, 200) }).catch(() => {});
+        return okd ? okJson({ ok: true }, origin) : deny(404, 'no-such-note', origin);
+      }
+      const notes = await listNotes(env, { days: Math.max(1, Math.min(60, Number(b.days) || 7)) });
+      return okJson({ ok: true, open: notes.filter(n => n.status === 'open').length, notes }, origin);
+    }
     if (url.pathname === '/api/call-round' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);

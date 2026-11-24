@@ -27,6 +27,7 @@
    d (deps from index.js opsDeps): see BRAIN_DEPS in docs/BRAIN-2026-11-03.md.
    ========================================================================== */
 import { withRun, listRuns } from './ops-run.js';
+import { listNotes, overdueNotes } from './teamnotes.js';
 import { recordChange, actorOf } from './changes.js';   /* 03/11 change log */
 import { shouldDial } from './shir.js';
 
@@ -107,6 +108,14 @@ export const CHECKS = [
     if (g && !anyHeld && ids.length) out.push({ id: 'cap_hold_stale:guests', status: 'warn', severity: 'P1', playbook: 'cap_probe_release', title_he: 'עצירת תקרה גלובלית לאורחים בלי אף מספר מוחזק',
       detail: 'wacap:guests set while no wacap:<id> is', evidence: [`wacap:guests=${g}`], data: { phone_id: 'guests' } });
     return out;
+  } },
+
+  /* 24/11 Richard: a request the team wrote to him must not wait on anybody remembering it. Open for six hours → raised. */
+  { id: 'team_note_open', name_he: 'בקשה מהצוות פתוחה מעל 6 שעות', every_min: 30, async run(c) {
+    const notes = overdueNotes(await listNotes(c.env, { days: 7, now: c.now }).catch(() => []), c.now);
+    return notes.map(n => ({ id: 'team_note_open:' + n.key.split(':')[1], status: 'warn', severity: 'P2',
+      title_he: `בקשה מהצוות פתוחה ${Math.round((c.now - n.ts) / H)} שעות: ${String(n.text).replace(/\s+/g, ' ').slice(0, 70)}`,
+      detail: 'נכתבה מהמספר של נועה לריצארד ועדיין לא נסגרה', evidence: [n.key], data: { key: n.key } }));
   } },
 
   { id: 'pacer_tick', name_he: 'הפייסר לא רץ מעל 25 דקות', every_min: 10, async run(c) {
