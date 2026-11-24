@@ -2931,7 +2931,7 @@ async function processRetellEvent(env, body) {
        and writes back to monday. Nothing here may break the webhook. */
     /* 08/11 (Richard): the reviewer runs on EVERY Shir guest call (CALL_QA, default on) — it was tied to
        NOA_CHASE (off by decision), so answers Shir heard but never recorded stayed off the board. */
-    if ((String(env.CALL_QA || 'on') !== 'off' && (meta0.kind === 'guest' || !meta0.kind) || String(env.NOA_CHASE || '') === 'on' && meta0.kind === 'lead') && !String(c0.direction || '').includes('inbound')) {
+    if ((String(env.CALL_QA || 'on') !== 'off' && (meta0.kind === 'guest' || !meta0.kind) || String(env.NOA_CHASE || '') === 'on' && meta0.kind === 'lead') && !String(c0.direction || '').includes('inbound') && action.kind !== 'skip') {   /* 24/11: a call that never connected is not reviewed */
       try {
         const qa = callFromRetell(c0, action, { event: evName0 });
         qa.tool_recorded = !!(action.call_id && env.RATE && await env.RATE.get('shirtool:' + action.call_id));
@@ -12561,6 +12561,18 @@ const WORKER = {
       const words = n => String(n || '').replace(/[^\u0590-\u05ffA-Za-z ]/g, '').split(/\s+/).filter(Boolean).sort().join(' ');
       const tail = p => String(p || '').replace(/\D/g, '').slice(-9);
       const rsvp = String(hit.r[15] || '').trim();
+      /* 24/11 Shalev: "להוריד מהרשימה" — the client asked for one guest to come off their list (a wrong person, or a
+         list row whose people answered through the link under another phone and name). Admin only, {by_request:true,
+         why}: no twin is needed and an answer on the row does not stop it. Same reversible mark, its own prefix. */
+      if (b.by_request === true) {
+        const why = String(b.why || '').replace(/[<>]/g, '').trim().slice(0, 120);
+        if (!why) return deny(400, 'why-required', origin);
+        const planR = { row: hit.i + 2, name: String(hit.r[3] || '').trim(), rsvp_was: rsvp };
+        if (b.dry) return okJson({ ok: true, dry: true, by_request: true, ...planR }, origin);
+        const okR = await sheetBatchWrite(env, [{ range: `אורחים!AC${hit.i + 2}`, values: [['removed-req:' + tok.slice(0, 8)]] }, { range: `אורחים!V${hit.i + 2}`, values: [['']] }]);
+        await logEvent(env, { area: 'לקוחות', action: 'מוזמן הוסר מהאירוע לבקשת הלקוח', ok: !!okR, review: true, token: tok, detail: `שורה ${hit.i + 2} · ${planR.name}${rsvp ? ' · היה: ' + rsvp : ''} · ${why}` }).catch(() => {});
+        return okR ? okJson({ ok: true, by_request: true, ...planR }, origin) : deny(502, 'sheet-write-failed', origin);
+      }
       if (rsvp) return deny(409, 'row-has-an-answer', origin);
       const twin = mine.find(x => x.i !== hit.i && String(x.r[15] || '').trim() && ((tail(x.r[4]) && tail(x.r[4]) === tail(hit.r[4])) || (words(x.r[3]) && words(x.r[3]) === words(hit.r[3]))));
       if (!twin) return deny(409, 'no-answered-twin', origin);

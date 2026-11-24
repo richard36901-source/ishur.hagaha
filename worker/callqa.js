@@ -80,6 +80,10 @@ export function rulesVerdict(call) {
   const dur = Number(c.duration_s);
   const recorded = recordedOf(c);
   const r = { recorded, suggested: '', auto_fix: false, retry: false, count_unclear: false, rule: '', said: text };
+  /* 24/11: a call the carrier never connected (telephony_provider_permission_denied — the Telnyx balance ran out and
+     220 dials in one morning were all refused) is not a hang-up. It has no duration, so the hang-up rule below took it
+     for "ניתק בפתיח" and wrote a try for a phone that never rang. Nothing to review, nothing to fix. */
+  if (/^telephony_provider_|^error_|concurrency/.test(String(c.disconnection || ''))) { r.rule = 'not-connected'; r.verdict = 'ok'; return r; }
 
   if (/(^|\s)(לא|עדיין לא|עוד לא)\s+(יודע|יודעת|יודעים|יודעות|בטוח|בטוחה|בטוחים|סגור|סגורה|החלטנו|החלטתי)|(^|\s)(עדיין|עוד)\s+לא(\s|$)|(^|\s)(אולי|תלוי|נראה|נעדכן|נחשוב|נבדוק)(\s|$)/.test(text)) {
     r.suggested = 'מתלבט'; r.rule = 'undecided'; r.auto_fix = true;
@@ -266,6 +270,7 @@ export function callFromRetell(call, action, opts = {}) {
     outcome: action && action.result ? String(action.result.rsvp || '') : '',
     answer: action && action.result ? String(action.result.answer || '') : '',
     duration_s: c.start_timestamp && c.end_timestamp ? Math.round((c.end_timestamp - c.start_timestamp) / 1000) : null,
+    disconnection: String(c.disconnection_reason || ''),
     guest_name: String(dv.guest_name || dv.lead_name || dv.caller_name || '').trim(),
     event: String(opts.event || dv.event_name || dv.host_name || '').trim(),
     guest_id: String(meta.guest_id || ''), token: String(meta.token || ''),

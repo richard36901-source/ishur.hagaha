@@ -80,3 +80,29 @@ test('23/11 headcount from a phone call: far above the invitation is held, the r
   const writes = src.match(/writeCallResult\(env, [^;]*party[^;]*;/gi) || [];
   for (const w of writes) if (!/__keep__|partySize\) \{|null\)/.test(w)) assert.ok(/guardCallParty/.test(w), 'a call headcount write without the guard: ' + w.slice(0, 90));
 });
+
+test('24/11 remove one guest at the client request: admin only, needs a reason, reversible mark, the twin guards stay for the other path', async () => {
+  const src = (await import('node:fs')).readFileSync(new URL('../index.js', import.meta.url), 'utf8');
+  const a = src.indexOf("url.pathname === '/api/guest-remove-dup'"); const b = src.indexOf("url.pathname === '/api/rec-archive'", a);
+  const blk = src.slice(a, b);
+  assert.ok(blk.indexOf('isAdmin(env, b.admin_key)') < blk.indexOf('b.by_request === true'), 'the admin check comes first');
+  assert.ok(/if \(!why\) return deny\(400, 'why-required'/.test(blk));
+  assert.ok(blk.includes("'removed-req:' + tok.slice(0, 8)") && blk.includes("'removed-dup:' + tok.slice(0, 8)"));
+  assert.ok(!/values:batchClear|deleteDimension/.test(blk), 'no sheet row is deleted');
+  const after = blk.slice(blk.indexOf('b.by_request === true'));
+  assert.ok(after.includes("'row-has-an-answer'") && after.includes("'no-answered-twin'"), 'without by_request both guards still apply');
+});
+
+test('24/11 a call the carrier refused is never turned into "did not answer"', async () => {
+  const { rulesVerdict, callFromRetell } = await import('../callqa.js');
+  const refused = { call_id: 'c1', transcript: '', disconnection_reason: 'telephony_provider_permission_denied', metadata: { guest_id: 'G-1', kind: 'guest', tries: '2', max_tries: '3' } };
+  const qa = callFromRetell(refused, { kind: 'skip', why: 'not-connected:telephony_provider_permission_denied' }, {});
+  assert.equal(qa.disconnection, 'telephony_provider_permission_denied');
+  const v = rulesVerdict(qa);
+  assert.equal(v.verdict, 'ok'); assert.equal(v.auto_fix, false); assert.equal(v.suggested, ''); assert.equal(v.rule, 'not-connected');
+  /* a real two-second pick-up-and-hang-up is still a hang-up */
+  const hung = rulesVerdict(callFromRetell({ call_id: 'c2', transcript: 'User: הלו', start_timestamp: 1000, end_timestamp: 3000, disconnection_reason: 'user_hangup', metadata: { guest_id: 'G-2', kind: 'guest' } }, { kind: 'end-no-outcome', result: {} }, {}));
+  assert.equal(hung.rule, 'hangup');
+  const src = (await import('node:fs')).readFileSync(new URL('../index.js', import.meta.url), 'utf8');
+  assert.ok(/includes\('inbound'\) && action\.kind !== 'skip'\)/.test(src), 'the webhook does not send a not-connected call to the reviewer');
+});
