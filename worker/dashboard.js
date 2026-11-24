@@ -290,7 +290,11 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
   const xrIds = new Set((xr && xr.ids) || []);
   const planCap = planMaxCallTries(planKeyOf(ev)) || 0;
   const planTries = g => !xrIds.has(g.id) ? g.tries : (xr.prev && xr.prev[g.id] != null ? Number(xr.prev[g.id]) || 0 : planCap);
-  const planWaits = g => g.status === 'awaiting_call' && !xrIds.has(g.id);
+  /* 24/11 (שוהם: ten guests "not dialled" in round 1 were ten who pressed "טעות"): a wrong number is never called, so it
+     does not wait for any round */
+  const wrongSet = sent.wrong instanceof Set ? sent.wrong : new Set();
+  const isWrong = g => wrongSet.size > 0 && wrongSet.has(String(g.phone || '').replace(/\D/g, '').replace(/^0/, '972'));
+  const planWaits = g => g.status === 'awaiting_call' && !xrIds.has(g.id) && !isWrong(g);
   if (!sent.noCalls && (planMaxCallTries(planKeyOf(ev)) > 0 || sent.callsAddon)) {
     const last = [c(39), c(40), sent.extraPaid || sent[3] ? c(41) : '']
       .map(d => d.slice(0, 10)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().pop();
@@ -405,7 +409,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
           else if (byPhoneNow) { t.answered++; t[g.status]++; }
           else if (answered(g)) { t.later++; t['later_' + g.status]++; }
           else t.no_answer++;
-        } else if (!answered(g) && g.status === 'awaiting_call') t.waiting++;
+        } else if (!answered(g) && g.status === 'awaiting_call' && !isWrong(g)) t.waiting++;
       }
     }
     if (per.calls && isCall) per.calls.dialed++;
@@ -413,7 +417,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
       /* Richard 21/10: dialed and still silent is "לא ענו" whatever the
          status column says (after 3 tries the sheet flips it back to pending) */
       if (isCall) per.calls.no_answer++;
-      else if (g.status === 'awaiting_call') per.calls.waiting++;
+      else if (g.status === 'awaiting_call' && !isWrong(g)) per.calls.waiting++;
       continue;
     }
     /* 08/11 (Richard): dialed, then answered some other way (WhatsApp / undecided) — shown on the calls row

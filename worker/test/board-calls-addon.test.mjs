@@ -120,3 +120,17 @@ test('24/11 an opened extra round does not rewrite the plan rounds; it has its o
   const a2 = buildDashboard('TOK6', raw(after), 0, { escDate: day(-6), callRound: { ...job, prev: null } }).sends.filter(s => /^calls/.test(s.key));
   for (let i = 0; i < 3; i++) assert.deepEqual(pick(a2[i].stats), pick(b[i].stats));
 });
+
+test('24/11 a guest who pressed "טעות" (wrong number) does not wait for any call round', () => {
+  const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  const evRow = Array(45).fill(''); evRow[1] = 'TOKW'; evRow[6] = day(20); evRow[31] = 'הכל כלול'; evRow[39] = day(-12); evRow[40] = day(-10);
+  const G = (id, phone, tries) => { const g = Array(35).fill(''); g[1] = 'c'; g[2] = id; g[3] = id; g[4] = phone; g[21] = 'נדרשת שיחה'; g[28] = 'TOKW'; g[29] = String(tries); return g; };
+  const guests = [G('A', '972501111111', 0), G('B', '0502222222', 0), G('C', '972503333333', 1)];
+  const raw = { events: { values: [Array(45).fill('h'), evRow] }, guests: { values: [Array(35).fill('h'), ...guests] } };
+  const rowsOf = sent => buildDashboard('TOKW', raw, 0, sent).sends.filter(s => /^calls/.test(s.key));
+  const plain = rowsOf({}), marked = rowsOf({ wrong: new Set(['972501111111', '972502222222']) });
+  assert.equal(plain[0].stats.moved, 2);                       /* without the marks A and B look like guests round 1 skipped */
+  assert.equal(marked[0].stats.moved, 0);
+  assert.equal(marked[1].queued, 1); assert.equal(marked[1].stats.waiting, 1);   /* only C still waits for round 2 */
+  assert.equal(marked[2].stats.waiting, 1);
+});

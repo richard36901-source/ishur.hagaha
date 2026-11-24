@@ -15155,6 +15155,8 @@ const WORKER = {
            confirmed the payment (Richard 12/10) */
         sentWaves.callDate = await env.RATE.get('calldate:' + token).catch(() => null);
         sentWaves.escDate = await env.RATE.get('esc:' + token).catch(() => null);   /* 23/11: the day the plan's call rounds really opened */
+        /* 24/11: guests who pressed "טעות" (wrong number) are never called; the board must not count them as waiting for a call */
+        try { sentWaves.wrong = new Set(Object.keys(await kvPrefix(env, 'wrong:' + token + ':')).map(k => k.split(':').pop())); } catch { sentWaves.wrong = new Set(); }
         sentWaves.noCalls = !!(await env.RATE.get('nocalls:' + token).catch(() => null));   /* 19/11: this event asked for no phone calls */
         sentWaves.todaDate = await env.RATE.get('todadate:' + token).catch(() => null);
         sentWaves.extraPaid = !!(await env.RATE.get('extrasend:' + token));

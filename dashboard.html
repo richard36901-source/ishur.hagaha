@@ -2191,8 +2191,7 @@
              (t.later ? ' · ענו אחר כך בוואטסאפ ' + t.later + ' (מגיעים ' + (t.later_confirmed || 0) + ' · לא מגיעים ' + (t.later_declined || 0) +
                (t.later_undecided ? ' · מתלבטים ' + t.later_undecided : '') + ')' : '') +
              ' · לא ענו ' + t.no_answer +
-             (t.waiting ? ' · עוד לא חויגו ' + t.waiting : '') +
-             (t.moved ? ' · ' + t.moved + ' לא חויגו ועברו לסבב הבא' : '');   /* 24/11: a finished round */
+             (t.waiting ? ' · עוד לא חויגו ' + t.waiting : '');   /* 24/11 Shalev: a finished round says nothing about who it did not dial; they are counted on the next round */
     }
     if (s.status !== 'sent' && s.status !== 'running') return '';
     return 'ענו בסבב הזה ' + t.answered + ' · מגיעים ' + t.confirmed + ' · לא מגיעים ' + t.declined +
