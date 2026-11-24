@@ -245,9 +245,13 @@ export function inboundLookup(raw, phone, todayIso, opts = {}) {
 }
 
 /* 08/11: the guest opener — one question, then silence. An undecided guest already answered on WhatsApp. */
+export function hostExtra(s) { return String(s || '').replace(/[{}<>\n\r]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140); }
 export function guestOpening(v = {}) {
   const host = String(v.host_name || '').trim(), occ = String(v.occasion || 'האירוע').trim(), when = String(v.event_date_spoken || '').trim();
-  const by = host ? ` בשם ${host}` : '';
+  /* 24/11 (Richard, Aviv Pitusi's wedding): an event may add a few words right after the couple's names, e.g. the
+     parents. Only the spoken first sentence changes; host_name and every other variable stay as they were. */
+  const extra = hostExtra(v.host_extra);
+  const by = host ? ` בשם ${host}${extra ? ', ' + extra : ''}` : '';
   if (v.guest_state === 'מתלבט') return `היי, מדברת שיר מאישורי הגעה${by} — ראינו שעוד לא סגרתם לגבי ה${occ}${when ? ' ב-' + when : ''}. כבר יודעים אם מגיעים?`;
   return `היי, מדברת שיר מאישורי הגעה${by} — מגיעים ל${occ}${when ? ' ב-' + when : ''}?`;
 }
@@ -390,7 +394,7 @@ export function buildCallPayload(guest, fromNumber, opts = {}) {
   if (!v.opening) {
     if (kind === 'callback') v.opening = openingLine(guest.hit || guest, { callback: true });
     else if (kind === 'lead') v.opening = 'היי, מדברת נועה מאישורי הגעה.';
-    else v.opening = guestOpening(v);
+    else v.opening = guestOpening({ ...v, host_extra: guest.host_extra });   /* host_extra is not sent as a variable: the script never reads it */
   }
   return payload;
 }

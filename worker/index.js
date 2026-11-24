@@ -3068,6 +3068,7 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
   const cap = Math.max(0, Math.min(Number(max) || 25, 25, parallel - live));
   if (!cap) return { ok: true, dialed: 0, busy: live, limit, queued: queue.length };
   const dialed = [];
+  const introCache = new Map();
   let blocked = 0;
   for (const g of queue) {
     if (dialed.length >= cap) break;
@@ -3083,6 +3084,9 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
     if (await env.RATE.get(dayKey)) continue;
     /* 08/11: one new call at a time, ~1.5 s apart — the carrier also refuses bursts per second */
     if (dialed.length) await new Promise(res => setTimeout(res, Number(env.CALL_GAP_MS) || 1500));
+    /* 24/11: the event's own addition to the first sentence (callintro:<token>, e.g. the parents' names) */
+    if (!introCache.has(g.token)) introCache.set(g.token, (await env.RATE.get('callintro:' + g.token).catch(() => null)) || '');
+    g.host_extra = introCache.get(g.token);
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
@@ -8848,13 +8852,16 @@ async function handleVoiceTools(request, env, origin) {
       demoEv = ((snapD && snapD.events && snapD.events.values) || []).find(r => String((r || [])[1] || '').trim() === String(body.demo_token).trim()) || null;
       if (!demoEv) return deny(404, 'unknown-token', origin);
     }
-    const to = normPhone(demoEv ? demoEv[3] || '' : body.to || '');
+    /* 24/11: to_team 'shalev' rings the team's own phone with the event's details, so a change to an event's call is heard before guests hear it */
+    const teamTo = body.to_team === 'shalev' ? normPhone(env.SHALEV_PHONE || '') : '';
+    if (body.to_team && !teamTo) return deny(400, 'no-team-number', origin);
+    const to = teamTo || normPhone(demoEv ? demoEv[3] || '' : body.to || '');
     const admins = String(env.ADMIN_PHONES || '').split(',').map(s => normPhone(s.trim()));
     /* 18/11 Richard: a lead who asks to hear a sample call gets this same demo. Only with demo_lead set on purpose, an Israeli mobile, and inside lead hours (10:00–20:00). */
     const inHours = (() => { const h = Number(ilTime().slice(0, 2)); return h >= 10 && h < 20; })();
     const leadDemo = (body.demo_lead === true || !!demoEv) && isIlMobile(to) && inHours;
     if (demoEv && !inHours) return deny(409, 'outside-hours', origin);
-    if (!to || (!admins.includes(to) && !leadDemo)) return deny(400, 'admin-numbers-only', origin);
+    if (!to || (!admins.includes(to) && !leadDemo && !teamTo)) return deny(400, 'admin-numbers-only', origin);
     if (!env.SHIR_FROM) return deny(503, 'shir-not-configured', origin);
     const g = { kind: 'guest', phone: to, /* 18/11 evening: the opener says "בשם <event_name>", so this is the couple's names, not "החתונה של…" (Ziv heard "בשם החתונה של נועה ויונתן") */ name: String(body.name || (body.demo_lead === true ? '' : 'שלו')), client_name: 'נועה ויונתן', occasion: 'חתונה', event_name: 'נועה ויונתן',
       event_date: /^\d{4}-\d{2}-\d{2}$/.test(String(body.event_date || '')) ? String(body.event_date) : new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10), reception_time: '19:30', venue_name: 'הגן הקסום', venue_city: 'רמת גן', party: '2', guest_id: 'G-demo-' + Date.now(), token: '', tries: 0, max_tries: 1,
@@ -8866,6 +8873,7 @@ async function handleVoiceTools(request, env, origin) {
       Object.assign(g, { name: String(body.name || c(2).split(/\s+/)[0] || 'אורח יקר'), client_name: c(34) || c(2) || g.client_name, occasion: c(5) || g.occasion, event_name: c(34) || c(2) || evName || g.event_name,
         event_date: /^\d{4}-\d{2}-\d{2}$/.test(dDay) ? dDay : g.event_date, reception_time: c(36) || g.reception_time, venue_name: c(4) || c(38) || g.venue_name, venue_city: c(37) || g.venue_city });
     }
+    if (demoEv && env.RATE) g.host_extra = (await env.RATE.get('callintro:' + String(demoEv[1] || '').trim()).catch(() => null)) || '';
     const payload = buildCallPayload(g, env.SHIR_FROM);
     payload.metadata.test = 'voice-tools-shir';
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', { method: 'POST', headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => null);
