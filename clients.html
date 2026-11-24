@@ -608,6 +608,8 @@
       '<div class="sec"><h3>רשימה ומצב</h3><div class="acts">' +
         '<button class="btn" data-act="reset">איפוס רשימה להעלאה מחדש</button>' +
         '<button class="btn" data-act="active">' + (fl.active ? 'סמן לא פעיל' : 'סמן פעיל') + '</button>' +
+        '<button class="btn" data-act="freeze">' + (fl.hold ? 'שחרור הקפאת שליחות' : 'הקפאת שליחות') + '</button>' +
+        '<button class="btn d" data-act="clear-sends">ביטול מועדי שליחה</button>' +
         '<button class="btn' + (fl.hold ? '' : ' d') + '" data-act="hold">' + (fl.hold ? 'חידוש הלקוח' : 'ביטול לקוח') + '</button></div></div>' +
       '</div></div>';
     $('list').insertAdjacentHTML('beforeend', html);
@@ -665,6 +667,15 @@
       var toHold = !fl.hold;
       if (toHold && !(await askConfirm('כל השליחות והשיחות לאירוע הזה נעצרות, כולל הודעות לאורחים. שום דבר לא יוצא עד שתחדש. הרשימה והתאריכים נשארים.', { title: 'לבטל את הלקוח?', ok: 'כן, לבטל', danger: true }))) { b.disabled = false; return; }
       p = api('eventflag', { token: t, flag: 'hold', on: toHold }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { flags[t] = Object.assign(fl, { hold: j.on, active: !j.on }); api('client-active', { token: t, active: !j.on }); toast(j.on ? 'הלקוח בוטל, שום דבר לא יוצא' : 'הלקוח חודש'); render(); } else toast('לא הצליח'); });
+    } else if (act === 'freeze') {
+      /* 24/11 Shalev: freeze every send and call of this event, the client stays active and the dates stay */
+      var toFreeze = !fl.hold;
+      if (toFreeze && !(await askConfirm('כל ההודעות והשיחות לאירוע הזה נעצרות עד שמשחררים. המועדים, הרשימה והלקוח נשארים כמו שהם.', { title: 'להקפיא את השליחות?', ok: 'כן, להקפיא' }))) { b.disabled = false; return; }
+      p = api('eventflag', { token: t, flag: 'hold', on: toFreeze }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { flags[t] = Object.assign(fl, { hold: j.on }); toast(j.on ? 'השליחות הוקפאו' : 'ההקפאה שוחררה, השליחות חוזרות'); render(); } else toast('לא הצליח'); });
+    } else if (act === 'clear-sends') {
+      /* 24/11 Shalev: remove the dates of the message rounds that have not gone out */
+      if (!(await askConfirm('מועדי ההזמנה והתזכורות שעוד לא יצאו נמחקים, ושום סבב הודעות לא מתוזמן. סבב שכבר יצא לא משתנה. הרשימה ותאריך האירוע נשארים. כדי לעצור גם שיחות והודעות של יום האירוע: "הקפאת שליחות".', { title: 'לבטל את מועדי השליחה?', ok: 'כן, לבטל מועדים', danger: true }))) { b.disabled = false; return; }
+      p = api('eventflag', { token: t, flag: 'clearsends', on: true }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? ((j.cleared || []).length ? 'בוטלו ' + j.cleared.length + ' מועדי שליחה' : 'לא היו מועדים פתוחים') : 'לא הצליח'); });
     } else if (act === 'active') {
       p = api('client-active', { token: t, active: !fl.active }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { flags[t] = Object.assign(fl, { active: j.active }); render(); } });
     } else {

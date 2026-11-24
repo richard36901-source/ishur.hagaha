@@ -1566,7 +1566,7 @@ async function chaseAbandonedLeads(env, dry, budget) {
    flipped without a deploy: extrasend (unlocks wave 3, the paid add-on) and
    hold (freezes every guest send for one event).
    POST {admin_key, token, flag:'extrasend'|'hold', on:bool}; omit `on` to read. */
-const EVENT_FLAGS = ['extrasend', 'hold', 'cancel', 'postponeok'];
+const EVENT_FLAGS = ['extrasend', 'hold', 'cancel', 'postponeok', 'clearsends'];
 async function handleEventFlag(request, env, origin) {
   let body = {};
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -1591,6 +1591,30 @@ async function handleEventFlag(request, env, origin) {
       detail: `${String(rows[idx][34] || rows[idx][2] || '').trim()} · ${String(body.reason || 'מלוח הבקרה')}` });
     await slackPost(env, `${body.on ? '❌' : '↩️'} אירוע ${token.slice(0, 8)} ${body.on ? 'סומן כמבוטל' : 'הוחזר לפעילות'} · ${String(rows[idx][34] || rows[idx][2] || '').trim()}`, { quiet: true, oneoff: true });   /* oneoff: an admin action */
     return okJson({ ok: okw, flag, on: body.on }, origin);
+  }
+  /* 24/11 Shalev ("לבטל שליחות", "למחוק את תאריכי השליחה של…"): the message rounds that have not gone out lose their
+     dates, so nothing is scheduled. Nothing is sent to anybody, the list and the event day stay, a round that already
+     went out is not touched. sendsoff:<token> tells the "paid but no settings" nudge that this is on purpose. */
+  if (flag === 'clearsends') {
+    if (body.on !== true) return deny(400, 'bad-request', origin);
+    const raw = await readSnapshot(env, 'write').catch(() => null);
+    const rows = (raw && raw.events && raw.events.values) || [];
+    const idx = rows.findIndex(r => String(r[1] || '').trim() === token);
+    if (idx < 0) return deny(404, 'event-not-found', origin);
+    const data = [], cleared = [], kept = [];
+    for (const [n, col, i] of [[1, 'AN', 39], [2, 'AO', 40], [3, 'AP', 41]]) {
+      const d = String(rows[idx][i] || '').trim().slice(0, 10);
+      if (!d) continue;
+      if (await env.RATE.get(`wave:${token}:${n}`)) { kept.push({ n, date: d }); continue; }
+      data.push({ range: `אירועים!${col}${idx + 2}`, values: [['']] }); cleared.push({ n, date: d });
+    }
+    await env.RATE.put('sendsoff:' + token, new Date().toISOString(), { expirationTtl: 400 * 86400 });
+    const okw = data.length ? await sheetBatchWrite(env, data) : true;
+    if (okw && data.length) await env.RATE.delete('snapcache').catch(() => {});
+    const nm = String(rows[idx][34] || rows[idx][2] || '').trim();
+    await logEvent(env, { area: 'אירוע', action: 'מועדי השליחה בוטלו', ok: okw, review: !okw, token, detail: `${nm} · ${cleared.map(c => 'סבב ' + c.n + ' ' + c.date).join(' · ') || 'לא היו מועדים פתוחים'}` }).catch(() => {});
+    await slackPost(env, `🗓 מועדי השליחה בוטלו · ${nm} · אירוע ${token.slice(0, 8)} · ${cleared.map(c => c.date).join(', ') || 'לא היו מועדים פתוחים'}`, { quiet: true, oneoff: true }).catch(() => {});
+    return okJson({ ok: okw, flag, cleared, kept }, origin);
   }
   if (typeof body.on !== 'boolean') {
     return okJson({ ok: true, flag, on: !!(await env.RATE.get(key)) }, origin);
@@ -6505,6 +6529,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     const anySend = [39, 40, 41].some(c => /^\d{4}-\d{2}-\d{2}/.test(String(ev[c] || '').trim()));
     if (/^\d{4}-\d{2}-\d{2}$/.test(evDate) && anySend) continue; // properly set up
     if (env.RATE && await env.RATE.get('nosetup:' + token)) continue;
+    if (env.RATE && await env.RATE.get('sendsoff:' + token)) continue;   /* 24/11: the team removed the send dates on purpose */
     if (dry) { out.push({ token, type: 'no_setup', would_send_to: phone }); continue; }
     const first = (String(ev[2] || '').split(' ')[0] || '').trim() || 'לקוח יקר';
     const wa = await sendClientE(env, phone, 'ishur_tzikoret_kovetz',
@@ -11295,7 +11320,7 @@ export const CHANGE_ROUTES = {
   /* 03/11 Phase 4a: the manual-control screen's actions (ops-manual.html port) */
   '/api/pacer': { kind: 'control', when: () => true, summary: (b, j) => `פעימה ידנית הורצה${j && j.sends ? ' · הודעות: ' + (j.sends.sent ?? j.sends.count ?? (j.sends.ran ? 'כן' : 'לא')) : ''}${j && j.calls ? ' · שיחות: ' + (j.calls.dialed ?? 0) : ''}`, details: (b, j) => ({ route: 'pacer', sends: j && j.sends ? (j.sends.sent ?? j.sends.count ?? null) : null, calls: j && j.calls ? (j.calls.dialed ?? null) : null }) },
   '/api/daily-run': { kind: 'control', when: b => b.dry === false, summary: (b, j) => `המנוע היומי הורץ ידנית (אמיתי)${j && Array.isArray(j.events) ? ' · ' + j.events.length + ' פעולות' : ''}`, details: (b, j) => ({ route: 'daily-run', force: !!b.force, actions: j && Array.isArray(j.events) ? j.events.length : null }) },
-  '/api/event-flag': { kind: 'hold', when: b => typeof b.on === 'boolean', summary: b => `${{ hold: 'השהיית אירוע', cancel: 'ביטול אירוע', extrasend: 'שליחה נוספת', postponeok: 'אישור הודעת דחייה' }[b.flag] || b.flag} ${b.on ? 'הופעל' : 'בוטל'} · אירוע ${tok8(b.token)}`,
+  '/api/event-flag': { kind: 'hold', when: b => typeof b.on === 'boolean', summary: b => `${{ hold: 'השהיית אירוע', cancel: 'ביטול אירוע', extrasend: 'שליחה נוספת', postponeok: 'אישור הודעת דחייה', clearsends: 'ביטול מועדי שליחה' }[b.flag] || b.flag} ${b.on ? 'הופעל' : 'בוטל'} · אירוע ${tok8(b.token)}`,
     details: b => ({ route: 'event-flag', token: tok8(b.token), flag: b.flag, on: b.on, reason: String(b.reason || '').slice(0, 120) || null }) },
   '/api/block-phone': { kind: 'control', when: b => typeof b.blocked === 'boolean', summary: b => `מספר ${String(b.phone || '').replace(/\D/g, '').replace(/(\d{3})\d+(\d{3})$/, '$1****$2')} ${b.blocked ? 'נחסם לשליחה' : 'הוחזר לשליחה'}`,
     details: b => ({ route: 'block-phone', phone: String(b.phone || '').replace(/\D/g, '').replace(/(\d{3})\d+(\d{3})$/, '$1****$2'), blocked: b.blocked }) },
