@@ -213,3 +213,13 @@ export async function dayBeforeMessageFor(env, ev, guest, deps, { date = '', tim
   if (!fields.address || !fields.date) return { kind: 'legacy', why: 'no-address' };
   return resolveFamily(env, 'd1', ev, guest, deps, fields);
 }
+
+/* 25/11 Richard: an invitation Meta refused (per-user marketing cap, experiment…) is tried again the next day,
+   "רק אם זה לא יום לפני או אותו יום" — from the day before the event the day-before and event-day messages take over.
+   An event without a readable date is retried as before. */
+export function retryDayAllowed(eventDate, today) {
+  const d = String(eventDate || '').slice(0, 10), t = String(today || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !/^\d{4}-\d{2}-\d{2}$/.test(t)) return true;
+  const tomorrow = new Date(Date.parse(t + 'T12:00:00Z') + 864e5).toISOString().slice(0, 10);
+  return d > tomorrow;
+}

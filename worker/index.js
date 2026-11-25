@@ -36,7 +36,7 @@ import { clientWaba, clientToken, clientOnPortfolio, clientPhoneId, isGuestPhone
 import { sendCtaUrl, sendReplyButtons, guestCapacity, guestCapScope, pinGuestPhone, guestPortfolioBudget } from './whatsapp.js';
 import { fitBatch, dynamicPace } from './budget.js';
 import * as tguard from './templateguard.js';
-import { eventDayMessageFor, edMarkKey, ED_MARK_TTL, dayBeforeAllowed, dayBeforeDropped, navTarget, COMBO_NAMES, dayBeforeMessageFor, eventDayNeeded, eventStarted } from './eventday.js';
+import { eventDayMessageFor, edMarkKey, ED_MARK_TTL, dayBeforeAllowed, dayBeforeDropped, navTarget, COMBO_NAMES, dayBeforeMessageFor, eventDayNeeded, eventStarted, retryDayAllowed } from './eventday.js';
 import { giftActive, giftKey, declineGiftText, eventDayGiftSlot, eventHasSeating, giftVariantName, giftButtonComponent, giftSlug, planGiftBlast, giftPageHtml, cleanLink, giftRoute, giftCountable, giftHitKey, giftStats, GIFT_HIT_TTL, GIFT_METHODS } from './gifts.js';
 import { waveNoteDeps } from './whatsapp.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, isQuestion, touchConversation, guestsReady } from './whatsapp.js';
@@ -7809,7 +7809,10 @@ async function runPacer(env, run = null, { part = 'all' } = {}) {
       const stale = await staleSentByEvent(env, raw, Date.now(), { mark: true }).catch(() => ({}));
       for (const [t, ev] of Object.entries(stale)) { (by[t] = by[t] || { name: ev.name, list: [] }).list.push(...ev.list); }
       let n = 0, evs = 0;
+      /* 25/11 Richard: no retry of a refused invitation on the day before the event or on its day */
+      const evDate = {}; for (const e of (raw.events && raw.events.values) || []) evDate[String((e || [])[1] || '').trim()] = String(e[6] || '').slice(0, 10);
       for (const [token, ev] of Object.entries(by || {})) {
+        if (!retryDayAllowed(evDate[token], today)) continue;
         const list = (ev.list || []).filter(g => !g.dead);
         if (!list.length) continue;
         evs++;
