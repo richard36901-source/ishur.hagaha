@@ -90,7 +90,7 @@
         (x.has_recording && window.IshurRec ? IshurRec.html({ id: x.call_id, name: x.recording_name, duration_s: x.duration_s }) : '<div class="note">אין הקלטה</div>') +
         (x.summary ? '<div class="note">' + esc(x.summary) + '</div>' : '') +
         (x.transcript ? '<details><summary>תמלול</summary><pre dir="auto">' + esc(String(x.transcript).replace(/^Agent:/gm, 'שיר:').replace(/^User:/gm, 'אורח:')) + '</pre></details>' : '') + '</div>';
-    }).join('') : '<div class="note">לא נמצאו שיחות ב-30 הימים האחרונים.</div>';
+    }).join('') : '<div class="note">לא נמצאו שיחות ב-14 הימים האחרונים.</div>';
     var wa = j.whatsapp || [];
     h += '<h3>וואטסאפ (' + wa.length + ')</h3>';
     h += wa.length ? wa.map(function (m) {

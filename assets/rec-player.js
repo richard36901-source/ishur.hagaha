@@ -20,14 +20,14 @@
   if (window.IshurRec) return;
   var CSS = '.recp{display:flex;align-items:center;gap:.5rem;border:1px solid var(--line,#E1E4DE);border-radius:8px;padding:.35rem .5rem;background:var(--card,#fff);color:var(--ink,#1B2620);margin:.3rem 0;font-size:.8rem;direction:ltr}' +
     '.recp button,.recp a{font:inherit;border:1px solid var(--line,#E1E4DE);background:var(--card,#fff);color:var(--ink,#1B2620);border-radius:8px;height:30px;min-width:30px;padding:0 .45rem;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;flex:none}' +
-    '.recp .rp-play{background:var(--ok,var(--pine,#0F4C35));border-color:transparent;color:#fff;width:34px;padding:0}' +
-    'html[data-theme=dark] .recp .rp-play{color:#0A2119}' +
+    /* the icon takes the card colour: white on the dark green of a light page, dark on the light green of a dark one,
+       whichever way the page decides its theme (prefers-color-scheme or data-theme) */
+    '.recp .rp-play{background:var(--ok,var(--pine,#0F4C35));border-color:transparent;color:var(--card,#fff);width:34px;padding:0}' +
     '.recp .rp-play svg{width:14px;height:14px;fill:currentColor}' +
     '.recp input[type=range]{flex:1;min-width:60px;accent-color:var(--ok,var(--pine,#0F4C35));height:4px;margin:0}' +
     '.recp .rp-t{font-variant-numeric:tabular-nums;color:var(--ink3,#7F8C86);white-space:nowrap;min-width:5.6em;text-align:center}' +
     '.recp .rp-sp{min-width:3em}.recp .rp-msg{color:var(--ink3,#7F8C86)}' +
     '.recp[data-state=loading] .rp-play{opacity:.6;cursor:wait}' +
-    '@media (prefers-color-scheme:dark){.recp .rp-play{color:#0A2119}}' +
     '@media (max-width:420px){.recp{flex-wrap:wrap}.recp input[type=range]{order:5;flex-basis:100%}}';
   var PLAY = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z"/></svg>';
   var PAUSE = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2.5h3v11h-3zM9.5 2.5h3v11h-3z"/></svg>';

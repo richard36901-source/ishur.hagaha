@@ -39,6 +39,9 @@ const SEND_N = { invite: 1, reminder: 2, extra: 3 };
 const SKIP_HE = { 1: 'הזמנה (גל 1)', 2: 'תזכורת (גל 2)', 3: 'שליחה נוספת (גל 3)', daybefore: 'יום-לפני', shulchan: 'הודעת השולחן', toda: 'תודה' };
 const RSVP_HE = { 'מגיע': 'מגיע', 'לא מגיע': 'לא מגיע', 'מתלבט': 'מתלבט' };
 
+/* the routes describe() has words for — the ONLY ones whose request/response are cloned and read after the handler */
+const DESCRIBED = new Set(['/api/answers-log', '/api/guest-rsvp', '/api/guest-edit', '/api/guest-add', '/api/send-date', '/api/event-flag', '/api/skip', '/api/block-phone', '/api/guest-card']);
+export function describedPath(path, changeRoutes = {}) { const p = String(path || '').split('?')[0]; return DESCRIBED.has(p) || Object.prototype.hasOwnProperty.call(changeRoutes, p); }
 /* names = { event: 'החתונה של …', guest(idOrPhone) → 'דנה כהן' } */
 export function describe(path, b = {}, j = {}, names = {}, changeRoutes = {}) {
   const p = String(path || '').split('?')[0];

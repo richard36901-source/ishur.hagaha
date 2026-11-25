@@ -51,7 +51,7 @@ import { slackQuietHours, slackSend, flushSlackQueue, slackPost, slackResolve, a
 import { slackDigest } from './slack-gate.js';   /* 04/11 the 09:00 morning digest (registry: slack_digest) */
 import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex, memOver, memCount, makeWriterBody, guestNameKey } from './lib.js';
 import { authGate, handleAuth, isSessionToken, readSession } from './auth.js';
-import { quietRead, teamActionAfter } from './team-log.js';
+import { quietRead, teamActionAfter, describedPath } from './team-log.js';
 import { alertDateSet, hostessReminders, arrivalOf } from './hostess-alerts.js';
 import { SWR_ROUTES, swrServe } from './swr.js';
 import { handleCallers } from './callers.js';
@@ -5511,6 +5511,20 @@ async function eventDayMessage(env, ev, guest, job = null) {
   }, { job });
 }
 /* a reopened table / event-day send (status webhook) must be allowed to go again */
+/* 25/11: confirmed guests of the event who have not had their event-day message (no ed: mark, and D-1 did not carry it all) */
+async function eventDayPendingCount(env, token, gRows) {
+  if (!env.RATE) return 0;
+  const seen = new Set(); let n = 0;
+  const giftOn = giftActive(await giftLinksOf(env, token).catch(() => null)), navOn = await navOnFor(env, token).catch(() => false);
+  for (const g of gRows || []) {
+    if (String(g[28] || '').trim() !== token || String(g[15] || '').trim() !== 'מגיע') continue;
+    const p = normPhone(g[4] || ''); if (!p || seen.has(p)) continue; seen.add(p);
+    if (await env.RATE.get(edMarkKey(token, p)).catch(() => null)) continue;
+    if (!eventDayNeeded({ dbMark: await env.RATE.get(`s5d:${token}:${p}`).catch(() => null), table: String(g[30] || '').trim(), giftOn, navOn })) continue;
+    n++;
+  }
+  return n;
+}
 async function reopenEdMark(env, m) {
   if (!(env.RATE && m && (m.wave === 'seating' || m.wave === 'eventday'))) return;
   /* 25/11 eventDayCutoff: a failed event-day send is retried only while it can still arrive 2 h before the event;
@@ -5731,16 +5745,17 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
     /* 02/11 audit: the job is a KV record set by hand; the event can be
        cancelled or put on hold after it was set — never blast those */
     const evRow = eventRowOf(raw, token);
+    if (!dry && (!evRow || String(evRow[27] || '').trim() === 'כן' || await env.RATE.get('hold:' + token))) {
+      if (!(await seenOnce(env, `edblastoff:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', 'האירוע מבוטל / מושהה / לא נמצא בגיליון — ההודעה לא יצאה', token.slice(0, 8), { key: 'eventday:' + token.slice(0, 8) });
+      res.push({ token: token.slice(0, 8), skipped: 'cancelled-or-hold' }); continue;
+    }
+    /* 25/11: a cancelled / held event says so first; then the cutoff */
     if (!dry && evRow && (eventStarted(evRow[36], ilTime()) || pastEventDayCutoff(evRow[36], ilTime()) || eventDayOver(evRow[6], today))) {
       /* 25/11 eventDayCutoff: less than 2 h to the event (or its day is over) — the job is cancelled, never sent late */
       if (!(await seenOnce(env, `edlate:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', `פחות מ-${EVENT_DAY_CUTOFF_MIN / 60} שעות לאירוע — ההודעה של היום בוטלה ולא תישלח`, token.slice(0, 8), { key: 'eventday_late:' + token.slice(0, 8), sev: 'P1' }).catch(() => {});
       await env.RATE.delete('edblast:' + token).catch(() => {});
       await logEvent(env, { area: 'שליחה', action: 'הודעת יום האירוע בוטלה (פחות משעתיים לאירוע)', ok: true, token, detail: `שעת האירוע ${String(evRow[36] || '')} · cutoff ${EVENT_DAY_CUTOFF_MIN} דק׳` }).catch(() => {});
       res.push({ token: token.slice(0, 8), skipped: 'event-day-cutoff' }); continue;
-    }
-    if (!dry && (!evRow || String(evRow[27] || '').trim() === 'כן' || await env.RATE.get('hold:' + token))) {
-      if (!(await seenOnce(env, `edblastoff:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', 'האירוע מבוטל / מושהה / לא נמצא בגיליון — ההודעה לא יצאה', token.slice(0, 8), { key: 'eventday:' + token.slice(0, 8) });
-      res.push({ token: token.slice(0, 8), skipped: 'cancelled-or-hold' }); continue;
     }
     const people = await eventDayRecipients(env, token, raw, job);
     if (dry) { res.push({ token: token.slice(0, 8), due, approved, recipients: people.length, sample: people.slice(0, 5) }); continue; }
@@ -7157,7 +7172,12 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     if (env.RATE && await env.RATE.get('hold:' + token)) continue;
     /* 25/11: once the event has started nothing of "today" goes out; said once in Slack so a person can reach the hosts */
     if (eventStarted(ev[36], ilTime()) || pastEventDayCutoff(ev[36], ilTime())) {
-      if (!dry && env.RATE && !(await seenOnce(env, `edlate:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', `פחות מ-${EVENT_DAY_CUTOFF_MIN / 60} שעות לאירוע — ההודעה של היום בוטלה ולא תישלח`, `${guestEventName(ev, { article: false })} · ${String(ev[36] || '')}`, { key: 'eventday_late:' + token.slice(0, 8), sev: 'P1' }).catch(() => {});
+      /* the Slack line only when someone was actually still waiting for the message (counted once a day) */
+      if (!dry && env.RATE && !(await env.RATE.get(`edlate:${token}:${today}`))) {
+        const pending = await eventDayPendingCount(env, token, gRows);
+        await seenOnce(env, `edlate:${token}:${today}`);
+        if (pending) await alert(env, 'הודעת יום האירוע', `פחות מ-${EVENT_DAY_CUTOFF_MIN / 60} שעות לאירוע — ההודעה של היום בוטלה ל-${pending} אורחים ולא תישלח`, `${guestEventName(ev, { article: false })} · ${String(ev[36] || '')}`, { key: 'eventday_late:' + token.slice(0, 8), sev: 'P1' }).catch(() => {});
+      }
       continue;
     }
 
@@ -11714,7 +11734,7 @@ const WORKER = {
   /* 16/11 login + users (auth.js): authGate is the one place a user session is accepted (and, only when KV cfg:auth_enforce = 'on', where a bare shared key from a browser is refused). No session and switch off = the same request, untouched. */
   async fetch(request, env, ctx) { installStagingGuard(env); env = wrapEmail(env); const g = await authGate(request, env, ctx, { isRead: (p, m, b) => homeReadOk(p, m, b) || quietRead(p, b) }); if (g.response) return hardenResponse(g.response);
     /* 25/11 team-log.js: a signed-in user's successful change → one line in words on the users page */
-    const tq = g.user && g.request.method === 'POST' ? g.request.clone() : null;
+    const tq = g.user && g.request.method === 'POST' && describedPath(new URL(g.request.url).pathname, CHANGE_ROUTES) ? g.request.clone() : null;
     const res = await changeWrap(g.request, env, rq => WORKER.fetchMain(rq, env, ctx));
     if (tq && res && res.ok) { const job = teamActionAfter(env, { path: new URL(g.request.url).pathname, reqClone: tq, resClone: res.clone(), user: g.user, changeRoutes: CHANGE_ROUTES }).catch(() => {}); if (ctx && ctx.waitUntil) ctx.waitUntil(job); }
     return hardenResponse(res); },
@@ -11784,7 +11804,7 @@ const WORKER = {
     }
     /* 25/11 the future log (planned sends + calls, live calls) and the guest card — read-mostly admin routes */
     if (url.pathname === '/api/future-log' && request.method === 'POST') return handleFutureLog(request, env, origin, futureDeps());
-    if (url.pathname === '/api/guest-card' && request.method === 'POST') return handleGuestCard(request, env, origin, { ...futureDeps(), readSnapshot: e => readSnapshot(e, 'write'), logEvent, logRow: (e, t, r) => logRow(e, t, r) });
+    if (url.pathname === '/api/guest-card' && request.method === 'POST') return handleGuestCard(request, env, origin, { ...futureDeps(), readSnapshot: e => readSnapshot(e, 'ops'), logEvent, logRow: (e, t, r) => logRow(e, t, r) });
     if (url.pathname.startsWith('/api/auth/')) return handleAuth(request, env, origin, url);   /* 16/11 Google sign-in, users, action log (auth.js) */
     /* iPad sessions: a valid sess. token becomes the real admin key before any
        handler reads the body. Grow's IPN is skipped — its body is not ours. */

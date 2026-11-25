@@ -6,7 +6,7 @@
         { ok, guest:{id,name,phone,rsvp,party,invited,table,tries,call_flag},
           event:{token,name,date,time,plan},
           whatsapp:[{ts,dir:'in'|'out',type,text,who,ok,status}]   every KV log:<phone>: line (newest 300, oldest first)
-          calls:[{call_id,ts,duration_s,outcome,answer,disconnection,transcript,summary,has_recording,recording_name}]  audit kind 'call', 30 days
+          calls:[{call_id,ts,duration_s,outcome,answer,disconnection,transcript,summary,has_recording,recording_name}]  audit kind 'call', 14 days (days: up to 60)
           planned:{ sends:[{day,type,type_he,template,held,dropped}], call:{in_queue,tries,max_tries,next_at,next_he,blocked_he} },
           stops:{ optout, block, nocall, wrong, skips:[{type,day}] } }
      {token, guest_id, action, who?, reason?}  → { ok, done_he, key }   every action is logged (logEvent → journal + audit)
@@ -74,10 +74,12 @@ export async function handleGuestCard(request, env, origin, d) {
   if (!row) return d.deny(404, 'unknown-guest', origin);
   const guest = guestOf(row), p = guest.phone;
   const now = Date.now(), today = d.ilDate();
-  const inp = await projectionInputs(env, { ...d, snapshotCached: async () => raw }, today, 45).catch(() => null);
+  /* the projection and the queue over THIS event only (flags of one event, not of every event in the sheet) */
+  const one = { events: { values: ((raw.events && raw.events.values) || []).filter(e => String((e || [])[1] || '').trim() === token) }, guests: { values: ((raw.guests && raw.guests.values) || []).filter(g => String((g || [])[28] || '').trim() === token) } };
+  const inp = await projectionInputs(env, { ...d, snapshotCached: async () => one }, today, 45).catch(() => null);
   const pgGuest = { name: guest.name, phone: p, id: guest.id, rsvp: guest.rsvp, table: guest.table };
   const sends = inp ? await guestPlannedSends(env, d, inp, token, pgGuest, today, 45) : [];
-  const call = await guestCall(env, d, raw, token, gid, now).catch(() => ({ in_queue: false }));
+  const call = await guestCall(env, d, one, token, gid, now).catch(() => ({ in_queue: false }));
 
   if (action) {
     const who = String(b.who || 'צוות').slice(0, 40), reason = String(b.reason || '').slice(0, 160);
@@ -101,7 +103,9 @@ export async function handleGuestCard(request, env, origin, d) {
     } else if (action === 'cancel_call') {
       if (!call.in_queue || !call.next_at) return d.deny(409, 'no-planned-call', origin);
       key = call.skip_key;
-      await env.RATE.put(key, 'skip', { expirationTtl: 3 * 86400 });
+      /* lives until the day after the skipped ring, however far that ring is (a weekend + a holiday) */
+      const daysOut = Math.max(0, Math.round((Date.parse(ilDayOf(Date.parse(call.next_at)) + 'T12:00:00Z') - Date.parse(today + 'T12:00:00Z')) / 864e5));
+      await env.RATE.put(key, 'skip', { expirationTtl: (daysOut + 2) * 86400 });
       done = doneHe(action, { name: guest.name, when: call.next_he });
     } else if (action === 'undo_call') {
       for (let i = 0; i < 9; i++) { const k = `shirtry:${gid}:${addDays(today, i)}`; if ((await env.RATE.get(k)) === 'skip') { await env.RATE.delete(k); key = k; } }
@@ -133,7 +137,7 @@ export async function handleGuestCard(request, env, origin, d) {
   /* calls: the audit log of this event, kept to this guest */
   const calls = [];
   try {
-    const days = Math.max(2, Math.min(60, Number(b.days) || 30));
+    const days = Math.max(2, Math.min(60, Number(b.days) || 14));
     for (const r of (await d.auditQuery(env, { kind: 'call', token, days, limit: 4000 })) || []) {
       const x = r.data || {};
       if (String(x.guest_id || '') !== gid && norm(r.phone || '') !== p) continue;

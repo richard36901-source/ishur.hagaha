@@ -92,6 +92,12 @@ export function callRoundDay(waves) {
 
 /* ══ §2 gather ═════════════════════════════════════════════════════════════ */
 async function kget(env, k) { try { return env.RATE ? await env.RATE.get(k) : null; } catch { return null; } }
+/* every key name under a prefix (a failed page throws: a partial set would make "exact" lie) */
+async function listNames(env, prefix, cap = 50000) {
+  const out = []; if (!env.RATE) return out; let cursor;
+  do { const pg = await env.RATE.list({ prefix, cursor, limit: 1000 }); for (const k of pg.keys || []) out.push(k.name); cursor = pg.list_complete ? null : pg.cursor; } while (cursor && out.length < cap);
+  return out;
+}
 
 /* one guest's planned sends: projectItems over that guest alone, minus the types the guest's marks already close */
 export async function guestPlannedSends(env, d, inp, token, guest, today, days = 30) {
@@ -143,18 +149,27 @@ export async function buildFuture(env, d, { days = 14, token = '', now = Date.no
   const invite = {};
   for (const e of evs) invite[e.token] = d.inviteTemplateFor ? await d.inviteTemplateFor(env, e.token).catch(() => 'hazmana_ishur') : 'hazmana_ishur';
   const sends = [];
+  /* one event: read each per-guest mark family ONCE by prefix (one KV op per 1,000 keys) instead of a get per guest —
+     a 600-guest event would otherwise pass the Worker's KV budget and silently count everyone */
+  let have = null;
+  if (token) {
+    const fam = ['wsent:', 'wdead:', 's5d:', 's5t:', 's5e:', 'ed:', 's3t:', 'wrong:'].map(f => f + token + ':');
+    const lists = await Promise.all([...fam, 'optout:', 'block:'].map(pre => listNames(env, pre)));
+    have = new Set(lists.flat());
+  }
   for (const it of items) {
     let count = it.count, exact = false;
-    if (token) {
-      /* one event: every guest of the type's audience, minus the ones a mark already closes */
-      const one = await Promise.all((inp.guests[token] || []).map(async g => {
+    if (have) {
+      const seen = new Set();
+      count = 0;
+      for (const g of inp.guests[token] || []) {
+        const p = norm(g.phone); if (!p || seen.has(p)) continue; seen.add(p);
         const solo = projectItems({ events: evs, guests: { [token]: [g] }, flags: inp.flags, today, days, isNoContactDay: d.isNoContactDay }).some(x => x.type === it.type && x.day === it.day);
-        if (!solo) return 0;
-        const p = norm(g.phone);
-        const keys = [...markKeys(it.type, token, p), 'optout:' + p, 'block:' + p, `wrong:${token}:${p}`];
-        return (await Promise.all(keys.map(k => kget(env, k)))).some(Boolean) ? 0 : 1;
-      }));
-      count = one.reduce((a, b) => a + b, 0); exact = true;
+        if (!solo) continue;
+        if ([...markKeys(it.type, token, p), 'optout:' + p, 'block:' + p, `wrong:${token}:${p}`].some(k => have.has(k))) continue;
+        count++;
+      }
+      exact = true;
     }
     if (count <= 0 && !it.dropped) continue;
     sends.push({ day: it.day, token: it.token, tok8: it.tok8, event: it.name, type: it.type, type_he: TYPE_HE[it.type] || it.type, count, exact, held: !!it.held, dropped: !!it.dropped, template: templateOf(it.type, { invite: invite[it.token] }) });
@@ -220,6 +235,6 @@ export async function handleFutureLog(request, env, origin, d) {
   if (b.action === 'live') return d.okJson(await buildLive(env, d), origin);
   const token = String(b.token || '').trim();
   if (token && !/^[0-9a-f-]{36}$/.test(token)) return d.deny(400, 'bad-token', origin);
-  const r = await buildFuture(env, d, { days: Math.max(1, Math.min(45, Number(b.days) || 14)), token });
+  let r; try { r = await buildFuture(env, d, { days: Math.max(1, Math.min(45, Number(b.days) || 14)), token }); } catch { return d.deny(503, 'try-again', origin); }
   return r.ok ? d.okJson(r, origin) : d.deny(503, r.error || 'no-snapshot', origin);
 }

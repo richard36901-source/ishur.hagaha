@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { quietRead, describe, teamActionAfter, namesFor } from '../team-log.js';
+import { quietRead, describe, teamActionAfter, namesFor, describedPath } from '../team-log.js';
 import { queryActions, logAction } from '../auth.js';
 import { homeReadOk } from '../index.js';
 
@@ -84,4 +84,14 @@ test('the live log filters on the server and drops stale answers', () => {
   assert.ok(html.includes('serverFilter()'));
   assert.ok(html.includes("if (!j || !j.ok || my !== seq) return;"));
   assert.ok(/kindSel'\)\.addEventListener\('change', function \(\) \{ kind = [^}]*reload\(\)/.test(html));
+});
+
+test('only the described routes are cloned and read after the handler (no extra work on polled reads or streamed bodies)', () => {
+  assert.equal(describedPath('/api/status'), false);
+  assert.equal(describedPath('/api/inbox'), false);
+  assert.equal(describedPath('/api/media-dl'), false);
+  assert.equal(describedPath('/api/answers-log'), true);
+  assert.equal(describedPath('/api/pause', { '/api/pause': {} }), true);
+  const src = fs.readFileSync(new URL('../index.js', import.meta.url), 'utf8');
+  assert.ok(src.includes("g.request.method === 'POST' && describedPath(new URL(g.request.url).pathname, CHANGE_ROUTES) ? g.request.clone() : null"));
 });

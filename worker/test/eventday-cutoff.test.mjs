@@ -67,3 +67,12 @@ test('both event-day stages and the retry path apply the cutoff', () => {
   const r = src.indexOf('async function reopenEdMark');
   assert.ok(r > 0 && src.indexOf('eventDayRetryAllowed(', r) - r < 600);
 });
+
+test('the late alert names how many guests lost the message, and says nothing when nobody was waiting', () => {
+  const src = fs.readFileSync(new URL('../index.js', import.meta.url), 'utf8');
+  assert.ok(src.includes('const pending = await eventDayPendingCount(env, token, gRows);'));
+  assert.ok(src.includes('if (pending) await alert(env, \'הודעת יום האירוע\''));
+  /* the hand-set blast: a cancelled / held event is reported as such before the cutoff */
+  const b = src.indexOf('async function runEventDayBlasts');
+  assert.ok(src.indexOf("skipped: 'cancelled-or-hold'", b) < src.indexOf("skipped: 'event-day-cutoff'", b));
+});

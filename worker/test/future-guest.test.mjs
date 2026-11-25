@@ -162,3 +162,17 @@ test('pages: our player replaces <audio controls>; the guest card opens from ans
   for (const a of ['cancel_send', 'cancel_call', 'stop_event', 'stop_all', 'undo_send', 'undo_call', 'resume_event', 'resume_all']) assert.ok(gc.includes(a), a);
   assert.ok(gc.includes("endpoint('guest-card')"));
 });
+
+test('exact counts for a 600-guest event stay far inside the KV budget', async () => {
+  const guests = [];
+  for (let i = 0; i < 600; i++) guests.push(gRow('g' + i, 'אורח ' + i, '97250' + String(1000000 + i), { rsvp: i % 3 === 0 ? 'מגיע' : '' }));
+  guests.push(gRow('dup', 'כפול', '972501000001'));   /* same phone twice: counted once */
+  const raw = { events: { values: [evRow({ w2: add(TODAY, 3) })] }, guests: { values: guests } };
+  const env = { RATE: kv({ ['optout:972501000002']: '1', [`wsent:${TOK}:1:972501000003`]: '1' }) };
+  let ops = 0; const g0 = env.RATE.get, l0 = env.RATE.list;
+  env.RATE.get = k => { ops++; return g0(k); }; env.RATE.list = o => { ops++; return l0(o); };
+  const r = await buildFuture(env, deps(raw), { days: 14, token: TOK });
+  assert.equal(r.ok, true);
+  assert.equal(r.sends.find(s => s.type === 'w1').count, 598, '600 phones − opted out − already sent');
+  assert.ok(ops < 200, 'KV ops: ' + ops);
+});
