@@ -9013,7 +9013,8 @@ async function handleVoiceTools(request, env, origin) {
     if (demoEv && env.RATE) g.host_extra = introFor(await env.RATE.get('callintro:' + String(demoEv[1] || '').trim()).catch(() => null));
     if (demoEv && env.RATE) g.host_spoken = (await env.RATE.get('callname:' + String(demoEv[1] || '').trim()).catch(() => null)) || '';
     if (body.host_spoken) g.host_spoken = String(body.host_spoken).slice(0, 80);   /* a rehearsal can try a spelling before it is saved */   /* a rehearsal hears it even before its start day */
-    const payload = buildCallPayload(g, env.SHIR_FROM);
+    /* 25/11 Richard: the opening stays as it was (no guest name); a rehearsal hears what a guest hears. opening_v2 in the body tries the other one. */
+    const payload = buildCallPayload(g, env.SHIR_FROM, { legacy_opening: body.opening_v2 !== true });
     payload.metadata.test = 'voice-tools-shir';
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', { method: 'POST', headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => null);
     await retellBillingGuard(env, r);

@@ -8,17 +8,22 @@ import { buildCallPayload, guestOpening, hostExtra, introFor, safeGuestName } fr
 const G = { kind: 'guest', phone: '972500000000', guest_id: 'G-f85d36d5-1', token: 'f85d36d5-x', name: 'דנה', event_name: 'תאיר ואביב', occasion: 'חתונה', event_date: '2026-12-03', party: '2' };
 const EXTRA = 'והוריהם יעקב ומירי פיטוסי ושרון וכרמי מורי';
 
-test('the parents come right after the couple, before the question', () => {
-  const p = buildCallPayload({ ...G, host_extra: EXTRA }, '+97200');
-  const o = p.retell_llm_dynamic_variables.opening;
-  assert.match(o, /^היי דנה, מדברת שיר, מאישורי הגעה בשם תאיר ואביב, והוריהם יעקב ומירי פיטוסי ושרון וכרמי מורי — מגיעים לחתונה ב-/);
+/* 25/11 Richard reversed the 24/11 request after the numbers: the parents are NOT said in the opening (it lost guests in
+   the first seconds); Shir says them only when asked who it is. They ride in host_details. */
+test('the parents are not in the opening; they are available to Shir for "מי זה?"', () => {
+  const p = buildCallPayload({ ...G, host_extra: EXTRA }, '+97200', { legacy_opening: true });
+  const v = p.retell_llm_dynamic_variables;
+  assert.match(v.opening, /^היי, מדברת שיר מאישורי הגעה בשם תאיר ואביב — מגיעים לחתונה ב-/);
+  assert.ok(!/והוריהם/.test(v.opening));
+  assert.equal(v.host_details, EXTRA);
+  assert.equal(buildCallPayload({ ...G }, '+97200').retell_llm_dynamic_variables.host_details, '', 'always sent, empty when there is none');
 });
 
 test('nothing else in the call changes', () => {
   const a = buildCallPayload({ ...G }, '+97200'), b = buildCallPayload({ ...G, host_extra: EXTRA }, '+97200');
   const va = { ...a.retell_llm_dynamic_variables }, vb = { ...b.retell_llm_dynamic_variables };
-  assert.notEqual(va.opening, vb.opening);
-  delete va.opening; delete vb.opening;
+  assert.equal(va.opening, vb.opening, 'the opening is the same with and without the addition');
+  delete va.host_details; delete vb.host_details;
   assert.deepEqual(vb, va);
   assert.ok(!('host_extra' in vb));
   assert.deepEqual(b.metadata, a.metadata);
@@ -31,7 +36,7 @@ test('an event without an addition opens exactly as before', () => {
 });
 
 test('the undecided opener carries it too, and braces never reach the voice', () => {
-  assert.match(guestOpening({ host_name: 'א וב', occasion: 'חתונה', guest_state: 'מתלבט', host_extra: EXTRA }), /בשם א וב, והוריהם יעקב ומירי פיטוסי ושרון וכרמי מורי — ראינו שעוד לא סגרתם/);
+  assert.match(guestOpening({ host_name: 'א וב', occasion: 'חתונה', guest_state: 'מתלבט', host_extra: EXTRA }), /בשם א וב — ראינו שעוד לא סגרתם/);
   assert.equal(hostExtra('{{x}} שלום\n<b>'), 'x שלום b');
   assert.ok(hostExtra('א'.repeat(300)).length <= 140);
 });
@@ -72,12 +77,12 @@ test('25/11 the guest is greeted by name only when the name on the list is safe 
   assert.match(guestOpening({ guest_name: 'דנה', host_name: 'א וב', occasion: 'חתונה', guest_state: 'מתלבט' }), /^היי דנה, מדברת שיר, מאישורי הגעה בשם א וב — ראינו שעוד לא סגרתם/);
 });
 
-test('25/11 real calls keep the old wording until the new opening is switched on; a rehearsal always hears the new one', () => {
+test('25/11 real calls and rehearsals keep the old wording; the other opening stays behind its switch', () => {
   const g = { ...G, name: 'דנה', event_name: 'שוהם ושי' };
   assert.match(buildCallPayload(g, '+97200', { legacy_opening: true }).retell_llm_dynamic_variables.opening, /^היי, מדברת שיר מאישורי הגעה בשם שוהם ושי — /);
   assert.match(buildCallPayload(g, '+97200').retell_llm_dynamic_variables.opening, /^היי דנה, מדברת שיר, מאישורי הגעה בשם שוהם ושי — /);
   const src = fs.readFileSync(new URL('../index.js', import.meta.url), 'utf8');
   assert.ok(src.includes("env.RATE.get('cfg:opening_v2')") && src.includes('legacy_opening: !('));
   const tc = src.slice(src.indexOf("body.action === 'testcall' && body.agent === 'shir_out'"), src.indexOf("body.action === 'testcall' && body.agent === 'shir_out'") + 12000);   /* the block's lines are long: 4,200 characters ended before the call */
-  assert.ok(tc.includes('buildCallPayload(g, env.SHIR_FROM)'), 'the rehearsal uses the new opening');
+  assert.ok(tc.includes('buildCallPayload(g, env.SHIR_FROM, { legacy_opening: body.opening_v2 !== true })'), 'a rehearsal hears what a guest hears unless it asks for the other opening');
 });

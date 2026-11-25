@@ -271,8 +271,10 @@ export function guestOpening(v = {}, opts = {}) {
   const host = String(v.host_name || '').trim(), occ = String(v.occasion || 'האירוע').trim(), when = String(v.event_date_spoken || '').trim();
   /* 24/11 (Richard, Aviv Pitusi's wedding): an event may add a few words right after the couple's names, e.g. the
      parents. Only the spoken first sentence changes; host_name and every other variable stay as they were. */
-  const extra = hostExtra(v.host_extra);
-  const by = host ? ` בשם ${host}${extra ? ', ' + extra : ''}` : '';
+  /* 25/11 Richard, after the numbers (a longer opening lost more guests in the first 8 seconds): the event's extra
+     words (the parents' names) are NOT in the opening any more. Shir says them only when the guest asks who it is:
+     they ride in the host_details variable. */
+  const by = host ? ` בשם ${host}` : '';
   /* 25/11 Richard: (1) the guest is greeted by name when the name on the list is safe to say; (2) a comma after "שיר",
      because "שיר מאישורי" was heard as "שירי". */
   /* until Richard has heard a rehearsal and said yes (cfg:opening_v2), real calls keep the wording they had */
@@ -407,6 +409,8 @@ export function buildCallPayload(guest, fromNumber, opts = {}) {
             rsvp_deadline: spokenDate(guest.event_date),
             /* Richard 21/10: "מתלבט" guests are called too; Shir opens differently */
             guest_state: String(guest.rsvp || '') === 'מתלבט' ? 'מתלבט' : 'לא ענה',
+            /* always sent, empty when the event has none: the script reads {{host_details}} and must never say braces */
+            host_details: hostExtra(guest.host_extra),
           },
   };
   /* one number, several scripts: the agent is chosen per call, not per number */
