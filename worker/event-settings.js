@@ -219,6 +219,16 @@ export function shirFollowupVars(s) {
   return v;
 }
 
+/* 26/11 Shalev (Shoham's event): an event with no new settings but the older shuttle question (extraq:<token>, a bus)
+   gets the same question from Shir on the phone; WhatsApp keeps the exact wording the client approved. */
+export function legacyShuttleSettings(settings, extraq) {
+  if (settings) return settings;
+  const q = extraq && typeof extraq === 'object' ? extraq : null;
+  if (!q || q.id !== 'bus') return settings;
+  const details = String(q.label || '').replace(/^הסעה\s*/, '').trim().slice(0, 120);
+  return { questions: { shuttle: { on: true, details } } };
+}
+
 /* Answers to the follow-up questions from a Retell webhook, read tolerantly: the mid-call tool's optional args
    (shuttle, food, custom_answer) or the post-call analysis fields (shuttle_answer, food_answer, custom_answer).
    null when the call carried none (which is every call until the Retell agent is updated). */

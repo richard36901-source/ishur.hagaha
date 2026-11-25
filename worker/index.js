@@ -44,7 +44,7 @@ import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseIn
 import { isAppAutoReply, chaseStopReason, leadAlertHeader, lastInboundTs } from './inbound.js';
 import { isTableQuestion, tableFor, tableReply } from './seating.js';
 import { guestLangApi } from './guest-lang.js';
-import { startFollowups, handleFollowupReply, yesGift, introNow, whoIsText, callWindowGate, getSettings as evSettings, saveSettings as evSettingsSave, shirFollowupVars, saveRetellFollowups, rsvpishText, listAnswers as fqList, enabledSteps as fqSteps, handleEventSettings, Q_LABEL as FQ_LABEL, questionMessage, FOOD_OPTIONS, GIFT_YES_LINE } from './event-settings.js';   /* 25/11 הגדרות מתקדמות */
+import { startFollowups, handleFollowupReply, yesGift, introNow, whoIsText, callWindowGate, getSettings as evSettings, saveSettings as evSettingsSave, shirFollowupVars, legacyShuttleSettings, saveRetellFollowups, rsvpishText, listAnswers as fqList, enabledSteps as fqSteps, handleEventSettings, Q_LABEL as FQ_LABEL, questionMessage, FOOD_OPTIONS, GIFT_YES_LINE } from './event-settings.js';   /* 25/11 הגדרות מתקדמות */
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
 import { logEvent, flushEventLog, readLogTail, OWNER_PHONE, stream } from './evlog.js';
 import { recordHit, recordPurchase, trafficReport } from './traffic.js';
@@ -3228,7 +3228,7 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
     g.host_extra = introCache.get(g.token);
     if (!introCache.has('n:' + g.token)) introCache.set('n:' + g.token, (await env.RATE.get('callname:' + g.token).catch(() => null)) || '');
     g.host_spoken = introCache.get('n:' + g.token);   /* 25/11: how the hosts' names are said */
-    if (!introCache.has('f:' + g.token)) introCache.set('f:' + g.token, shirFollowupVars(await evSettings(env, g.token).catch(() => null)));
+    if (!introCache.has('f:' + g.token)) introCache.set('f:' + g.token, shirFollowupVars(legacyShuttleSettings(await evSettings(env, g.token).catch(() => null), await extraQOf(env, g.token).catch(() => null))));
     g.followups = introCache.get('f:' + g.token);   /* 25/11: the event's questions after a phone "yes" */
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', {
       method: 'POST',
