@@ -109,7 +109,8 @@ import { runBrain } from './brain.js';   /* 03/11 ops brain: checks + playbooks 
 import { withCfg, paceSends, paceSendsMax, dailyCallCap } from './cfg.js';   /* 03/11 edit-in-place settings (cfg:<key>) */
 import { JOB_TO_ID, AUTOMATIONS } from './automations-registry.js';
 import { readSnapshot, snapInfo, snapWhy, sheetWrite, drainSheetQueue, noteSheetWrite, noteHookWrite, markSnapDirty, makeStatus } from './snapshot.js';   /* 04/11 Make burn */
-import { handleClientStop, handleClientStopLift, clientStopOf, publicStop } from './client-stop.js';   /* 25/11 track-board: the client's red stop button */
+import { handleClientStop, handleClientStopLift, clientStopOf, publicStop } from './client-stop.js';
+import { actorOf, actorLabel, boardActor } from './actor.js';   /* 25/11 track-board: who did it on the client board (team vs client, PIN vs link) */   /* 25/11 track-board: the client's red stop button */
 import { normAudience, audienceIncludes, parseAddon, dateGuard, ilHM, addonDialOk, addonDayReady, handleCallsAddonDate, deliveredCount, firstSentAt } from './send-plan.js';   /* 25/11 track-board: audience + day of an added round, the board's state line */
 
 const ROUTES = {
@@ -5949,22 +5950,28 @@ const AUDIT_WHAT = {
   '/api/addon-pay': 'רכישת תוספת/שדרוג', '/api/guests-upload': 'העלאת רשימת מוזמנים', '/api/settings': 'שמירת הגדרות האירוע',
   '/api/cancel': 'ביטול', '/api/referral': 'הפניית חבר', '/api/design-flow': 'עיצוב הזמנה · לוח בקרה',
 };
+/* 25/11 track-board: the resolvers actor.js uses — attribution only, nothing here grants a right */
+const actorDeps = () => ({ readSession: (e, t) => readSession(e, t), adminSessionOk: (e, t) => adminSessionOk(e, t), verifySession: (e, t) => verifyAcctSession(e, t, safeEqual) });
 async function auditClient(env, request, path, body) {
   if (!env.RATE) return;
+  const actor = await actorOf(env, request, body, actorDeps()).catch(() => null);
   const token = String(body.token || '');
   const now = Date.now();
-  const clean = {}; Object.keys(body).forEach(k => { if (!/^(sig|nonce|stamp_ts|app|admin_key)$/.test(k)) clean[k] = body[k]; });
+  const clean = {}; Object.keys(body).forEach(k => { if (!/^(sig|nonce|stamp_ts|app|admin_key|board_session)$/.test(k)) clean[k] = body[k]; });   /* 25/11: the client's session token is never stored, its short id is (actor) */
   let prev = ''; try { prev = (await env.RATE.get('auditlast:' + token)) || ''; } catch {}
   const rec = {
     at: new Date(now).toISOString(), ts: now, path, what: (path === '/api/guest-add' && body.query ? 'בדיקת מכסה להוספת אורחים' : (AUDIT_WHAT[path] || path.replace('/api/', ''))) + (body.action ? ' · ' + String(body.action).slice(0, 30) : '') + (body.name ? ' · ' + String(body.name).slice(0, 40) : '') + (body.phone ? ' · ' + String(body.phone).slice(0, 16) : '') + (body.seats || body.party ? ' · ' + (body.seats || body.party) + ' מקומות' : '') + (body.date ? ' · ' + String(body.date).slice(0, 10) : '') + (body.send ? ' · ' + body.send : '') + (body.gid || body.guest_id ? ' · ' + (body.gid || body.guest_id) : ''),
     token, ip: request.headers.get('cf-connecting-ip') || '', country: request.headers.get('cf-ipcountry') || '',
     ua: String(request.headers.get('user-agent') || '').slice(0, 240), body: JSON.stringify(clean).slice(0, 4000), prev,
+    actor: actorLabel(actor), actor_kind: actor ? (actor.kind === 'staff' ? 'admin-on-client' : 'client') : 'client',
+    ...(actor && actor.kind === 'staff' ? { staff: actor.email || actor.name } : { via: actor ? actor.via : 'link', session: actor ? actor.session : '' }),
   };
   rec.hash = await sha256Hex(prev + '|' + JSON.stringify({ at: rec.at, path: rec.path, token: rec.token, ip: rec.ip, ua: rec.ua, body: rec.body }));
   const key = `audit:${token}:${now}:${Math.random().toString(36).slice(2, 6)}`;
   await env.RATE.put(key, JSON.stringify(rec), { expirationTtl: 400 * 86400 });
   await env.RATE.put('auditlast:' + token, rec.hash, { expirationTtl: 400 * 86400 });
-  stream(env, { kind: path === '/api/guest-rsvp' || path === '/api/rsvp-self' ? 'guest' : 'client', area: path === '/api/guest-rsvp' || path === '/api/rsvp-self' ? 'אורח' : 'לקוח', action: '👤 ' + rec.what, ok: true, token, phone: String(body.phone || ''), req: request, detail: rec.body.slice(0, 1500), data: { path, body: clean, chain_hash: rec.hash, posthog: String(body.ph || '').slice(0, 80) } }).catch(() => {});
+  const guestPath = path === '/api/rsvp-self' || (path === '/api/guest-rsvp' && !(actor && actor.kind === 'staff'));
+  stream(env, { kind: rec.actor_kind === 'admin-on-client' ? 'admin-on-client' : guestPath ? 'guest' : 'client', area: rec.actor_kind === 'admin-on-client' ? 'צוות בלוח לקוח' : guestPath ? 'אורח' : 'לקוח', action: (rec.actor_kind === 'admin-on-client' ? '🛠 ' + rec.actor + ' · ' : '👤 ' + (path === '/api/rsvp-self' ? '' : rec.actor + ' · ')) + rec.what, ok: true, token, phone: String(body.phone || ''), req: request, detail: rec.body.slice(0, 1500), data: { path, body: clean, chain_hash: rec.hash, posthog: String(body.ph || '').slice(0, 80), actor: rec.actor, via: rec.via || '', session: rec.session || '', staff: rec.staff || '' } }).catch(() => {});
 }
 async function auditExport(env, token, format) {
   const all = await kvPrefix(env, 'audit:' + token + ':');
@@ -5976,8 +5983,8 @@ async function auditExport(env, token, format) {
   }
   if (format === 'csv') {
     const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-    const head = ['at_utc', 'at_israel', 'token', 'action', 'path', 'ip', 'country', 'user_agent', 'body', 'hash', 'prev_hash', 'verified'];
-    const lines = [head.join(',')].concat(rows.map(r => [r.at, new Date(r.ts).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' }), r.token, r.what, r.path, r.ip, r.country, r.ua, r.body, r.hash, r.prev, r.verified ? 'yes' : 'NO'].map(esc).join(',')));
+    const head = ['at_utc', 'at_israel', 'token', 'action', 'path', 'ip', 'country', 'user_agent', 'body', 'hash', 'prev_hash', 'verified', 'actor'];
+    const lines = [head.join(',')].concat(rows.map(r => [r.at, new Date(r.ts).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' }), r.token, r.what, r.path, r.ip, r.country, r.ua, r.body, r.hash, r.prev, r.verified ? 'yes' : 'NO', r.actor || ''].map(esc).join(',')));
     return '\ufeff' + lines.join('\n');
   }
   return { ok: true, token, count: rows.length, chain_ok: broken === 0, broken, exported_at: new Date().toISOString(), rows };
@@ -11800,7 +11807,10 @@ const WORKER = {
               if (botUa) ctx.waitUntil(stream(env, { kind: 'admin', area: 'אדמין', action: 'Claude · בדיקת סטטוס אירוע', ok: true, token: String(peek.token), req: request }));
               else if (!(await env.RATE.get(ipk).catch(() => null))) {
                 await env.RATE.put(ipk, '1', { expirationTtl: 60 }).catch(() => {});
-                ctx.waitUntil(stream(env, { kind: 'client', area: 'לקוח', action: '👁 צפייה בלוח הבקרה', ok: true, token: String(peek.token), req: request, data: { path: url.pathname, referer: request.headers.get('referer') || '', posthog: String(peek.ph || '').slice(0, 80), session: String(peek.ph_session || '').slice(0, 80) } }));
+                /* 25/11 track-board: which staff member viewed, or how the client got in */
+                const va = await actorOf(env, request, peek, actorDeps()).catch(() => null);
+                const vStaff = va && va.kind === 'staff';
+                ctx.waitUntil(stream(env, { kind: vStaff ? 'admin-on-client' : 'client', area: vStaff ? 'צוות בלוח לקוח' : 'לקוח', action: vStaff ? `👁 ${actorLabel(va)} צפה בלוח הבקרה` : `👁 צפייה בלוח הבקרה · ${actorLabel(va)}`, ok: true, token: String(peek.token), req: request, data: { path: url.pathname, referer: request.headers.get('referer') || '', posthog: String(peek.ph || '').slice(0, 80), session: String(peek.ph_session || '').slice(0, 80), actor: actorLabel(va), via: va && !vStaff ? va.via : '', board_session: va && !vStaff ? va.session : '', staff: vStaff ? (va.email || va.name) : '' } }));
               }
             } else {
               ctx.waitUntil(auditClient(env, request, url.pathname, peek).catch(() => {}));
@@ -13060,7 +13070,7 @@ const WORKER = {
     /* 25/11 track-board: the client's red stop button (client-stop.js), the team's lift, and the client's pick of an
        added calls round's day (send-plan.js) */
     if (url.pathname === '/api/client-stop' && request.method === 'POST') {
-      return handleClientStop(request, env, origin, { okJson, deny, tokenRecord, overBudget, logEvent, slackSend,
+      return handleClientStop(request, env, origin, { okJson, deny, tokenRecord, overBudget, logEvent, slackSend, who: async (rq, body) => actorLabel(await actorOf(env, rq, body, actorDeps())),
         notifyEvent: (e, dd, rule, cand) => import('./notify.js').then(m => m.notifyEvent(e, dd, rule, cand)),
         eventName: async t => { const raw = await snapshotCached(env, 'guest').catch(() => null); const r = raw ? eventRowOf(raw, t) : null; return r ? String(r[34] || r[2] || '').trim() : ''; } });
     }
@@ -14699,9 +14709,12 @@ const WORKER = {
       const row = ((raw && raw.guests && raw.guests.values) || []).find(r => String(r[2] || '').trim() === gid && String(r[28] || '').trim() === tok);
       if (!row) return deny(404, 'unknown-guest', origin);
       const guest = { guest_id: gid, token: tok, phone: normPhone(row[4] || ''), name: String(row[3] || '').trim(), by_client: true, answer_label: 'סומן ידנית (מארח)' };
+      /* 25/11 track-board: the team marking a guest from the client's board is the team's correction, not the host's */
+      const rsvpActor = await actorOf(env, request, b, actorDeps()).catch(() => null);
+      if (rsvpActor && rsvpActor.kind === 'staff') guest.answer_label = 'תוקן ידנית (צוות)';
       const saved = await writeGuestReply(env, guest, outcome, outcome === 'מגיע' ? party : undefined);
       if (saved && env.RATE) await env.RATE.delete('awaitparty:' + gid).catch(() => {});
-      await logEvent(env, { area: 'לוח לקוח', action: 'המארח אישר אורח ידנית', ok: saved, phone: guest.phone, token: tok, detail: `${guest.name}: ${outcome}${party ? ' · ' + party : ''}` }).catch(() => {});
+      await logEvent(env, { area: 'לוח לקוח', action: rsvpActor && rsvpActor.kind === 'staff' ? `${actorLabel(rsvpActor)} תיקן/ה תשובת אורח מלוח הלקוח` : 'המארח אישר אורח ידנית', ok: saved, phone: guest.phone, token: tok, detail: `${guest.name}: ${outcome}${party ? ' · ' + party : ''} · ${actorLabel(rsvpActor)}` }).catch(() => {});
       if (saved) await logRow(env, 'removals', { kind: 'אישור ידני מהלוח', channel: 'לוח הלקוח', phone: guest.phone, token: tok.slice(0, 8), scope: 'האירוע הזה', said: '', detail: `${outcome}${party ? ' · ' + party : ''}` }).catch(() => {});
       return okJson({ ok: saved, outcome, party }, origin);
     }
@@ -15523,6 +15536,8 @@ const WORKER = {
       const snapshot = buildDashboard(token, raw, refCount, sentWaves);
       /* 12/11 security: the id the board puts in the links it hands to GUESTS (group RSVP link, table QR) */
       if (snapshot && snapshot.ok) snapshot.pub = await pubIdOf(env, token);
+      /* 25/11 track-board: opened by the team → the board shows "מצב צוות · <name>" (attribution only) */
+      if (snapshot && snapshot.ok) snapshot.viewer = boardActor(await actorOf(env, request, stampFields, actorDeps()).catch(() => null));
       if (snapshot && snapshot.ok && env.RATE) snapshot.venue = await venueFor(env, token, snapshot.totals || {});   /* 20/11 venue-commit.js */
       /* 20/11 package.js. Only the app asks for it ({app:1}): five KV reads the web board does not need on every refresh */
       if (snapshot && snapshot.ok && snapshot.event && stampFields.app) snapshot.package = await packageFor(env, token, snapshot.event);

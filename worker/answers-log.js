@@ -29,10 +29,18 @@ export function methodOf(g) {
   return 'unknown';
 }
 
+/* 25/11 track-board: a manual answer says who gave it — the team ('תוקן ידנית (צוות)') or the host ('סומן ידנית (מארח)') */
+export function actorOfAnswer(g) {
+  const w = String((g || [])[22] || '').trim();
+  if (!/ידנית/.test(w)) return '';
+  return /צוות/.test(w) ? 'צוות' : /מארח/.test(w) ? 'המארח' : '';
+}
+
 export function rowOf(g) {
   const c = i => String((g || [])[i] ?? '').trim();
   const m = methodOf(g);
-  return { id: c(2), name: c(3), phone: c(4), invited: Number(c(5)) || 1, rsvp: c(15), party: Number(c(13)) || 0, method: m, method_he: METHODS[m],
+  const by = actorOfAnswer(g);   /* 25/11 track-board: who marked a manual answer */
+  return { id: c(2), name: c(3), phone: c(4), invited: Number(c(5)) || 1, rsvp: c(15), party: Number(c(13)) || 0, method: m, method_he: METHODS[m] + (by ? ' · ' + by : ''), by,
     call_answer: c(22), tries: Number(c(29)) || 0, table: c(30), at: c(25), awaiting_call: c(21) === 'נדרשת שיחה' };
 }
 

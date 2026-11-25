@@ -678,6 +678,8 @@
   .dpop .cnt{font-size:.74rem;color:var(--ink3);margin:-.3rem 0 .4rem}
   .dpop .stop-ok{background:#A8402F;color:#fff;border:none}
   .dpop .stop-ok:disabled,.dpop-ok:disabled{opacity:.5;cursor:default}
+  .staff-badge{position:fixed;bottom:.8rem;inset-inline-start:.8rem;z-index:40;font-size:.78rem;font-weight:600;color:#fff;background:#8A6D2F;border-radius:8px;padding:.35rem .7rem;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+  html[data-theme=dark] .staff-badge{background:#C7AE7A;color:#1A201C}
   .dpop-err a,.stop-banner a,.stop-done a{color:inherit;text-decoration:underline;font-weight:600}
 </style>
 <link rel="stylesheet" href="assets/lux.css?v=19">
@@ -1031,6 +1033,24 @@
   /* 18/11: a returning device can run this (always fresh) page with a config.js its cache kept from days ago. An address
      that file does not know yet came back broken, and the code screen answered a right code with a failure. The
      addresses this page needs are derived here from the one that has always been there. */
+  /* 25/11 track-board: team mode. When the back office's sign-in session lives in this browser (Google 'us.' or the
+     admin-phone 'sess.' session, never a raw key), every call to the worker carries it in x-ishur-staff so the action is
+     recorded as the team's. It grants nothing; the worker ignores a value it can not verify. */
+  var STAFF_SESS = '';
+  try { var ck0 = localStorage.getItem('ishur_calls_key') || ''; if (/^(us|sess)\./.test(ck0)) STAFF_SESS = ck0; } catch (e) {}
+  if (STAFF_SESS && window.fetch) (function () {
+    var base = String(CFG.endpoint('status') || '').replace(/\/api\/status$/, '');
+    var f0 = window.fetch;
+    window.fetch = function (u, o) {
+      try {
+        if (base && String(u && u.url || u).indexOf(base + '/api/') === 0) {
+          o = Object.assign({}, o || {}); var h = new Headers(o.headers || {}); h.set('x-ishur-staff', STAFF_SESS); o.headers = h;
+        }
+      } catch (e) {}
+      return f0.call(this, u, o);
+    };
+  })();
+
   (function () {
     var need = { 'account-board-pin': '/api/account/board-pin', 'account-board-pin-send': '/api/account/board-pin-send', 'preview-messages': '/api/preview-messages', inviteStyle: '/api/invite-style', 'custom-template': '/api/custom-template' };
     var orig = CFG.endpoint;
@@ -1696,6 +1716,7 @@
     renderAddons();
     renderInvoice();
     renderStop();
+    renderViewer();
     decorateSections();
     pickPrompt();
     gaLoad();
@@ -2768,6 +2789,15 @@
     document.addEventListener('keydown', onKey, true);
     document.body.appendChild(bg); document.body.appendChild(box);
     box.querySelector('[data-go]').focus();
+  }
+
+  /* team mode badge: the worker says who it recognised (data.viewer) */
+  function renderViewer() {
+    var v = data.viewer, el = $('staffBadge');
+    if (!v || !v.staff) { if (el) el.remove(); return; }
+    if (!el) { el = document.createElement('div'); el.id = 'staffBadge'; el.className = 'staff-badge'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+    el.textContent = 'מצב צוות · ' + v.name;
+    el.title = 'הפעולות שלך כאן נרשמות בשמך, לא בשם הלקוח';
   }
 
   /* (1) the stop button */

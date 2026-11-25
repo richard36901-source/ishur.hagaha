@@ -86,11 +86,12 @@ export async function handleClientStop(request, env, origin, d) {
   if (!v.ok) return d.deny(422, v.error, origin);
   const already = await clientStopOf(env, token);
   if (already) return d.okJson({ ok: true, already: true, stop: publicStop(already) }, origin);
-  const rec = await applyClientStop(env, token, { mode: v.mode, reason: v.reason, reason_he: STOP_REASONS[v.reason], note: v.note, ip: request.headers.get('cf-connecting-ip') || '' });
+  const who = d.who ? await Promise.resolve(d.who(request, b)).catch(() => '') : '';   /* 'צוות: …' or 'הלקוח (…)' (actor.js) */
+  const rec = await applyClientStop(env, token, { mode: v.mode, reason: v.reason, reason_he: STOP_REASONS[v.reason], note: v.note, ip: request.headers.get('cf-connecting-ip') || '', by: who || 'הלקוח' });
   const name = await Promise.resolve(d.eventName ? d.eventName(token) : '').catch(() => '') || token.slice(0, 8);
   const what = v.mode === 'cancel' ? 'הלקוח ביקש לבטל את האירוע' : 'הלקוח עצר את כל השליחות';
   await d.logEvent(env, { area: 'אירוע', action: `${what} (כפתור העצירה בלוח)`, ok: true, review: true, token, detail: `${name} · ${STOP_REASONS[v.reason]} · ${v.note.slice(0, 300)}` }).catch(() => {});
-  const body = `• ${name} · ${token.slice(0, 8)}\n• סיבה: ${STOP_REASONS[v.reason]}\n• בלשון הלקוח: ${v.note.slice(0, 500)}\n\nנעצרו מיד: הזמנות, תזכורות, שליחה נוספת, הודעות יום לפני ויום האירוע, שיחות.` +
+  const body = `• ${name} · ${token.slice(0, 8)}\n• נלחץ ע"י: ${who || 'הלקוח'}\n• סיבה: ${STOP_REASONS[v.reason]}\n• בלשון הלקוח: ${v.note.slice(0, 500)}\n\nנעצרו מיד: הזמנות, תזכורות, שליחה נוספת, הודעות יום לפני ויום האירוע, שיחות.` +
     (v.mode === 'cancel' ? '\nלאורחים לא נשלחה הודעת ביטול. אחרי שיחה עם הלקוח: "ביטול האירוע" במסך הלקוחות.' : '') +
     `\n\n─── \n✅ *מה לעשות:* לחזור ללקוח היום. שחרור רק מהצוות: "שחרור עצירת לקוח" במסך הלקוחות.`;
   await d.slackSend(env, `⛔ *${what}*\n\n${body}`, { urgent: true, oneoff: true }).catch(() => {});
