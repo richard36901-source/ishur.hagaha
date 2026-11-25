@@ -475,7 +475,7 @@ async function post(env, body, channel, ctx) {
           ...(body.type === 'image' && (body.image || {}).link ? { media: { kind: 'image', url: (body.image || {}).link || '' } } : {}),
           /* 25/11 inbox composer: a file sent by media id — the thread loads it through /api/media-dl like an inbound one */
           ...(/^(image|video|audio|document)$/.test(body.type) && (body[body.type] || {}).id ? { media: { kind: body.type, id: String(body[body.type].id), mime: String((ctx && ctx.media_mime) || ''), name: String((ctx && ctx.media_name) || (body[body.type] || {}).filename || '') } } : {}),
-          ...(/^(video|document)$/.test(body.type) && (body[body.type] || {}).caption ? { caption: String(body[body.type].caption).slice(0, 1024) } : {}),
+          ...(/^(image|video|document)$/.test(body.type) && (body[body.type] || {}).id && (body[body.type] || {}).caption ? { caption: String(body[body.type].caption).slice(0, 1024) } : {}),
           ...(ctx && ctx.who ? { who: String(ctx.who).slice(0, 60) } : {}),
           ...(body.type === 'interactive' && (body.interactive || {}).type === 'cta_url' ? { buttons: [{ type: 'URL', text: body.interactive.action.parameters.display_text, url: body.interactive.action.parameters.url }] } : {}),
           tmpl: body.type === 'template' ? String((body.template || {}).name || '') : '',
