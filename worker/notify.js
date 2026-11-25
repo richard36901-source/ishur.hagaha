@@ -154,7 +154,8 @@ export function routeChannels(n, cfg, now = Date.now()) {
   for (const c of cfg.channels || []) {
     if (c === 'slack') out.push('slack');
     if (c === 'push' && !quiet) out.push('push');
-    if (c === 'whatsapp' && n.severity === 'P0' && inHours(now) && !isQuiet(now)) out.push('whatsapp');
+    /* 25/11 Richard: "אל תשלח לי אפילו עוד הודעה אחת כזו בוואטסאפ של נועה... יש לנו את סלאק". No notification of any
+       rule or severity goes to his WhatsApp. The channel stays in the list of names so stored settings still parse. */
   }
   return [...new Set(out)];
 }
@@ -382,6 +383,7 @@ export async function deliver(env, d, cand, { settings = null, now = Date.now() 
     q.push({ id: n.id, at: n.at, severity: n.severity, title_he: n.title_he, deep_link: n.deep_link, url: link });
     await kput(env, PUSH_KEY, q.slice(-50), 7 * 86400);
   }
+  n.channels = n.channels.filter(c => c !== 'whatsapp');   /* 25/11: never, whatever a stored setting says */
   if (n.channels.includes('whatsapp')) {
     const r = d && d.sendText ? await d.sendText(env, RICHARD_PHONE, `${icon} ${n.title_he}\n${link}`, 'client').catch(e => ({ ok: false, error: String(e && e.message || e) })) : { ok: false };
     if (!r || r.ok === false || r.error) n.channels = n.channels.filter(c => c !== 'whatsapp');

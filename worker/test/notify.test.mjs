@@ -30,10 +30,12 @@ test('quiet hours + in-hours clock (Israel time)', () => {
   assert.equal(N.hoursInHours(at('19:00'), at('10:00', '2026-11-04')), 3, '19–21 + 09–10 = 3 business hours');
 });
 
-test('routeChannels: severity threshold, quiet hours, WhatsApp only P0 in hours, off and mute', () => {
+/* 25/11 Richard: no notification goes to his WhatsApp any more ("יש לנו את סלאק"). The expectations below were
+   ['app','slack','push','whatsapp'] for a P0 in hours and one WhatsApp per P0; they are now Slack / app / push only. */
+test('routeChannels: severity threshold, quiet hours, never WhatsApp, off and mute', () => {
   const cfg = N.mergeCfg('incident', null);
   const p0 = { severity: 'P0', entity: 'x' }, p2 = { severity: 'P2', entity: 'x' };
-  assert.deepEqual(N.routeChannels(p0, cfg, at('12:00')), ['app', 'slack', 'push', 'whatsapp']);
+  assert.deepEqual(N.routeChannels(p0, cfg, at('12:00')), ['app', 'slack', 'push']);
   assert.deepEqual(N.routeChannels(p0, cfg, at('22:30')), ['app', 'slack'], 'night: no push, no WhatsApp; in-app always');
   assert.deepEqual(N.routeChannels({ severity: 'P1' }, cfg, at('12:00')), ['app', 'slack', 'push'], 'P1 never WhatsApps');
   assert.deepEqual(N.routeChannels(p2, cfg, at('12:00')), ['app'], 'below min_severity: in-app only');
@@ -88,14 +90,14 @@ test('deliver: de-dup per rule+entity in the window, channels, push queue, Whats
   const env = envK(), d = stubD();
   const c = { rule: 'incident', severity: 'P0', entity: 'finding:x', title_he: 'הפייסר לא רץ' };
   const n1 = await N.deliver(env, d, c, { now: at('12:00') });
-  assert.deepEqual(n1.channels, ['app', 'slack', 'push', 'whatsapp']); assert.equal(n1.stored, 'kv');
-  assert.equal(d.sent.wa.length, 1); assert.equal(d.sent.wa[0].to, N.RICHARD_PHONE); assert.equal(d.sent.wa[0].ch, 'client');
+  assert.deepEqual(n1.channels, ['app', 'slack', 'push']); assert.equal(n1.stored, 'kv');
+  assert.equal(d.sent.wa.length, 0, 'nothing is sent to Richard on WhatsApp');
   assert.equal(d.sent.slack.length, 1); assert.equal(d.sent.slack[0].o.urgent, true);
   assert.equal(JSON.parse(await env.RATE.get(N.PUSH_KEY)).length, 1);
   assert.equal(await N.deliver(env, d, c, { now: at('12:10') }), null, 'same rule+entity inside the window → dropped');
   assert.ok(await N.deliver(env, d, { ...c, entity: 'finding:y' }, { now: at('12:10') }), 'another entity fires');
   const night = await N.deliver(env, d, { ...c, entity: 'finding:z' }, { now: at('23:00') });
-  assert.deepEqual(night.channels, ['app', 'slack']); assert.equal(d.sent.wa.length, 2, 'no WhatsApp at night');
+  assert.deepEqual(night.channels, ['app', 'slack']); assert.equal(d.sent.wa.length, 0, 'no WhatsApp, day or night');
   const env2 = envK({ 'cfg:notify:incident': JSON.stringify({ on: false }) });
   assert.equal(await N.deliver(env2, d, c, { now: at('12:00') }), null, 'rule off → nothing stored');
   const fail = { ...stubD(), sendText: async () => ({ ok: false, error: 'x' }) };
