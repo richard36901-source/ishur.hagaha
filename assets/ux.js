@@ -7,7 +7,10 @@
    3. Non-blocking toasts instead of alert().
    4. A soft fade-in so page-to-page never flashes white. */
 /* 22/11 Richard: inside the app the language is chosen in חשבון, not by the button on each page */
-(function () { try { if (/[?&]app=1(&|$)/.test(location.search) || sessionStorage.getItem('ishur_in_app') === '1') { var s = document.createElement('style'); s.textContent = '#langPick{display:none!important}'
+(function () { try { if (/[?&]app=1(&|$)/.test(location.search) || sessionStorage.getItem('ishur_in_app') === '1') { /* 26/11 the "→ ללוח" button is hidden only for app versions that have swipe-back and the ראשי return (they add
+       nav=1 to the board's address); the version Apple is reviewing (build 6) has neither, so it keeps the button */
+    var navOk = false; try { if (/[?&]nav=1(&|$)/.test(location.search)) sessionStorage.setItem('ishur_app_nav', '1'); navOk = sessionStorage.getItem('ishur_app_nav') === '1'; } catch (x) {}
+    var s = document.createElement('style'); s.textContent = '#langPick{display:none!important}'
     /* 26/11 Richard (app round 9): no web scroll line, no zoom on a double tap, and room at the end for the app's floating tab bar */
     + 'html{scrollbar-width:none;touch-action:manipulation}::-webkit-scrollbar{display:none;width:0;height:0}body{padding-bottom:96px}'
     /* and Apple's current shapes inside the app: rounder cards, capsule buttons and inputs (the website itself is unchanged) */
@@ -15,11 +18,11 @@
     /* 26/11 Richard: the board's own pages (seating, budget, QR) are part of the app, not "the website": no "→ ללוח"
        button (swipe back or the ראשי tab do that), and a pop-up scrolls itself, not the page behind, and keeps its
        buttons above the app's floating tab bar */
-    + '.top #back{display:none!important}[aria-modal=true],.dpop{overscroll-behavior:contain;-webkit-overflow-scrolling:touch;max-height:calc(100vh - 150px)!important}'
+    + (navOk ? '.top #back{display:none!important}' : '') + '[aria-modal=true],.dpop{overscroll-behavior:contain;-webkit-overflow-scrolling:touch;max-height:calc(100vh - 150px)!important}'
     + 'div:has(> [aria-modal=true]){padding-bottom:110px!important}html.modal-open,html.modal-open body{overflow:hidden!important}';
   document.documentElement.classList.add('in-app');
   /* a page of our own site that asks for a new window opens inside the app instead (the table QR page) */
-  document.addEventListener('click', function (e) { var a = e.target.closest && e.target.closest('a[target=_blank]'); if (!a || !a.href) return;
+  if (navOk) document.addEventListener('click', function (e) { var a = e.target.closest && e.target.closest('a[target=_blank]'); if (!a || !a.href) return;
     try { if (new URL(a.href, location.href).origin === location.origin) { e.preventDefault(); location.href = a.href; } } catch (x) {} }, true);
   /* while a pop-up is open the page under it does not scroll */
   var mo = function () { var on = Array.prototype.some.call(document.querySelectorAll('[aria-modal=true]'), function (m) { return m.getClientRects().length > 0; }); document.documentElement.classList.toggle('modal-open', on); };

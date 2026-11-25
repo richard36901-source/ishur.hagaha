@@ -154,7 +154,7 @@
     if (boardFor === current && frameLoads <= 1) { postView(); return; }
     boardFor = current; frameLoads = 0;
     $('boardWait').hidden = false;
-    $('boardFrame').src = ENV.board + '?t=' + encodeURIComponent(current) + '&app=1&view=' + view + LQ + '&theme=' + document.documentElement.getAttribute('data-theme') + '#s=' + encodeURIComponent(session);
+    $('boardFrame').src = ENV.board + '?t=' + encodeURIComponent(current) + '&app=1&nav=1&view=' + view + LQ + '&theme=' + document.documentElement.getAttribute('data-theme') + '#s=' + encodeURIComponent(session);
   }
   $('boardFrame').addEventListener('load', function () { if ($('boardFrame').getAttribute('src')) frameLoads++; $('boardWait').hidden = true; postView(); });
   function evTitle(e) { return (e && (e.name || e.occasion)) || 'האירוע'; }
