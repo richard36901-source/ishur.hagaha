@@ -157,13 +157,30 @@ export async function recordChange(env, input, now = Date.now()) {
   } catch { return null; }
 }
 
-async function ringAll(env, maxKeys = 5000) {
+/* 25/11 the KV bill: the notifications tick asks for "changes since the last tick" every ten minutes and the ring was
+   read whole (365 reads) to find the one or two. A key carries its entry's time (ringKey: inverted ms of e.at, which is
+   always new Date().toISOString()), and its metadata carries the kind — so a key that cannot match from/before/to/kind
+   is skipped unread. A key whose name or metadata says nothing is read, as before. */
+const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+export function keyMayMatch(k, f = {}) {
+  const inv = Number(String(k.name || '').slice(CHG_PREFIX.length, CHG_PREFIX.length + 13));
+  if (Number.isFinite(inv) && inv > 0) {
+    const at = new Date(INV - inv).toISOString();
+    if (f.from && ISO_RE.test(f.from) && at < f.from) return false;
+    if (f.before && ISO_RE.test(f.before) && !(at < f.before)) return false;
+    if (f.to && ISO_RE.test(f.to) && at > f.to) return false;
+  }
+  const kinds = f.kind ? String(f.kind).split(',').filter(Boolean) : null;
+  if (kinds && k.metadata && typeof k.metadata === 'object' && k.metadata.k && !kinds.includes(k.metadata.k)) return false;
+  return true;
+}
+async function ringAll(env, maxKeys = 5000, f = null) {
   if (!env.RATE) return [];
   const names = []; let cursor;
   for (let i = 0; i < 6 && names.length < maxKeys; i++) {
     const page = await env.RATE.list({ prefix: CHG_PREFIX, cursor, limit: 1000 }).catch(() => null);
     if (!page) break;
-    for (const k of page.keys || []) names.push(k.name);
+    for (const k of page.keys || []) if (!f || keyMayMatch(k, f)) names.push(k.name);
     if (page.list_complete) break; cursor = page.cursor;
   }
   names.sort();
@@ -194,7 +211,7 @@ export async function listChanges(env, f = {}) {
       return { source: 'd1', items, next_cursor: rows.length > limit ? items[items.length - 1].at : null };
     } catch {}
   }
-  const all = filterChanges((await ringAll(env)).map(parseRow), { ...f, before });
+  const all = filterChanges((await ringAll(env, 5000, { ...f, before })).map(parseRow), { ...f, before });
   all.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
   const items = all.slice(0, limit);
   return { source: 'kv', items, next_cursor: all.length > limit ? items[items.length - 1].at : null };
