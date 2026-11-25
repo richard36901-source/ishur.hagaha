@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="config.js?v=96"></script>
 <script src="assets/ux.js?v=5"></script>
+<script src="assets/addround.js?v=1"></script>
 <script src="assets/adminbar.js?v=23" defer></script>
 <script src="assets/guard.js?v=22"></script>
 <script src="assets/lite.js?v=1"></script>
@@ -458,7 +459,7 @@
           (fl.sent ? '<span class="tag on">הזמנות יצאו</span>' : fl.sending ? '<span class="tag on">הזמנות יוצאות</span>' : '<span class="tag">טרם נשלח</span>') +
           (fl.video ? '<span class="tag on">וידאו</span>' : '') +
           (fl.addon ? '<span class="tag">+' + fl.addon + ' מוזמנים</span>' : '') +
-          (fl.extrasend ? '<span class="tag">שליחה נוספת</span>' : '') +
+          (fl.extrasend ? '<span class="tag">שליחה נוספת</span>' : '') + (fl.client_stop ? '<span class="tag" style="background:#FBEAE6;color:#7A2E22">⛔ הלקוח עצר' + (fl.client_stop.mode === 'cancel' ? ' (ביקש ביטול)' : '') + '</span>' : '') +
           (fl.calls ? '<span class="tag">סבב שיחות</span>' : '') +
           (e.cancelled ? '<span class="tag warn">בוטל</span>' : '') +
           (fl.hold ? '<span class="tag warn">' + (fl.hold_till ? 'נדחה עד ' + esc(String(fl.hold_till).slice(8, 10) + '/' + String(fl.hold_till).slice(5, 7)) : 'מושהה · אין שליחות') + '</span>' : '') +
@@ -608,7 +609,7 @@
       '<div class="sec"><h3>רשימה ומצב</h3><div class="acts">' +
         '<button class="btn" data-act="reset">איפוס רשימה להעלאה מחדש</button>' +
         '<button class="btn" data-act="active">' + (fl.active ? 'סמן לא פעיל' : 'סמן פעיל') + '</button>' +
-        '<button class="btn" data-act="freeze">' + (fl.hold ? 'שחרור הקפאת שליחות' : 'הקפאת שליחות') + '</button>' +
+        (fl.client_stop ? '<button class="btn d" data-act="client-stop-lift">שחרור עצירת לקוח</button>' : '<button class="btn" data-act="freeze">' + (fl.hold ? 'שחרור הקפאת שליחות' : 'הקפאת שליחות') + '</button>') +
         '<button class="btn d" data-act="clear-sends">ביטול מועדי שליחה</button>' +
         '<button class="btn' + (fl.hold ? '' : ' d') + '" data-act="hold">' + (fl.hold ? 'חידוש הלקוח' : 'ביטול לקוח') + '</button></div></div>' +
       '</div></div>';
@@ -671,11 +672,27 @@
       /* 24/11 Shalev: freeze every send and call of this event, the client stays active and the dates stay */
       var toFreeze = !fl.hold;
       if (toFreeze && !(await askConfirm('כל ההודעות והשיחות לאירוע הזה נעצרות עד שמשחררים. המועדים, הרשימה והלקוח נשארים כמו שהם.', { title: 'להקפיא את השליחות?', ok: 'כן, להקפיא' }))) { b.disabled = false; return; }
-      p = api('eventflag', { token: t, flag: 'hold', on: toFreeze }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { flags[t] = Object.assign(fl, { hold: j.on }); toast(j.on ? 'השליחות הוקפאו' : 'ההקפאה שוחררה, השליחות חוזרות'); render(); } else toast('לא הצליח'); });
+      p = api('eventflag', { token: t, flag: 'hold', on: toFreeze }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { flags[t] = Object.assign(fl, { hold: j.on }); toast(j.on ? 'השליחות הוקפאו' : 'ההקפאה שוחררה, השליחות חוזרות'); render(); } else toast(j.error === 'client-stopped' ? 'הלקוח עצר בעצמו: "שחרור עצירת לקוח"' : 'לא הצליח'); });
     } else if (act === 'clear-sends') {
       /* 24/11 Shalev: remove the dates of the message rounds that have not gone out */
       if (!(await askConfirm('מועדי ההזמנה והתזכורות שעוד לא יצאו נמחקים, ושום סבב הודעות לא מתוזמן. סבב שכבר יצא לא משתנה. הרשימה ותאריך האירוע נשארים. כדי לעצור גם שיחות והודעות של יום האירוע: "הקפאת שליחות".', { title: 'לבטל את מועדי השליחה?', ok: 'כן, לבטל מועדים', danger: true }))) { b.disabled = false; return; }
       p = api('eventflag', { token: t, flag: 'clearsends', on: true }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? ((j.cleared || []).length ? 'בוטלו ' + j.cleared.length + ' מועדי שליחה' : 'לא היו מועדים פתוחים') : 'לא הצליח'); });
+    } else if (act === 'client-stop-lift') {
+      /* 25/11 track-board: only the team lifts the client's stop — sends, calls and the board state all come back */
+      var cs = fl.client_stop || {};
+      if (!(await askConfirm('הלקוח עצר את השליחות' + (cs.reason_he ? ' (' + cs.reason_he + ')' : '') + '. אחרי השחרור ההודעות והשיחות חוזרות לפי התכנון. כדאי לשחרר רק אחרי שיחה עם הלקוח.', { title: 'לשחרר את עצירת הלקוח?', ok: 'כן, לשחרר', danger: true }))) { b.disabled = false; return; }
+      p = api('client-stop-lift', { token: t }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { delete fl.client_stop; flags[t] = Object.assign(fl, { hold: false }); toast('העצירה שוחררה, השליחות חוזרות'); render(); } else toast('לא הצליח'); });
+    } else if ((act === 'extrasend' || act === 'calls') && window.IshurAddRound) {
+      /* 25/11 track-board: when (today-or-later / the client decides) and for whom, asked right away */
+      var plan = await IshurAddRound.ask({ kind: act, name: e.name || '' });
+      if (!plan) { b.disabled = false; return; }
+      var AUD_HE = { all: 'כולם', noanswer: 'רק מי שלא ענה', undecided: 'מתלבטים', unanswered: 'לא ענו + מתלבטים' };
+      p = api('grant-addon', { token: t, kind: act, when: plan.when, scope: plan.scope }).then(function (r) { return r.json(); }).then(function (j) {
+        if (!j.ok) { toast(j.error === 'too-late-today' ? 'היום כבר אחרי 19:00, בחרו מחר' : j.error === 'date-in-past' ? 'אי אפשר תאריך שעבר' : 'לא הצליח'); return; }
+        var dt = j.date && j.date.saved === false ? ' · התאריך לא נשמר (' + (j.date.error || '') + '), הלקוח יוכל לבחור' : '';
+        toast('ניתן · ' + (plan.when === 'client' ? 'הלקוח יבחר מועד' : plan.when) + ' · ' + (AUD_HE[j.scope] || j.scope) + dt);
+        return api('client-flags', { tokens: [t] }).then(function (r) { return r.json(); }).then(function (f) { flags[t] = (f.flags || {})[t] || fl; render(); });
+      });
     } else if (act === 'active') {
       p = api('client-active', { token: t, active: !fl.active }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { flags[t] = Object.assign(fl, { active: j.active }); render(); } });
     } else {
