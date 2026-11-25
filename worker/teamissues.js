@@ -161,6 +161,21 @@ async function notify(env, d, kind, it, actor, extra) {
   } catch {}
   return out;
 }
+/* the task as one text for Claude: what, for whom, the whole thread, and every file as a link the team can open */
+export async function claudeBrief(env, it) {
+  const fileLine = f => f && f.key && !f.deleted ? `  - ${clean(f.name, 120)} (${f.kind || 'file'}): https://go.ishur.io/api/team-file?k=${encodeURIComponent(f.key)}` : '';
+  const L = [`# משימת צוות ${it.id}: ${clean(it.title, 200)}`, `סוג: ${TYPES[it.type] || it.type} · סטטוס: ${STATUS_HE[it.status] || it.status}`,
+    `פתח/ה: ${await nameOf(env, it.opener)} · אחראי/ת: ${await nameOf(env, it.assignee)} · נפתח: ${it.created_at || ''}`];
+  if (it.event && it.event.name) L.push(`לקוח/אירוע: ${clean(it.event.name, 120)}${it.event.date ? ' · ' + it.event.date : ''}${it.event.t8 ? ' · token ' + it.event.t8 + '…' : ''}`);
+  if (it.text) L.push('', 'תיאור:', clean(it.text, 4000));
+  for (const f of it.files || []) { const x = fileLine(f); if (x) L.push(x); }
+  for (const c of it.comments || []) {
+    L.push('', `— ${await nameOf(env, c.by)} · ${c.at}:`, c.text ? clean(c.text, 2000) : '');
+    for (const f of c.files || []) { const x = fileLine(f); if (x) L.push(x); }
+  }
+  L.push('', `פתיחה בלוח: https://ishur.io/next/admin.html#team=${it.id}`);
+  return L.filter(x => x !== undefined).join('\n');
+}
 async function nameOf(env, email) {
   const u = await getUser(env, email).catch(() => null);
   if (u && u.name) return clean(u.name, 40);
@@ -175,7 +190,7 @@ export async function handleTeam(request, env, origin, d) {
   const who = normEmail(request.headers.get('x-ishur-user') || '');
   /* reads come as {op}, writes as {action} — the sign-in gate logs a POST with `action` and the admin home batch only takes reads,
      so a write named in `op` (or a read named in `action`) is refused rather than slipping past the action log */
-  const READS = ['me', 'list', 'get', 'events'], WRITES = ['create', 'comment', 'status', 'roles', 'attach', 'file-delete'];
+  const READS = ['me', 'list', 'get', 'events'], WRITES = ['create', 'comment', 'status', 'roles', 'attach', 'file-delete', 'to-claude'];
   const op = b.action !== undefined ? String(b.action) : String(b.op || 'me');
   if (b.action !== undefined ? !WRITES.includes(op) : !READS.includes(op)) return d.deny(400, 'bad-op', origin);
   const now = d.now ? d.now() : Date.now();
@@ -219,6 +234,21 @@ export async function handleTeam(request, env, origin, d) {
     const rows = await saveItem(env, it);
     const sent = await notify(env, d, 'create', it, who, text);
     return reply({ item: it, notified: sent }, rows);
+  }
+  /* 26/11 Richard: "work on it in Claude" — the whole task (client, thread, files) is queued for the Claude chat,
+     which reads claudeq:<ts>:<id> on every message he writes there (ops-scripts/claude-queue.mjs via a prompt hook). */
+  if (op === 'to-claude') {
+    const id = String(b.id || '');
+    let it = await getItem(env, id);
+    if (!it && /^tn/.test(id)) it = await adopt(env, id, now);
+    if (!it || !canView(it, who, roles, true)) return d.deny(404, 'no-item', origin);
+    const at = new Date(now).toISOString();
+    const brief = await claudeBrief(env, it);
+    await env.RATE.put(`claudeq:${now}:${it.id}`, JSON.stringify({ id: it.id, by: who, at, brief }), { expirationTtl: 30 * 86400 });
+    it.history = [...(it.history || []), { at, by: who, from: it.status, to: it.status, file: 'claude', note: 'נשלח לעבודה ב-Claude' }].slice(-100);
+    it.updated_at = at;
+    const rows = await saveItem(env, it);
+    return reply({ item: it, brief }, rows);
   }
   if (op === 'attach' || op === 'file-delete') {
     const id = String(b.id || '');

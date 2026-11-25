@@ -227,6 +227,17 @@
       d.appendChild(el('div', 'tp-m', ['פתח/ה: ' + nameOf(it.opener), 'אחראי/ת: ' + nameOf(it.assignee), when(it.created_at)].join(' · ')));
       if (it.event && it.event.name) d.appendChild(el('div', 'tp-m', 'אירוע: ' + it.event.name + (it.event.date ? ' · ' + it.event.date : '')));
       if (it.text || (it.files || []).length) { var op = richText('tp-text', it.text); if ((it.files || []).length) op.appendChild(filesBox(it.files)); d.appendChild(op); }
+      /* 26/11 Richard: send the whole task to the Claude chat (and copy it, to paste anywhere) */
+      var cl = el('button', 'tp-btn tp-claude', '✳ לעבוד על זה ב-Claude'); cl.type = 'button';
+      cl.addEventListener('click', function () {
+        cl.disabled = true; cl.textContent = 'שולח…';
+        api({ action: 'to-claude', id: it.id }).then(function (r) {
+          cl.disabled = false;
+          if (r && r.brief) { try { navigator.clipboard.writeText(r.brief); } catch (e) {} cl.textContent = '✓ נשלח ל-Claude (והועתק)'; }
+          else cl.textContent = 'לא נשלח, נסו שוב';
+        }).catch(function () { cl.disabled = false; cl.textContent = 'לא נשלח, נסו שוב'; });
+      });
+      d.appendChild(cl);
       var mv = moves(it);
       if (mv.length) {
         var acts = el('div', 'tp-acts');

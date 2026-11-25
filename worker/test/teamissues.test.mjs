@@ -230,3 +230,14 @@ test('wired in the Worker: a Google session reaches /api/team as that person; re
   assert.equal(c.ok, true); assert.equal(c.item.opener, S);
   assert.ok([...env.RATE.m.keys()].some(k => k.startsWith('act:')), 'a write is logged under her account');
 });
+
+test('26/11 to-claude: the whole task is queued for the Claude chat with its thread and file links', async () => {
+  const { claudeBrief } = await import('../teamissues.js');
+  const kv = new Map(); const env = { RATE: { get: async k => kv.get(k) ?? null, put: async (k, v) => kv.set(k, v), delete: async k => kv.delete(k) } };
+  const it = { id: 'ti1', type: 'request', status: 'open', title: 'לבדוק את שוהם', text: 'הסעה מבאר שבע', opener: 'a@x.com', assignee: 'b@x.com', created_at: '2026-11-26',
+    event: { name: 'שוהם ושי', date: '2026-12-02', t8: '41630865' }, files: [{ key: 'team/ti1/f1-a.png', name: 'a.png', kind: 'image' }],
+    comments: [{ by: 'b@x.com', at: '2026-11-26T10:00:00Z', text: 'בטיפול', files: [{ key: 'team/ti1/f2-r.m4a', name: 'r.m4a', kind: 'audio' }, { key: '', name: 'gone.pdf', deleted: true }] }] };
+  const b = await claudeBrief(env, it);
+  assert.match(b, /משימת צוות ti1: לבדוק את שוהם/); assert.match(b, /שוהם ושי · 2026-12-02/); assert.match(b, /הסעה מבאר שבע/); assert.match(b, /בטיפול/);
+  assert.match(b, /team-file\?k=team%2Fti1%2Ff1-a\.png/); assert.match(b, /team-file\?k=team%2Fti1%2Ff2-r\.m4a/); assert.doesNotMatch(b, /gone\.pdf/);
+});
