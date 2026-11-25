@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { buildCallPayload, guestOpening, hostExtra, introFor } from '../shir.js';
+import { buildCallPayload, guestOpening, hostExtra, introFor, safeGuestName } from '../shir.js';
 
 const G = { kind: 'guest', phone: '972500000000', guest_id: 'G-f85d36d5-1', token: 'f85d36d5-x', name: 'דנה', event_name: 'תאיר ואביב', occasion: 'חתונה', event_date: '2026-12-03', party: '2' };
 const EXTRA = 'והוריהם יעקב ומירי פיטוסי ושרון וכרמי מורי';
@@ -11,7 +11,7 @@ const EXTRA = 'והוריהם יעקב ומירי פיטוסי ושרון וכר
 test('the parents come right after the couple, before the question', () => {
   const p = buildCallPayload({ ...G, host_extra: EXTRA }, '+97200');
   const o = p.retell_llm_dynamic_variables.opening;
-  assert.match(o, /^היי, מדברת שיר מאישורי הגעה בשם תאיר ואביב, והוריהם יעקב ומירי פיטוסי ושרון וכרמי מורי — מגיעים לחתונה ב-/);
+  assert.match(o, /^היי דנה, מדברת שיר, מאישורי הגעה בשם תאיר ואביב, והוריהם יעקב ומירי פיטוסי ושרון וכרמי מורי — מגיעים לחתונה ב-/);
 });
 
 test('nothing else in the call changes', () => {
@@ -26,8 +26,8 @@ test('nothing else in the call changes', () => {
 });
 
 test('an event without an addition opens exactly as before', () => {
-  assert.equal(guestOpening({ host_name: 'נועה ויונתן', occasion: 'חתונה', event_date_spoken: '3 בדצמבר' }), 'היי, מדברת שיר מאישורי הגעה בשם נועה ויונתן — מגיעים לחתונה ב-3 בדצמבר?');
-  assert.equal(guestOpening({ host_name: 'נועה ויונתן', occasion: 'חתונה', host_extra: '   ' }), 'היי, מדברת שיר מאישורי הגעה בשם נועה ויונתן — מגיעים לחתונה?');
+  assert.equal(guestOpening({ host_name: 'נועה ויונתן', occasion: 'חתונה', event_date_spoken: '3 בדצמבר' }), 'היי, מדברת שיר, מאישורי הגעה בשם נועה ויונתן — מגיעים לחתונה ב-3 בדצמבר?');
+  assert.equal(guestOpening({ host_name: 'נועה ויונתן', occasion: 'חתונה', host_extra: '   ' }), 'היי, מדברת שיר, מאישורי הגעה בשם נועה ויונתן — מגיעים לחתונה?');
 });
 
 test('the undecided opener carries it too, and braces never reach the voice', () => {
@@ -61,4 +61,23 @@ test('25/11 an event can say how its hosts\' names are spoken; the written name 
   assert.equal(v.host_name, 'שוהם ושַׁי'); assert.equal(v.event_name, 'שוהם ושי');
   assert.match(v.opening, /בשם שוהם ושַׁי — מגיעים/);
   assert.equal(buildCallPayload({ ...G, event_name: 'שוהם ושי' }, '+97200').retell_llm_dynamic_variables.host_name, 'שוהם ושי');
+});
+
+test('25/11 the guest is greeted by name only when the name on the list is safe to say', () => {
+  for (const [n, want] of [['דנה', 'דנה'], ['סייג בנימין', 'סייג בנימין'], ['נאוה בן ארצי', ''], ['קוממי שושי וקותי', ''], ['שושי וקותי', ''], ['אבא ותולי', ''], ['רחל אחות של עדן', ''], ['דודה רחל', ''],
+    ['משפחת כהן', ''], ['הרב שרון', ''], ['Yarin ירין', ''], ['דורון אוזן (2)', ''], ['ז', ''], ['', ''], ['עו"ד עמית', ''], ['ורד כהן', 'ורד כהן'], ['בן דוד', '']])
+    assert.equal(safeGuestName(n), want, n);
+  assert.equal(guestOpening({ guest_name: 'דנה', host_name: 'שוהם ושי', occasion: 'חתונה' }), 'היי דנה, מדברת שיר, מאישורי הגעה בשם שוהם ושי — מגיעים לחתונה?');
+  assert.equal(guestOpening({ guest_name: 'קוממי שושי וקותי', host_name: 'שוהם ושי', occasion: 'חתונה' }), 'היי, מדברת שיר, מאישורי הגעה בשם שוהם ושי — מגיעים לחתונה?');
+  assert.match(guestOpening({ guest_name: 'דנה', host_name: 'א וב', occasion: 'חתונה', guest_state: 'מתלבט' }), /^היי דנה, מדברת שיר, מאישורי הגעה בשם א וב — ראינו שעוד לא סגרתם/);
+});
+
+test('25/11 real calls keep the old wording until the new opening is switched on; a rehearsal always hears the new one', () => {
+  const g = { ...G, name: 'דנה', event_name: 'שוהם ושי' };
+  assert.match(buildCallPayload(g, '+97200', { legacy_opening: true }).retell_llm_dynamic_variables.opening, /^היי, מדברת שיר מאישורי הגעה בשם שוהם ושי — /);
+  assert.match(buildCallPayload(g, '+97200').retell_llm_dynamic_variables.opening, /^היי דנה, מדברת שיר, מאישורי הגעה בשם שוהם ושי — /);
+  const src = fs.readFileSync(new URL('../index.js', import.meta.url), 'utf8');
+  assert.ok(src.includes("env.RATE.get('cfg:opening_v2')") && src.includes('legacy_opening: !('));
+  const tc = src.slice(src.indexOf("body.action === 'testcall' && body.agent === 'shir_out'"), src.indexOf("body.action === 'testcall' && body.agent === 'shir_out'") + 4200);
+  assert.ok(tc.includes('buildCallPayload(g, env.SHIR_FROM)'), 'the rehearsal uses the new opening');
 });

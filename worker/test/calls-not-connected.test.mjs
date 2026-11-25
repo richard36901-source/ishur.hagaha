@@ -16,7 +16,8 @@ import { buildCallPayload, guestOpening } from '../shir.js';
 test('opener · spoken the moment the guest picks up; undecided guests get their own; never literal braces', () => {
   const g = { guest_id: 'G-1', token: 't', name: 'דנה', event_name: 'שילת ושי', occasion: 'חינה', event_date: '2026-11-09', phone: '972500000000' };
   const p = buildCallPayload(g, '+972000', {});
-  assert.match(p.retell_llm_dynamic_variables.opening, /^היי, מדברת שיר מאישורי הגעה בשם שילת ושי — מגיעים לחינה ב-/);
+  /* 25/11 Richard approved a new opening: the guest's name when it is safe to say, and a comma after "שיר" ("שיר מאישורי" was heard as "שירי"). The wording below follows it. */
+  assert.match(p.retell_llm_dynamic_variables.opening, /^היי( [א-ת ]+)?, מדברת שיר, מאישורי הגעה בשם שילת ושי — מגיעים לחינה ב-/);
   assert.match(guestOpening({ host_name: 'א', occasion: 'חינה', guest_state: 'מתלבט' }), /עוד לא סגרתם/);
   for (const v of Object.values(p.retell_llm_dynamic_variables)) assert.ok(!/\{\{/.test(String(v)));
 });

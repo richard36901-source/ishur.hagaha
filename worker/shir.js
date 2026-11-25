@@ -245,6 +245,18 @@ export function inboundLookup(raw, phone, todayIso, opts = {}) {
 }
 
 /* 08/11: the guest opener — one question, then silence. An undecided guest already answered on WhatsApp. */
+/* A name from the guest list that can be said out loud without being wrong: one or two plain Hebrew words, as written
+   (the whole entry, never a guessed first name: "סייג בנימין" is said as it is). Couples ("שושי וקותי"), descriptions
+   ("רחל אחות של עדן", "אבא ותולי") and anything with digits, Latin letters or marks give no name at all. */
+const NAME_STOP = new Set(['של', 'אבא', 'אמא', 'אימא', 'דוד', 'דודה', 'סבא', 'סבתא', 'משפחת', 'משפחה', 'חבר', 'חברה', 'אח', 'אחות', 'בן', 'בת', 'הרב', 'עוד', 'דר', 'זוג', 'ובעלה', 'ואשתו', 'ורעייתו', 'ובן', 'ובת', 'אורח']);
+export function safeGuestName(name) {
+  const raw = String(name || '').trim();
+  if (!raw || /[^א-ת\s'׳-]/.test(raw)) return '';
+  const w = raw.split(/\s+/);
+  if (w.length < 1 || w.length > 2) return '';
+  for (const x of w) { const c = x.replace(/['׳-]/g, ''); if (c.length < 2 || c.length > 9 || NAME_STOP.has(c) || (/^ו/.test(c) && c.length > 3 && w.length > 1 && x === w[1])) return ''; }
+  return w.join(' ');
+}
 export function hostExtra(s) { return String(s || '').replace(/[{}<>\n\r]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140); }
 /* callintro:<token> holds the addition as plain text, or as {"text":"…","from":"YYYY-MM-DD"} when it starts on a set
    day (Richard 24/11: "from tomorrow, not today"). day = the Israeli date of the call; no day = a rehearsal, always on. */
@@ -255,14 +267,19 @@ export function introFor(raw, day) {
   if (day && /^\d{4}-\d{2}-\d{2}$/.test(String(o.from || '')) && String(day) < o.from) return '';
   return hostExtra(o.text);
 }
-export function guestOpening(v = {}) {
+export function guestOpening(v = {}, opts = {}) {
   const host = String(v.host_name || '').trim(), occ = String(v.occasion || 'האירוע').trim(), when = String(v.event_date_spoken || '').trim();
   /* 24/11 (Richard, Aviv Pitusi's wedding): an event may add a few words right after the couple's names, e.g. the
      parents. Only the spoken first sentence changes; host_name and every other variable stay as they were. */
   const extra = hostExtra(v.host_extra);
   const by = host ? ` בשם ${host}${extra ? ', ' + extra : ''}` : '';
-  if (v.guest_state === 'מתלבט') return `היי, מדברת שיר מאישורי הגעה${by} — ראינו שעוד לא סגרתם לגבי ה${occ}${when ? ' ב-' + when : ''}. כבר יודעים אם מגיעים?`;
-  return `היי, מדברת שיר מאישורי הגעה${by} — מגיעים ל${occ}${when ? ' ב-' + when : ''}?`;
+  /* 25/11 Richard: (1) the guest is greeted by name when the name on the list is safe to say; (2) a comma after "שיר",
+     because "שיר מאישורי" was heard as "שירי". */
+  /* until Richard has heard a rehearsal and said yes (cfg:opening_v2), real calls keep the wording they had */
+  const hi = opts.legacy ? '' : safeGuestName(v.guest_name);
+  const open = opts.legacy ? `היי, מדברת שיר מאישורי הגעה${by}` : `היי${hi ? ' ' + hi : ''}, מדברת שיר, מאישורי הגעה${by}`;
+  if (v.guest_state === 'מתלבט') return `${open} — ראינו שעוד לא סגרתם לגבי ה${occ}${when ? ' ב-' + when : ''}. כבר יודעים אם מגיעים?`;
+  return `${open} — מגיעים ל${occ}${when ? ' ב-' + when : ''}?`;
 }
 
 /* The first sentence, composed here rather than by the model.
@@ -405,7 +422,7 @@ export function buildCallPayload(guest, fromNumber, opts = {}) {
   if (!v.opening) {
     if (kind === 'callback') v.opening = openingLine(guest.hit || guest, { callback: true });
     else if (kind === 'lead') v.opening = 'היי, מדברת נועה מאישורי הגעה.';
-    else v.opening = guestOpening({ ...v, host_extra: guest.host_extra });   /* host_extra is not sent as a variable: the script never reads it */
+    else v.opening = guestOpening({ ...v, host_extra: guest.host_extra }, { legacy: !!opts.legacy_opening });   /* host_extra is not sent as a variable: the script never reads it */
   }
   return payload;
 }

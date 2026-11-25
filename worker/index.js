@@ -3189,7 +3189,7 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
       /* 02/11 noa-chase R8: Shir's own lessons ({{memory}}) when the feature is on */
-      body: JSON.stringify(buildCallPayload(g, env.SHIR_FROM, { memory: String(env.CALL_QA || 'on') !== 'off' ? await memoryBlock(env, 'שיר').catch(() => '') : '' })),
+      body: JSON.stringify(buildCallPayload(g, env.SHIR_FROM, { legacy_opening: !(introCache.has('cfg:o2') ? introCache.get('cfg:o2') : (introCache.set('cfg:o2', !!(await env.RATE.get('cfg:opening_v2').catch(() => null))), introCache.get('cfg:o2'))), memory: String(env.CALL_QA || 'on') !== 'off' ? await memoryBlock(env, 'שיר').catch(() => '') : '' })),
     }).catch(() => null);
     await retellBillingGuard(env, r);
     if (r && (r.status === 200 || r.status === 201)) {
