@@ -79,7 +79,10 @@ test('rules: word boundaries — הלאה / וואלה / חלה never read as ל
   assert.deepEqual(answerTokens(userTokens('User: הלו לא לא תודה יום טוב\n')), ['לא', 'לא'], 'closings stripped, לא kept');
   assert.deepEqual(answerTokens(userTokens('User: על לא\n')), ['לא'], 'a 2-letter STT shard is noise');
   assert.deepEqual(substantive(userTokens('User: כן מי זה חלה הלאה כן\n')), ['כן', 'הלאה', 'כן']);
-  assert.equal(rulesVerdict({ transcript: 'Agent: היי\nUser: לא\n', outcome: '__keep__', answer: 'שיחה ללא תוצאה ברורה', duration_s: 15 }).suggested, 'לא מגיע');
+  /* 25/11 Richard: a bare "לא" counts as "לא מגיע" only after Shir asked. The fixture was 'Agent: היי / User: לא', which is
+     exactly the real call that wrongly marked a guest as not coming (קוממי, 23/11); it now carries the question. */
+  assert.equal(rulesVerdict({ transcript: 'Agent: היי, מדברת שיר — מגיעים לחתונה?\nUser: לא\n', outcome: '__keep__', answer: 'שיחה ללא תוצאה ברורה', duration_s: 15 }).suggested, 'לא מגיע');
+  assert.notEqual(rulesVerdict({ transcript: 'Agent: היי\nUser: לא\n', outcome: '__keep__', answer: 'שיחה ללא תוצאה ברורה', duration_s: 15 }).suggested, 'לא מגיע');
   assert.equal(rulesVerdict({ transcript: 'Agent: היי\nUser: לא, לא נגיע\n', outcome: '', duration_s: 15 }).suggested, '', '"לא נגיע" = לא plus a verb, not "לא and nothing else"');
   assert.equal(rulesVerdict({ transcript: 'Agent: היי\nUser: לא בטוח עדיין\n', outcome: 'לא מגיע', duration_s: 15 }).suggested, 'מתלבט', 'undecided wins over לא');
   assert.equal(rulesVerdict({ transcript: 'Agent: היי\nUser: כן שניים\n', outcome: '', duration_s: 15 }).count_unclear, false);

@@ -70,6 +70,18 @@ export function recordedOf(call) {
   return '';
 }
 
+/* did the agent get to the attendance question before the guest's first "לא"? */
+export function askedBeforeNo(transcript) {
+  let agent = '';
+  for (const l of String(transcript || '').split('\n')) {
+    const u = /^\s*User:\s*(.*)$/.exec(l);
+    if (u) { if (/(^|[^א-ת])לא([^א-ת]|$)/.test(u[1])) return /מגיע|תגיע|סגרתם|יודעים אם/.test(agent); continue; }
+    const a = /^\s*Agent:\s*(.*)$/.exec(l);
+    if (a) agent += ' ' + a[1];
+  }
+  return false;
+}
+
 /* ── the rules ────────────────────────────────────────────────────────────── */
 export function rulesVerdict(call) {
   const c = call || {};
@@ -89,6 +101,11 @@ export function rulesVerdict(call) {
     r.suggested = 'מתלבט'; r.rule = 'undecided'; r.auto_fix = true;
   } else if (Number.isFinite(dur) && dur <= HANGUP_S && subst.length === 0) {
     r.suggested = HANGUP_LABEL; r.rule = 'hangup'; r.retry = true; r.auto_fix = true;
+  } else if (ans.length && ans.every(w => w === 'לא') && !askedBeforeNo(c.transcript)) {
+    /* 25/11 Richard (אביב: קוממי שושי וקותי and טרי רן shown as "לא מגיעים"): a "לא" said before Shir got to the
+       question ("Agent: היי, / User: לא", a 5-second call) is somebody who does not want the call, not a guest who
+       is not coming. It is a hang-up at the opening: nothing is recorded as an answer and the guest is tried again. */
+    r.suggested = HANGUP_LABEL; r.rule = 'no-before-question'; r.retry = true; r.auto_fix = true;
   } else if (ans.length && ans.every(w => w === 'לא')) {
     r.suggested = 'לא מגיע'; r.rule = 'no-only'; r.auto_fix = true;
   } else if (ans.includes('כן') && !ans.includes('לא')) {

@@ -13056,6 +13056,31 @@ const WORKER = {
         return okJson({ ok: true, job }, origin);
       }
       if (b.action === 'clear') { await env.RATE.delete('callround:' + tok); return okJson({ ok: true }, origin); }
+      /* 25/11: an answer the post-call review wrote by mistake is taken back. {action:'reopen', guest_ids:[…]}: the
+         guest's "לא מגיע" is cleared and, while the plan still owes them a call, they return to Shir's queue. Only a
+         guest who is "לא מגיע" now and did not answer by WhatsApp or in a call is touched. */
+      if (b.action === 'reopen') {
+        const want = new Set([].concat(b.guest_ids || []).map(x => String(x).trim()).filter(Boolean).slice(0, 200));
+        const raw = await readSnapshot(env, 'write').catch(() => null);
+        const gRows = (raw && raw.guests && raw.guests.values) || [];
+        if (!gRows.length) return deny(503, snapMiss(env), origin);
+        const evR = ((raw.events && raw.events.values) || []).find(r => String((r || [])[1] || '').trim() === tok);
+        const capR = evR ? planMaxCallTries(planKeyOf(evR)) : 0;
+        const data = [], done = [], skipped = [];
+        gRows.forEach((g, i) => {
+          const id = String((g || [])[2] || '').trim();
+          if (String(g[28] || '').trim() !== tok || !want.has(id)) return;
+          const ans = String(g[22] || '').trim();
+          if (String(g[15] || '').trim() !== 'לא מגיע' || /^ענה/.test(ans)) { skipped.push(id); return; }
+          const tries = Number(String(g[29] || '').trim()) || 0, again = tries < capR;
+          data.push({ range: `אורחים!P${i + 2}`, values: [['']] }, { range: `אורחים!N${i + 2}`, values: [['']] }, { range: `אורחים!V${i + 2}`, values: [[again ? 'נדרשת שיחה' : '']] });
+          done.push({ id, again });
+        });
+        const okw = data.length ? await sheetBatchWrite(env, data) : true;
+        if (okw && data.length) await env.RATE.delete('snapcache').catch(() => {});
+        await logEvent(env, { area: 'שיחות', action: 'תשובה שנרשמה בטעות בוטלה', ok: !!okw, review: !okw, token: tok, detail: `${done.length} אורחים · ${String(b.note || '').slice(0, 100)}` }).catch(() => {});
+        return okJson({ ok: !!okw, reopened: done, skipped }, origin);
+      }
       /* 24/11: one named guest, one call on a set day, whatever they answered (drainCallRounds opens it) */
       if (b.action === 'one') {
         const gid = String(b.guest_id || '').trim(), at = String(b.at || ilDate()).slice(0, 10);

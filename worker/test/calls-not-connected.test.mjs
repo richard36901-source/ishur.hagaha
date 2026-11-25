@@ -49,3 +49,17 @@ test('a refused dial frees the guest for one more call the same day, once (24/11
   assert.match(src, /const PACE_CALLS = 18;/);
   assert.match(fs.readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8'), /^CALL_PARALLEL = "16"/m);
 });
+
+test('25/11 a "לא" said before Shir asked is a hang-up to try again, never "לא מגיע"', async () => {
+  const { rulesVerdict, askedBeforeNo } = await import('../callqa.js');
+  const early1 = 'Agent: היי, \nUser: לא \nAgent: מדברת שיר מאישורי הגעה בשם תאיר ואביב — \n';
+  const early2 = 'User: לא לא \nAgent: היי, מדברת שיר מאישורי הגעה בשם תאיר ואביב — מגיעים לחתונה \n';
+  const real = 'Agent: היי, מדברת שיר מאישורי הגעה בשם תאיר ואביב — מגיעים לחתונה ב-1 בדצמבר?\nUser: לא \nAgent: הבנתי, תודה רבה\n';
+  assert.equal(askedBeforeNo(early1), false); assert.equal(askedBeforeNo(early2), false); assert.equal(askedBeforeNo(real), true);
+  for (const t of [early1, early2]) {
+    const r = rulesVerdict({ transcript: t, duration_s: 6, answer: 'שיחה ללא תוצאה ברורה' });
+    assert.equal(r.rule, 'no-before-question'); assert.notEqual(r.suggested, 'לא מגיע'); assert.equal(r.retry, true);
+  }
+  const r = rulesVerdict({ transcript: real, duration_s: 14, answer: 'שיחה ללא תוצאה ברורה' });
+  assert.equal(r.rule, 'no-only'); assert.equal(r.suggested, 'לא מגיע');
+});
