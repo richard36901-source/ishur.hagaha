@@ -24,9 +24,9 @@ export function parseSa(env) {
   try { const j = JSON.parse(String((env && env.GOOGLE_SA) || '')); return j && j.client_email && j.private_key ? j : null; } catch { return null; }
 }
 /* the signed request Google exchanges for an access token (RS256) */
-export async function signedJwt(sa, nowSec = Math.floor(Date.now() / 1000)) {
+export async function signedJwt(sa, nowSec = Math.floor(Date.now() / 1000), scope = SCOPE) {   /* scope: sheetsdirect.js asks for the write scope with its own token */
   const head = b64urlText(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const claim = b64urlText(JSON.stringify({ iss: sa.client_email, scope: SCOPE, aud: 'https://oauth2.googleapis.com/token', iat: nowSec, exp: nowSec + 3600 }));
+  const claim = b64urlText(JSON.stringify({ iss: sa.client_email, scope, aud: 'https://oauth2.googleapis.com/token', iat: nowSec, exp: nowSec + 3600 }));
   const der = Uint8Array.from(atob(String(sa.private_key).replace(/-----[A-Z ]+-----/g, '').replace(/\s+/g, '')), c => c.charCodeAt(0));
   const key = await crypto.subtle.importKey('pkcs8', der.buffer, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
   const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(head + '.' + claim));

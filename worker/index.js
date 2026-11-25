@@ -21,6 +21,7 @@
    Then set USE_PROXY to true and PROXY_BASE to the deployed URL in config.js.
    ========================================================================== */
 
+import { sheetHookFetch } from './sheetsdirect.js';
 import * as audit from './audit.js';
 import { parseGuestFile, guestsFromRows, nextGuestSeq } from './parse.js';
 import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf, isTestEventRow, planMaxCallTries } from './dashboard.js';
@@ -149,7 +150,7 @@ function msgCost(tmpl) { return CAT_COST[TMPL_CATEGORY[tmpl] || 'utility'] || 0.
    must name its tab explicitly. Returns true only when Sheets confirmed cells. */
 async function sheetBatchPost(env, data) {
   if (!env.BRAIN_HOOK || !data || !data.length) return false;
-  const r = await fetch(env.BRAIN_HOOK, {
+  const r = await sheetHookFetch(env, env.BRAIN_HOOK, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       url: `spreadsheets/${sheetId(env)}/values:batchUpdate`,
@@ -177,7 +178,7 @@ async function leadsTabCached(env, ttlSec = 1800) {
   const k = 'leadstab:cache';
   if (env.RATE) { try { const hit = JSON.parse((await env.RATE.get(k)) || 'null'); if (hit && Array.isArray(hit.rows)) return hit.rows; } catch {} }
   if (!env.BRAIN_HOOK) return [];
-  const r = await fetch(env.BRAIN_HOOK, {
+  const r = await sheetHookFetch(env, env.BRAIN_HOOK, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}/values:batchGet`, qk1: 'ranges', qv1: 'לידים - לא סגרו!A2:P500' }),
   }).catch(() => null);
@@ -197,7 +198,7 @@ async function hookFetch(env, url, init) {
   /* 12/11 security: the writer scenarios store USER_ENTERED — typed text must not arrive as a formula (lib.js makeWriterBody).
      The snapshot bookkeeping below still reads the body as the caller built it. */
   const sent = init && init.body !== undefined ? { ...init, body: makeWriterBody(env, url, init.body) } : init;
-  try { return await fetch(url, sent); }
+  try { return await sheetHookFetch(env, url, sent); }   /* 25/11: BRAIN_HOOK / HOOK_EVENTS go to Google directly when cfg:sheets_direct is on */
   finally {
     if (url && url !== env.HOOK_STATUS) {
       await (url === env.HOOK_EVENTS ? noteHookWrite(env, init && init.body) : markSnapDirty(env, 'all')).catch(() => {});
@@ -247,7 +248,7 @@ async function leadReferralCode(env, payerPhone) {
   if (!env.BRAIN_HOOK) return '';
   const last9 = String(payerPhone).slice(-9);
   if (!last9) return '';
-  const r = await fetch(env.BRAIN_HOOK, {
+  const r = await sheetHookFetch(env, env.BRAIN_HOOK, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       url: `spreadsheets/${sheetId(env)}/values:batchGet`,
@@ -4990,7 +4991,7 @@ async function getBrain(env) {
     const hit = await env.RATE.get('brain:cache');
     if (hit) { try { return JSON.parse(hit); } catch {} }
   }
-  const r = await fetch(env.BRAIN_HOOK, {
+  const r = await sheetHookFetch(env, env.BRAIN_HOOK, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       url: `spreadsheets/${sheetId(env)}/values:batchGet`,
@@ -8111,7 +8112,7 @@ async function runBackup(env) {
   const tabs = {};
   for (const tab of BACKUP_TABS) {
     /* the proxy takes a single query pair, so one call per tab */
-    const r = await fetch(env.BRAIN_HOOK, {
+    const r = await sheetHookFetch(env, env.BRAIN_HOOK, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         url: `spreadsheets/${sheetId(env)}/values:batchGet`,
@@ -8560,7 +8561,7 @@ async function handleSeating(request, env, origin) {
   }
   if (!data.length) return deny(400, 'no-matching-guests', origin);
 
-  const r = await fetch(env.BRAIN_HOOK, {
+  const r = await sheetHookFetch(env, env.BRAIN_HOOK, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       url: `spreadsheets/${sheetId(env)}/values:batchUpdate`,
@@ -8695,7 +8696,7 @@ async function handleCostLog(request, env, origin) {
    ─────────────────────────────────────────────────────────────────────────── */
 async function setBrainActive(env, active) {
   if (!env.BRAIN_HOOK) return false;
-  const r = await fetch(env.BRAIN_HOOK, {
+  const r = await sheetHookFetch(env, env.BRAIN_HOOK, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       url: `spreadsheets/${sheetId(env)}/values:batchUpdate`,
@@ -10192,7 +10193,7 @@ async function handleSendDate(request, env, origin) {
   for (let i = 1; i < seq.length; i++) if (seq[i] <= seq[i - 1]) return deny(422, 'out-of-order', origin);
 
   const row = idx + 2; // values start at A2
-  const r = await fetch(env.BRAIN_HOOK, {
+  const r = await sheetHookFetch(env, env.BRAIN_HOOK, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       url: `spreadsheets/${sheetId(env)}/values:batchUpdate`,
@@ -12084,7 +12085,7 @@ const WORKER = {
         if (b.action === 'tabtail') return okJson(await readTabTail(env, String(b.tab || 'msg_guests'), Number(b.n) || 10), origin);
         if (b.action === 'tabread') {
           /* raw rows of one tab by its exact title (admin data checks) */
-          const rr = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          const rr = await sheetHookFetch(env, env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}/values:batchGet`, qk1: 'ranges', qv1: `'${String(b.tab || '')}'!A1:AZ${Math.min(5000, Number(b.max) || 2000)}` }) }).catch(() => null);
           const v = rr ? await rr.json().catch(() => null) : null;
           return okJson({ ok: true, rows: (v && v.valueRanges && v.valueRanges[0] && v.valueRanges[0].values) || [] }, origin);
@@ -12092,13 +12093,13 @@ const WORKER = {
         if (b.action === 'clientrow') return okJson(await upsertClientRow(env, b), origin);
         if (b.action === 'tabs') {
           /* every tab with its header row and row count — the map of the sheet */
-          const r = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          const r = await sheetHookFetch(env, env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}`, qk1: 'fields', qv1: 'sheets.properties' }) }).catch(() => null);
           const j = r ? await r.json().catch(() => null) : null;
           const tabs = ((j && j.sheets) || []).map(x => x.properties || {});
           const out = [];
           for (const t of tabs) {
-            const rr = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            const rr = await sheetHookFetch(env, env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}/values:batchGet`, qk1: 'ranges', qv1: `'${t.title}'!A1:AZ2000` }) }).catch(() => null);
             const v = rr ? await rr.json().catch(() => null) : null;
             const vals = (v && v.valueRanges && v.valueRanges[0] && v.valueRanges[0].values) || [];
@@ -12107,7 +12108,7 @@ const WORKER = {
           return okJson({ ok: true, tabs: out }, origin);
         }
         if (b.action === 'formats') {
-          const r = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          const r = await sheetHookFetch(env, env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}`, qk1: 'fields', qv1: 'sheets(properties.title,conditionalFormats)' }) }).catch(() => null);
           const j = r ? await r.json().catch(() => null) : null;
           const tab = ((j && j.sheets) || []).find(x => x.properties && x.properties.title === 'יומן מערכת');
@@ -12450,11 +12451,11 @@ const WORKER = {
       /* admin passthrough for fixing the board by hand (columns, dupes) */
       if (b.gql) { try { return okJson({ ok: true, data: await mondayGql(env, b.gql, b.vars || {}) }, origin); } catch (e) { return okJson({ ok: false, why: String(e && e.message) }, origin); } }
       if (b.debug) {
-        const tl = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}`, qk1: 'fields', qv1: 'sheets.properties' }) }).catch(() => null);
+        const tl = await sheetHookFetch(env, env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}`, qk1: 'fields', qv1: 'sheets.properties' }) }).catch(() => null);
         const tj = tl ? await tl.json().catch(() => null) : null;
         const titles = ((tj && tj.sheets) || []).map(x => (x.properties || {}).title || '');
         const tabTitle = titles.find(t => /לידים/.test(t)) || '';
-        const rr = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}/values:batchGet`, qk1: 'ranges', qv1: `'${tabTitle}'!A1:AZ2000` }) }).catch(() => null);
+        const rr = await sheetHookFetch(env, env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}/values:batchGet`, qk1: 'ranges', qv1: `'${tabTitle}'!A1:AZ2000` }) }).catch(() => null);
         const vv = rr ? await rr.json().catch(() => null) : null;
         return okJson({ titles, tabTitle, rows: ((vv && vv.valueRanges && vv.valueRanges[0] && vv.valueRanges[0].values) || []).length, raw: JSON.stringify(vv || null).slice(0, 300) }, origin);
       }
@@ -12463,11 +12464,11 @@ const WORKER = {
       /* retro: every row of the לידים sheet (older than KV's 45-day memory).
          Columns: 1 שם · 2 טלפון · 3 מייל · 4 סוג · 5 כמות · 6 שלב · 7 שולם? · 11 מקור · 0 timestamp */
       if (b.sheet) {
-        const tl = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        const tl = await sheetHookFetch(env, env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}`, qk1: 'fields', qv1: 'sheets.properties' }) }).catch(() => null);
         const tj = tl ? await tl.json().catch(() => null) : null;
         const tabTitle = (((tj && tj.sheets) || []).map(x => (x.properties || {}).title || '').find(t => /לידים/.test(t))) || 'לידים - לא סגרו';
-        const rr = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        const rr = await sheetHookFetch(env, env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}/values:batchGet`, qk1: 'ranges', qv1: `'${tabTitle}'!A1:AZ2000` }) }).catch(() => null);
         const vv = rr ? await rr.json().catch(() => null) : null;
         const rows = (vv && vv.valueRanges && vv.valueRanges[0] && vv.valueRanges[0].values) || [];
@@ -12605,7 +12606,7 @@ const WORKER = {
     if (url.pathname === '/api/inbox-status-backfill' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
-      const rr = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const rr = await sheetHookFetch(env, env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}/values:batchGet`, qk1: 'ranges', qv1: `'${String(b.tab || 'אורחים לוג הודעות יוצאות')}'!A1:P3000` }) }).catch(() => null);
       const v = rr ? await rr.json().catch(() => null) : null;
       const rows = ((v && v.valueRanges && v.valueRanges[0] && v.valueRanges[0].values) || []).slice(1);
@@ -14842,7 +14843,7 @@ const WORKER = {
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       const [raw, leadRes, states] = await Promise.all([
         readSnapshot(env, 'ops'),
-        env.BRAIN_HOOK ? fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}/values:batchGet`, qk1: 'ranges', qv1: 'לידים - לא סגרו!A2:P1000' }) }).catch(() => null) : null,
+        env.BRAIN_HOOK ? sheetHookFetch(env, env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}/values:batchGet`, qk1: 'ranges', qv1: 'לידים - לא סגרו!A2:P1000' }) }).catch(() => null) : null,
         kvPrefix(env, 'leadx:'),
       ]);
       let rows = [];

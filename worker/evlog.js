@@ -24,6 +24,7 @@
    by ensureLogSheet(). No per-row formatting calls.
    ========================================================================== */
 
+import { sheetHookFetch } from './sheetsdirect.js';
 import { record } from './audit.js';
 
 export const SHEET_ID = '1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q';   /* production; staging overrides with [env.staging.vars] SHEET_ID */
@@ -86,7 +87,7 @@ export async function proxy(env, url, opts = {}) {
   if (opts.method) body.method = opts.method;
   if (opts.payload !== undefined) body.payload = JSON.stringify(opts.payload);
   if (opts.qk) { body.qk1 = opts.qk; body.qv1 = opts.qv; }
-  const r = await fetch(env.BRAIN_HOOK, {
+  const r = await sheetHookFetch(env, env.BRAIN_HOOK, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
   }).catch(() => null);
   if (!r || !r.ok) return null;

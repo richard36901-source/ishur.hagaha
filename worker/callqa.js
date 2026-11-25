@@ -19,6 +19,7 @@
    shir-calls-2026-11-01.json) — 16 gaps found, 12 non-gaps left alone.
    ========================================================================== */
 
+import { sheetHookFetch } from './sheetsdirect.js';
 import { callOutcome } from './dashboard.js';
 import { stream, logEvent } from './evlog.js';
 import { slackPost } from './slack.js';
@@ -284,7 +285,7 @@ export async function applyReview(env, call, review, deps = {}) {
         if (result.call_status === 'נדרשת שיחה' && result.tries >= cap) result.call_status = '';
         const write = deps.writeCallResult || (async (gid, res) => {
           if (!env.HOOK_EVENTS) return false;
-          const x = await fetch(env.HOOK_EVENTS, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          const x = await sheetHookFetch(env, env.HOOK_EVENTS, { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: makeWriterBody(env, env.HOOK_EVENTS, JSON.stringify({ event_type: 'call_result', guest_id: gid, rsvp: res.rsvp || '__keep__', call_status: res.call_status, answer: res.answer, tries: String(res.tries), party: '__keep__', ts: new Date().toISOString() })) }).catch(() => null);
           return !!x && x.status === 200;
         });
