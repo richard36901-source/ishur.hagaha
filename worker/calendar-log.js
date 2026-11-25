@@ -24,10 +24,42 @@ function slim(raw) {
   return { dir: 'out', at: v.at, tok: v.tok, ch: v.ch, tmpl: v.tmpl, type: v.type, ok: v.ok, status: v.status, error: v.error, text: String(v.text || '').slice(0, 120) };
 }
 
-/* names: log keys (log:<phone>:<ts>) → their values as JSON strings, in the same order (null = nothing to show) */
-export async function readLogValues(env, names, { now = Date.now(), liveDays = LIVE_DAYS } = {}) {
+/* 25/11 the KV bill: the live days were still one read per message on every build (~2,700 reads every ten minutes by
+   the evening). Every log write now carries what the calendar shows in its list() METADATA: {c: slim entry} for an
+   outgoing message, {c: 0} for anything else. The listing the calendar already makes then answers without a read.
+   An entry with no metadata (written before this, or too big for the 1 KB metadata cap) is read as before. */
+const META_MAX = 1000;
+export function logMeta(rec) {
+  if (!rec || typeof rec !== 'object') return undefined;
+  if (rec.dir !== 'out') return { c: 0 };
+  const m = { c: slim(JSON.stringify(rec)) };
+  return new TextEncoder().encode(JSON.stringify(m)).length <= META_MAX ? m : undefined;
+}
+/* the one way a log:<phone>:<ts> entry is written: value + calendar metadata */
+export function putLog(env, key, rec, opts = {}) {
+  const m = logMeta(rec);
+  return env.RATE.put(key, JSON.stringify(rec), m ? { ...opts, metadata: m } : opts);
+}
+/* the log listing with each key's metadata (same list calls as a plain listing) */
+export async function listLogKeys(env, cap = 60000) {
+  const names = [], meta = new Map();
+  if (!env || !env.RATE || !env.RATE.list) return { names, meta };
+  let cursor;
+  while (names.length < cap) {
+    const page = await env.RATE.list({ prefix: 'log:', cursor, limit: 1000 }).catch(() => null);
+    if (!page) break;
+    for (const k of page.keys) { names.push(k.name); if (k.metadata && typeof k.metadata === 'object' && 'c' in k.metadata) meta.set(k.name, k.metadata); }
+    if (page.list_complete) break;
+    cursor = page.cursor;
+  }
+  return { names, meta };
+}
+
+/* names: log keys (log:<phone>:<ts>) → their values as JSON strings, in the same order (null = nothing to show).
+   meta (optional, from listLogKeys): an entry whose metadata already says what the calendar shows is not read. */
+export async function readLogValues(env, names, { now = Date.now(), liveDays = LIVE_DAYS, meta = null } = {}) {
   const out = new Array(names.length).fill(null);
-  const stats = { reads: 0, failed: 0, live_days: 0, cached_days: 0, built_days: 0, failed_days: 0, put_failed: 0 };
+  const stats = { reads: 0, failed: 0, live_days: 0, cached_days: 0, built_days: 0, failed_days: 0, put_failed: 0, ...(meta ? { from_meta: 0 } : {}) };
   if (!env || !env.RATE) return { vals: out, stats };
   const firstLive = calDayOf(now - (liveDays - 1) * 864e5);
   const byDay = {};
@@ -46,7 +78,12 @@ export async function readLogValues(env, names, { now = Date.now(), liveDays = L
   };
   const days = Object.keys(byDay).sort();
   /* the live days first: they are what the page is opened for */
-  for (const d of days.filter(x => x >= firstLive)) { stats.live_days++; await readDay(byDay[d]); }
+  for (const d of days.filter(x => x >= firstLive)) {
+    stats.live_days++;
+    const toRead = [];
+    for (const i of byDay[d]) { const m = meta && meta.get(names[i]); if (m) { out[i] = m.c ? JSON.stringify(m.c) : null; stats.from_meta++; } else toRead.push(i); }
+    await readDay(toRead);
+  }
   const old = days.filter(x => x < firstLive);
   stats.reads += old.length;
   const hits = await Promise.all(old.map(async d => { try { return JSON.parse((await env.RATE.get(CAL_DAY_KEY(d))) || 'null'); } catch { return null; } }));

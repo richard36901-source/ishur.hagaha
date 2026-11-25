@@ -19,6 +19,7 @@ import { logRow } from './sheetlogs.js';
 import { logEvent, stream } from './evlog.js';
 import { isStaging, isAllowedPhone, BLOCKED as STAGING_BLOCKED } from './staging-guard.js';
 import { noteDailySend } from './wavenote.js';
+import { putLog } from './calendar-log.js';   /* 25/11 every log entry carries the calendar's metadata */
 import { toHebrewReply, trySendInGuestLang } from './guest-lang.js';
 /* index.js registers the event-name resolver (it owns the sheet snapshot); whatsapp.js stays import-free of index.js */
 export const waveNoteDeps = { eventName: null };
@@ -466,8 +467,8 @@ async function post(env, body, channel, ctx) {
       if (res.ok && res.id) await env.RATE.put('wamid2log:' + res.id, logKey, { expirationTtl: 14 * 86400 }).catch(() => {});
       /* counted once per recipient per 24h (noteGuestTemplate); a probe send is not counted */
       if (res.ok && channel === 'guests') { if (isTmpl) { if (!(ctx && ctx.probe)) await noteGuestTemplate(env, phoneId, body.to); if (!(await guestPinnedPhone(env, body.to))) await pinGuestPhone(env, body.to, phoneId); } if (res.id) await env.RATE.put('wamidpid:' + res.id, phoneId, { expirationTtl: 3 * 86400 }).catch(() => {}); }
-      await env.RATE.put(logKey,
-        JSON.stringify({
+      await putLog(env, logKey,
+        ({
           dir: 'out', type: body.type, text: summary.slice(0, 1000),
           ok: res.ok, error: res.error || '', ch, id: res.id || '', status: res.ok ? 'sent' : 'failed',
           ...(tr ? { footer: tr.footer || '', media: tr.media || null, buttons: tr.buttons || [] } : {}),

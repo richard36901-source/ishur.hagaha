@@ -105,7 +105,7 @@ import { recordChange, recordDeploy } from './changes.js';   /* 03/11 change log
 import { fixedCostAction, buildIncomeDays, editEventCosts } from './ops-money.js';   /* 03/11 recurring fixed costs */
 import BUILD_INFO from './build-info.json' with { type: 'json' };   /* written by scripts/build-info.mjs at deploy */
 import { handleOps, brainFns, buildCapacity, buildSendLive, planFns } from './ops.js';
-import { readLogValues, plannedMarks } from './calendar-log.js';   /* 21/11 the calendar's read of the message log, old days kept */
+import { readLogValues, plannedMarks, putLog, logMeta, listLogKeys } from './calendar-log.js';   /* 21/11 the calendar's read of the message log, old days kept */
 import { parkPayment, drainParked } from './parked-payments.js';   /* 22/11 a payment that arrived without the payer's phone waits, then runs as a real payment */
 import { cleanItems, itemsToKeep } from './seatplan-items.js';   /* 22/11 the hall's chuppah, bar, stage… kept with the table map */
 import { precomputePlans } from './ops-plan.js';   /* 04/11 the סקירה plan, precomputed every tick into plan:<period> */
@@ -3848,7 +3848,7 @@ async function handleWaWebhook(request, env, url) {
                   if ((rank[st.status] || 0) >= (rank[cur.status] || 0)) {
                     cur.status = st.status; cur.status_at = Number(st.timestamp) * 1000 || Date.now();
                     if (st.status === 'failed') { const e0 = (st.errors && st.errors[0]) || {}; cur.error = `${e0.code || ''} ${e0.title || ''}`.trim(); }
-                    await env.RATE.put(lk, JSON.stringify(cur));
+                    { const m = logMeta(cur); await env.RATE.put(lk, JSON.stringify(cur), m ? { metadata: m } : undefined); }   /* 25/11 the calendar reads status from the metadata */
                   }
                 }
               }
@@ -4047,7 +4047,7 @@ async function handleWaWebhook(request, env, url) {
           const eParsed = parseInboundReply(msg);
           const eBody = (eParsed ? textOf(eParsed) : '').slice(0, 300);
           const ets = Date.now();
-          await env.RATE.put('log:' + peer + ':' + ets, JSON.stringify({
+          await putLog(env, 'log:' + peer + ':' + ets, ({
             ...inboundExtras(msg),
             dir: 'out', type: msg.type, ch: echoCh, text: eBody, ok: true, who: appAuto ? 'הודעה אוטומטית (אפליקציית וואטסאפ)' : 'ריצ׳רד (מהטלפון)', phone_app: true, app_auto: appAuto || undefined,
             media: (msg[msg.type] && msg[msg.type].id && /^(document|image|video|audio|sticker)$/.test(msg.type))
@@ -4107,8 +4107,8 @@ async function handleWaWebhook(request, env, url) {
       const rawIn = String((msg.text && msg.text.body) || (msg.button && msg.button.text) || (msg.interactive && msg.interactive.button_reply && msg.interactive.button_reply.title) || '').trim();
       const body = ((parsed ? textOf(parsed) : '') || rawIn).slice(0, 300);
       /* kept forever, on purpose: this is the record of the conversation */
-      await env.RATE.put('log:' + from + ':' + ts,
-        JSON.stringify({
+      await putLog(env, 'log:' + from + ':' + ts,
+        ({
           ...inboundExtras(msg),   /* 16/11: reaction, reply context, location, contacts, caption (the inbox shows them like the phone does) */
           dir: 'in', type: msg.type, ch,
           text: body,
@@ -11405,11 +11405,12 @@ async function buildCalendarMonth(env, month) {
   const days = {};
   const day = d => (days[d] = days[d] || []);
   /* past: every log entry of the month */
-  const names = await kvKeys(env, 'log:', 60000);
+  const { names, meta: logMetaMap } = await listLogKeys(env, 60000);
   const fromTs = Date.parse(mFirst + 'T00:00:00+03:00'), toTs = Date.parse(mLast + 'T23:59:59+03:00');
   const inMonth = names.filter(n => { const ts = Number(n.split(':').pop()); return ts >= fromTs && ts <= toTs; });
   /* 21/11: days older than three are read once and kept (calendar-log.js); it used to be one KV read per message of the month, every build */
-  const { vals, stats: logStats } = await readLogValues(env, inMonth);
+  /* 25/11: the live days are answered from the listing's metadata where the entry carries it */
+  const { vals, stats: logStats } = await readLogValues(env, inMonth, { meta: logMetaMap });
   inMonth.forEach((n, i) => {
     let v = null; try { v = JSON.parse(vals[i]); } catch {}
     if (!v || v.dir !== 'out') return;
