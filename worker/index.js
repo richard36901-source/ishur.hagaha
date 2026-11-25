@@ -36,7 +36,7 @@ import { clientWaba, clientToken, clientOnPortfolio, clientPhoneId, isGuestPhone
 import { sendCtaUrl, sendReplyButtons, guestCapacity, guestCapScope, pinGuestPhone, guestPortfolioBudget } from './whatsapp.js';
 import { fitBatch, dynamicPace } from './budget.js';
 import * as tguard from './templateguard.js';
-import { eventDayMessageFor, edMarkKey, ED_MARK_TTL, dayBeforeAllowed, dayBeforeDropped, navTarget, COMBO_NAMES, dayBeforeMessageFor, eventDayNeeded } from './eventday.js';
+import { eventDayMessageFor, edMarkKey, ED_MARK_TTL, dayBeforeAllowed, dayBeforeDropped, navTarget, COMBO_NAMES, dayBeforeMessageFor, eventDayNeeded, eventStarted } from './eventday.js';
 import { giftActive, giftKey, declineGiftText, eventDayGiftSlot, eventHasSeating, giftVariantName, giftButtonComponent, giftSlug, planGiftBlast, giftPageHtml, cleanLink, giftRoute, giftCountable, giftHitKey, giftStats, GIFT_HIT_TTL, GIFT_METHODS } from './gifts.js';
 import { waveNoteDeps } from './whatsapp.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, isQuestion, touchConversation, guestsReady } from './whatsapp.js';
@@ -5718,6 +5718,10 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
     /* 02/11 audit: the job is a KV record set by hand; the event can be
        cancelled or put on hold after it was set — never blast those */
     const evRow = eventRowOf(raw, token);
+    if (!dry && evRow && eventStarted(evRow[36], ilTime())) {
+      if (!(await seenOnce(env, `edlate:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', 'שעת האירוע כבר עברה — ההודעה של היום לא נשלחה', token.slice(0, 8), { key: 'eventday_late:' + token.slice(0, 8), sev: 'P1' }).catch(() => {});
+      res.push({ token: token.slice(0, 8), skipped: 'event-started' }); continue;
+    }
     if (!dry && (!evRow || String(evRow[27] || '').trim() === 'כן' || await env.RATE.get('hold:' + token))) {
       if (!(await seenOnce(env, `edblastoff:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', 'האירוע מבוטל / מושהה / לא נמצא בגיליון — ההודעה לא יצאה', token.slice(0, 8), { key: 'eventday:' + token.slice(0, 8) });
       res.push({ token: token.slice(0, 8), skipped: 'cancelled-or-hold' }); continue;
@@ -7116,6 +7120,11 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     if (!token || !paid || cancelled || date !== today) continue;
     if (env.RATE && await env.RATE.get('seat:' + token)) continue;
     if (env.RATE && await env.RATE.get('hold:' + token)) continue;
+    /* 25/11: once the event has started nothing of "today" goes out; said once in Slack so a person can reach the hosts */
+    if (eventStarted(ev[36], ilTime())) {
+      if (!dry && env.RATE && !(await seenOnce(env, `edlate:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', 'שעת האירוע כבר עברה — ההודעה של היום לא נשלחה', `${guestEventName(ev, { article: false })} · ${String(ev[36] || '')}`, { key: 'eventday_late:' + token.slice(0, 8), sev: 'P1' }).catch(() => {});
+      continue;
+    }
 
     const occasion = String(ev[5] || '').trim();
     /* 02/11: the table template reads "מחכים לראותכם היום ב{{2}}" — with the

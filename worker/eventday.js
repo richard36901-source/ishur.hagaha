@@ -174,6 +174,14 @@ export function carriedMark(name, { table = '' } = {}) {
   return JSON.stringify({ nav: !!p.nav, gift: !!p.gift, table: p.table ? String(table || '') : '', t: name });
 }
 /* does this guest still need an event-day message? only for what D-1 did not carry */
+/* 25/11 Richard (a brit at 14:00 got "מחכים לראותכם היום" at 16:34, after a send hold was lifted): a message of the
+   event day is never sent once the event has started. time = the event's reception time ("14:00"), now = "HH:MM" in
+   Israel. An event with no time on record is not blocked. */
+export function eventStarted(time, nowHm) {
+  const a = /^(\d{1,2}):(\d{2})/.exec(String(time || '').trim()), b = /^(\d{1,2}):(\d{2})/.exec(String(nowHm || '').trim());
+  if (!a || !b) return false;
+  return Number(b[1]) * 60 + Number(b[2]) >= Number(a[1]) * 60 + Number(a[2]);
+}
 export function eventDayNeeded({ dbMark, table = '', giftOn = false, navOn = false }) {
   const c = carriedOf(dbMark);
   if (!c) return true;
