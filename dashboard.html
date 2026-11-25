@@ -60,7 +60,7 @@
       window.addEventListener('message', function (e) { if (e.source === window.parent && e.data && e.data.ishurView) setView(String(e.data.ishurView)); });
       document.addEventListener('DOMContentLoaded', function () {
         var MAP = { statusCard: 'home', shareCard: 'sends', afterCard: 'home', guestsCard: 'home guests', gaddCard: 'guests',
-          mediaCard: 'sends', designCard: 'sends', guestLangCard: 'sends', extraCard: 'sends', sendsCard: 'sends', changeNote: 'sends', refCard: 'account', invoiceCard: 'account', addonsCard: 'none', pwaCard: 'none' };
+          mediaCard: 'sends', designCard: 'sends', guestLangCard: 'sends', extraCard: 'sends', sendsCard: 'sends', changeNote: 'sends', refCard: 'account', invoiceCard: 'account', addonsCard: 'none', pwaCard: 'none', advCard: 'sends' };   /* 25/11: the advanced settings sit with the other event settings (share, language) */
         Object.keys(MAP).forEach(function (id) { var el = document.getElementById(id); if (el) el.setAttribute('data-v', MAP[id]); });
       });
       var m = /(?:^#|&)s=(acct\.[0-9a-zA-Z._-]{20,200})(?:&|$)/.exec(location.hash || '');
@@ -81,7 +81,7 @@
   /* the guests card: in home only its buttons (seating, table codes, budget); in guests the list, print and replace */
   html.in-app[data-view=home] #guestsCard > :not(.card-h),
   html.in-app[data-view=home] #guestsCard .card-h > span:first-child,
-  html.in-app[data-view=home] #checklistLink,html.in-app[data-view=home] #replaceLink,
+  html.in-app[data-view=home] #checklistLink,html.in-app[data-view=home] #replaceLink,html.in-app[data-view=home] #exportCsv,
   html.in-app[data-view=guests] #seatingLink,html.in-app[data-view=guests] #qrLink,html.in-app[data-view=guests] #budgetLink,html.in-app[data-view=guests] #lineupLink{display:none!important}
   html.in-app[data-view=home] #guestsCard .gl-acts{width:100%;justify-content:center;flex-wrap:wrap;overflow:visible;row-gap:.5rem}
   /* 22/11 Richard ("aligning it properly"): in the app the four buttons sit in an even 2 x 2 grid, same width each */
@@ -240,6 +240,20 @@
   .row-n.editable{cursor:pointer}
   .row-n.editable:hover{text-decoration:underline dotted;text-underline-offset:3px}
   .row-p{font-size:.74rem;color:var(--ink3);direction:ltr;text-align:right}
+  /* 25/11 הגדרות מתקדמות: the follow-up answers under the guest's name, and the settings card */
+  .row.has-fq{border-bottom:0;padding-bottom:.2rem}
+  .row-fq{padding:0 1rem .55rem;font-size:.76rem;color:var(--ink2);border-bottom:1px solid var(--bdr);line-height:1.5;overflow-wrap:anywhere}
+  .adv-g{padding:.8rem 0;border-top:1px solid var(--bdr)}
+  .adv-g:first-of-type{border-top:0;padding-top:0}
+  .adv-t{font-size:.9rem;font-weight:600;margin:0 0 .25rem}
+  .adv-n{font-size:.78rem;color:var(--ink3);margin:0 0 .5rem;line-height:1.5}
+  .adv-in{width:100%;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr);border-radius:8px;background:var(--card);color:var(--ink);min-width:0;margin-bottom:.4rem}
+  .adv-sel{font:inherit;font-size:.9rem;padding:.4rem .5rem;border:1.5px solid var(--bdr);border-radius:8px;background:var(--card);color:var(--ink)}
+  .adv-ck{display:flex;align-items:center;gap:.45rem;font-size:.88rem;cursor:pointer;margin:.35rem 0}
+  .adv-ck input{width:1.1rem;height:1.1rem;flex:0 0 auto}
+  .adv-row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;font-size:.86rem}
+  .adv-sub{margin:.1rem 0 .5rem;padding-inline-start:1.55rem}
+  .adv-sub[hidden]{display:none}
   .pill{flex-shrink:0;font-size:.72rem;font-weight:500;border-radius:99px;padding:.12rem .55rem;white-space:nowrap}
   .pill.yes{background:var(--green4);color:var(--green2)}
   /* 18/11: lux.css paints this pill dark green on a light tint; on the dark theme that was dark on dark */
@@ -809,7 +823,7 @@
 
   <!-- guests -->
   <section class="card" id="guestsCard">
-    <div class="card-h" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><span>המוזמנים</span><span class="gl-acts"><a class="buy" id="seatingLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)">🪑 סידור הושבה</a><a class="buy" id="checklistLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)" title="רשימת מוזמנים לפי שולחן, עם ריבוע סימון למי שהגיע — להדפסה או PDF">🖨 רשימה להדפסה</a><a class="buy" id="qrLink" href="#" target="_blank" rel="noopener" style="text-decoration:none;background:var(--green4);color:var(--green2)" title="ברקוד לכניסה: האורח סורק, מקליד שם או טלפון ורואה את השולחן שלו">📱 ברקוד שולחנות</a><a class="buy" id="budgetLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)">💰 תקציב</a><a class="buy" id="lineupLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)">🗓 לוז אירוע</a><input type="file" id="listFile" accept=".csv,.xlsx,.xls" hidden><button type="button" class="buy" id="replaceLink" style="background:var(--green4);color:var(--green2)">⟳ החלפת הרשימה</button> <span id="listMsg" style="font-size:.78rem;color:var(--ink3)"></span></span></div>
+    <div class="card-h" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><span>המוזמנים</span><span class="gl-acts"><a class="buy" id="seatingLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)">🪑 סידור הושבה</a><a class="buy" id="checklistLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)" title="רשימת מוזמנים לפי שולחן, עם ריבוע סימון למי שהגיע — להדפסה או PDF">🖨 רשימה להדפסה</a><a class="buy" id="qrLink" href="#" target="_blank" rel="noopener" style="text-decoration:none;background:var(--green4);color:var(--green2)" title="ברקוד לכניסה: האורח סורק, מקליד שם או טלפון ורואה את השולחן שלו">📱 ברקוד שולחנות</a><a class="buy" id="budgetLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)">💰 תקציב</a><a class="buy" id="lineupLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)">🗓 לוז אירוע</a><input type="file" id="listFile" accept=".csv,.xlsx,.xls" hidden><button type="button" class="buy" id="replaceLink" style="background:var(--green4);color:var(--green2)">⟳ החלפת הרשימה</button><button type="button" class="buy" id="exportCsv" style="background:var(--green4);color:var(--green2)" title="כל המוזמנים, הסטטוס והתשובות לשאלות, לקובץ שנפתח באקסל">⬇ ייצוא לאקסל</button> <span id="listMsg" style="font-size:.78rem;color:var(--ink3)"></span></span></div>
     <div class="filters" id="filters"></div>
     <div class="gsearch-w"><input class="gsearch" id="gsearch" type="search" placeholder="חיפוש לפי שם, טלפון או שולחן"></div>
     <p class="list-sum" id="listSum"></p>
@@ -950,6 +964,45 @@
           </span>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- 25/11 הגדרות מתקדמות: separate from the event setup (that flow stays short). Worker: POST /api/event-settings -->
+  <section class="card" id="advCard" hidden>
+    <div class="card-h">⚙️ הגדרות מתקדמות</div>
+    <div class="card-b">
+      <div class="adv-g">
+        <p class="adv-t">שמות ההורים</p>
+        <p class="adv-n">לא מופיע בהודעות. אם אורח שואל של מי האירוע, שיר (בטלפון) והתשובה בוואטסאפ יזכירו גם את ההורים.</p>
+        <div id="advCouple">
+          <input class="adv-in" id="advBride" maxlength="55" placeholder="הורי הכלה, למשל משה ורחל כהן" aria-label="הורי הכלה">
+          <input class="adv-in" id="advGroom" maxlength="55" placeholder="הורי החתן, למשל דוד ושרה לוי" aria-label="הורי החתן">
+        </div>
+        <input class="adv-in" id="advHosts" maxlength="110" placeholder="משפחת בעלי השמחה, למשל משפחת לוי" aria-label="משפחת בעלי השמחה" hidden>
+        <p class="adv-n" id="advIntroNow" hidden></p>
+      </div>
+      <div class="adv-g">
+        <p class="adv-t">שאלות אחרי אישור הגעה</p>
+        <p class="adv-n">מי שעונה "מגיע" יקבל את השאלות באותה שיחה בוואטסאפ, ושיר תשאל אותן בטלפון. התשובות יופיעו ברשימת המוזמנים.</p>
+        <label class="adv-ck"><input type="checkbox" id="advShuttle"> הסעה</label>
+        <div class="adv-sub" id="advShuttleSub" hidden><input class="adv-in" id="advShuttleTxt" maxlength="120" placeholder="מאיפה ומתי, למשל מבאר שבע, תחנה מרכזית, 18:00"></div>
+        <label class="adv-ck"><input type="checkbox" id="advFood"> העדפות אוכל</label>
+        <div class="adv-sub adv-n" id="advFoodSub" hidden></div>
+        <label class="adv-ck"><input type="checkbox" id="advCustom"> שאלה משלכם</label>
+        <div class="adv-sub" id="advCustomSub" hidden><input class="adv-in" id="advCustomTxt" maxlength="140" placeholder="למשל: תצטרכו חניה?"></div>
+      </div>
+      <div class="adv-g">
+        <p class="adv-t">שעות לשיחות של שיר</p>
+        <p class="adv-n" id="advWinNote">ימים א׳–ה׳, בתוך השעות המותרות.</p>
+        <div class="adv-row"><span>מ-</span><select class="adv-sel" id="advStart" aria-label="שעת התחלה"></select><span>עד</span><select class="adv-sel" id="advEnd" aria-label="שעת סיום"></select></div>
+        <label class="adv-ck"><input type="checkbox" id="advFri"> גם ביום שישי, עד <select class="adv-sel" id="advFriEnd" aria-label="סיום ביום שישי"></select></label>
+      </div>
+      <div class="adv-g">
+        <p class="adv-t">מתנה</p>
+        <label class="adv-ck"><input type="checkbox" id="advGift"> לצרף את קישור המתנה להודעת התודה למי שאישר הגעה</label>
+        <p class="adv-n">רק כשיש קישור מתנה פעיל (למעלה, ב"קישור לקבוצה"). פעם אחת לכל אורח.</p>
+      </div>
+      <div class="adv-row" style="justify-content:flex-end"><span id="advMsg" style="font-size:.8rem;color:var(--ink3)"></span><button type="button" class="buy" id="advSave">שמירה</button></div>
     </div>
   </section>
 
@@ -1585,6 +1638,8 @@
     normalize(data);
     var ev = data.event || {};
     var t = data.totals || {};
+    /* 25/11: the advanced-settings card (its own script below) needs the occasion */
+    window.__ishurEv = ev; try { document.dispatchEvent(new CustomEvent('ishur:event', { detail: ev })); } catch (e) {}
 
     (function () {
       var x = data.extra, c = $('extraCard'); if (!c) return;
@@ -1861,6 +1916,10 @@
       { k: 'declined', l: 'לא מגיעים', n: recs('declined', t.declined) },
       { k: 'failed', l: 'נכשלו', n: recs('failed', 0) }
     ];
+    /* 25/11 הגדרות מתקדמות: one chip per follow-up question that is on */
+    fqSteps().forEach(function (st) {
+      opts.push({ k: 'fq-' + st.key, l: FQ_CHIP[st.key] || st.label, n: list.filter(function (g) { return fqMatch(g, 'fq-' + st.key); }).length });
+    });
 
     $('filters').innerHTML = opts.map(function (o) {
       return '<button type="button" class="filt' + (filter === o.k ? ' on' : '') +
@@ -1875,10 +1934,48 @@
 
   var query = '';
 
+  /* 25/11 הגדרות מתקדמות: answers to the follow-up questions, by guest id (data.followups from /api/status) */
+  var FQ_CHIP = { shuttle: '🚌 הסעה', food: '🍽 העדפת אוכל', custom: '❓ שאלה נוספת' };
+  function fqSteps() { return (data && data.followups && data.followups.steps) || []; }
+  function fqOf(g) { var a = data && data.followups && data.followups.answers; return (a && g && g.id && a[g.id]) || null; }
+  function fqMatch(g, k) {
+    var a = fqOf(g); if (!a) return false;
+    if (k === 'fq-shuttle') return a.shuttle === 'כן';
+    if (k === 'fq-food') return !!a.food && a.food !== 'רגיל';
+    if (k === 'fq-custom') return !!a.custom;
+    return false;
+  }
+  function fqLine(g) {
+    var a = fqOf(g); if (!a) return '';
+    var on = {}; fqSteps().forEach(function (st) { on[st.key] = 1; });
+    var parts = [];
+    if (on.shuttle && a.shuttle) parts.push('🚌 הסעה: ' + a.shuttle);
+    if (on.food && a.food) parts.push('🍽 ' + a.food);
+    if (on.custom && a.custom) parts.push('❓ ' + a.custom);
+    return parts.length ? '<div class="row-fq">' + escH(parts.join(' · ')) + '</div>' : '';
+  }
+  /* the whole list to a file Excel opens in Hebrew (UTF-8 with BOM) */
+  function exportCsv() {
+    var steps = fqSteps();
+    var head = ['שם', 'טלפון', 'סטטוס', 'כמות', 'שולחן'].concat(steps.map(function (st) { return st.key === 'custom' && st.q ? st.q : st.label; }));
+    var cell = function (v) { v = String(v == null ? '' : v); if (/^[=+\-@]/.test(v)) v = "'" + v; return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    var rows = (data.guests || []).map(function (g) {
+      var a = fqOf(g) || {};
+      return [g.name || '', g.phone || '', (STATUS[g.status] || STATUS.pending).label, g.seats || '', g.table || ''].concat(steps.map(function (st) { return a[st.key] || ''; }));
+    });
+    var csv = '\ufeff' + [head].concat(rows).map(function (r) { return r.map(cell).join(','); }).join('\r\n');
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'מוזמנים.csv'; document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  (function () { var b = $('exportCsv'); if (b) b.addEventListener('click', function () { if (data && (data.guests || []).length) exportCsv(); }); })();
+
   function renderRows() {
     var needle = query.trim().toLowerCase();
     var list = (data.guests || []).filter(function (g) {
       if (filter === 'failed') { if (!notReached(g)) return false; }
+      else if (/^fq-/.test(filter)) { if (!fqMatch(g, filter)) return false; }
       else if (filter !== 'all' && g.status !== filter) return false;
       if (!needle) return true;
       var digits = needle.replace(/\D/g, '');
@@ -1938,11 +2035,12 @@
       var ck = data.checkin && data.checkin.enabled && g.id
         ? '<button type="button" class="chk' + (g.arrived ? ' on' : '') + '" data-ck="' + esc(g.id) + '" aria-label="סימון הגעה">' + (g.arrived ? '✓ ' + escH(g.arrived) : 'הגיע?') + '</button>'
         : '';
-      return '<div class="row' + (g.self ? ' self' : '') + '">' + ck +
+      var fq = fqLine(g);   /* 25/11: the follow-up answers on their own full-width line under the row */
+      return '<div class="row' + (g.self ? ' self' : '') + (fq ? ' has-fq' : '') + '">' + ck +
              '<span class="row-n' + (g.id && !over ? ' editable' : '') + '"' + (g.id ? ' data-gid="' + esc(g.id) + '" title="לחיצה לעריכת שם וטלפון"' : '') + '>' + (g.name ? escH(g.name) : '<span style="color:var(--ink3)">ללא שם</span>') + (g.self ? ' <span class="self-tag" title="נרשם דרך הקישור לקבוצה. הודעות ותזכורות אליו נפתחות בתוספת">מהקישור</span>' : '') + '<br><span class="row-p">' + escH(g.phone || '') + '</span></span>' +
              '<span class="pill ' + st.pill + '">' + st.label + '</span>' +
              sendBadge(g) +
-             '<span class="row-s">' + (g.seats ? escH(g.seats) : '—') + '</span>' + tbl + '</div>';
+             '<span class="row-s">' + (g.seats ? escH(g.seats) : '—') + '</span>' + tbl + '</div>' + fq;
     }).join('');
     var anyConfirmed = (data.guests || []).some(function (g) { return g.status === 'confirmed' && g.id; });
     $('seatBar').hidden = !anyConfirmed;
@@ -3465,6 +3563,82 @@
         else if (d && d.error === 'already-sent') { call({ token: tok }).then(paint); }
         else $('glNote').textContent = 'לא נשמר, נסו שוב';
       }).catch(function () { $('glSave').disabled = false; $('glNote').textContent = 'לא נשמר, נסו שוב'; });
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+/* 25/11 הגדרות מתקדמות (Worker POST /api/event-settings, event-settings.js): the parents' names, the questions after a
+   "yes", Shir's calling hours for this event, the gift line after a "yes". Separate from the setup flow. */
+(function () {
+  var qs = new URLSearchParams(location.search), tok = (qs.get('t') || '').trim(), CFG = window.ISHUR_CONFIG;
+  if (!/^[0-9a-f-]{36}$/.test(tok) || !CFG || qs.get('demo') === '1' || location.hash === '#demo') return;
+  var url = CFG.endpoint('status').replace(/\/api\/status$/, '/api/event-settings'), $ = function (id) { return document.getElementById(id); };
+  var LEGAL = { start: '10:00', end: '20:30', fri_start: '09:30', fri_end: '13:00' };
+  function call(body) { return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { return r.json().then(function (j) { j = j || {}; j._s = r.status; return j; }); }); }
+  function times(sel, from, to, val) {
+    var m = function (t) { var p = t.split(':'); return +p[0] * 60 + +p[1]; }, out = [];
+    for (var x = m(from); x <= m(to); x += 30) out.push(String(Math.floor(x / 60)).padStart(2, '0') + ':' + String(x % 60).padStart(2, '0'));
+    if (out[out.length - 1] !== to) out.push(to);
+    sel.innerHTML = out.map(function (t) { return '<option value="' + t + '">' + t + '</option>'; }).join('');
+    sel.value = out.indexOf(val) > -1 ? val : (val === undefined ? out[0] : out[out.length - 1]);
+  }
+  function occasion() { var e = window.__ishurEv || {}; return String(e.occasion || ''); }
+  function paintOcc() {
+    var wed = /wedding|חתונה/.test(occasion());
+    $('advCouple').hidden = !wed; $('advHosts').hidden = wed;
+  }
+  function subs() {
+    $('advShuttleSub').hidden = !$('advShuttle').checked;
+    $('advFoodSub').hidden = !$('advFood').checked;
+    $('advCustomSub').hidden = !$('advCustom').checked;
+    $('advFriEnd').disabled = !$('advFri').checked;
+  }
+  function paint(d) {
+    var s = d.settings || {}, p = s.parents || {}, q = s.questions || {}, w = s.call_window, L = d.legal || LEGAL;
+    LEGAL = L;
+    $('advBride').value = p.bride || ''; $('advGroom').value = p.groom || ''; $('advHosts').value = p.hosts || '';
+    var mine = p.bride || p.groom || p.hosts;
+    $('advIntroNow').hidden = !(d.intro && !mine);
+    if (d.intro && !mine) $('advIntroNow').textContent = 'כרגע שיר אומרת, אם שואלים: "' + d.intro + '". מה שתכתבו כאן יחליף את זה.';
+    $('advShuttle').checked = !!(q.shuttle && q.shuttle.on); $('advShuttleTxt').value = (q.shuttle && q.shuttle.details) || '';
+    $('advFood').checked = !!(q.food && q.food.on);
+    $('advFoodSub').textContent = 'האפשרויות: ' + (d.food_options || []).join(' · ');
+    $('advCustom').checked = !!(q.custom && q.custom.on); $('advCustomTxt').value = (q.custom && q.custom.q) || '';
+    times($('advStart'), L.start, L.end, w ? w.start : L.start);
+    times($('advEnd'), L.start, L.end, w ? w.end : L.end);
+    times($('advFriEnd'), '10:00', L.fri_end, w ? w.fri_end : L.fri_end);
+    $('advFri').checked = !w || w.fri !== false;
+    $('advWinNote').textContent = 'ימים א׳–ה׳ בין ' + L.start + ' ל-' + L.end + ', ושישי עד ' + L.fri_end + '. אפשר לצמצם, לא להרחיב.';
+    $('advGift').checked = s.gift_on_yes !== false;
+    subs();
+  }
+  function collect() {
+    var wed = !$('advCouple').hidden;
+    return {
+      parents: wed ? { bride: $('advBride').value.trim(), groom: $('advGroom').value.trim(), hosts: '' } : { bride: '', groom: '', hosts: $('advHosts').value.trim() },
+      questions: {
+        shuttle: { on: $('advShuttle').checked, details: $('advShuttleTxt').value.trim() },
+        food: { on: $('advFood').checked },
+        custom: { on: $('advCustom').checked, q: $('advCustomTxt').value.trim() }
+      },
+      call_window: { start: $('advStart').value, end: $('advEnd').value, fri: $('advFri').checked, fri_end: $('advFriEnd').value },
+      gift_on_yes: $('advGift').checked
+    };
+  }
+  function start() {
+    var card = $('advCard'); if (!card) return;
+    paintOcc(); document.addEventListener('ishur:event', paintOcc);
+    ['advShuttle', 'advFood', 'advCustom', 'advFri'].forEach(function (id) { $(id).addEventListener('change', function () { subs(); $('advMsg').textContent = ''; }); });
+    call({ token: tok }).then(function (d) { if (!d || !d.ok) return; card.hidden = false; paint(d); }).catch(function () {});
+    $('advSave').addEventListener('click', function () {
+      var body = collect();
+      if (body.questions.custom.on && !body.questions.custom.q) { $('advMsg').textContent = 'כתבו את השאלה, או בטלו את הסימון'; $('advCustomTxt').focus(); return; }
+      $('advSave').disabled = true; $('advMsg').textContent = 'שומר…';
+      call({ token: tok, settings: body }).then(function (d) {
+        $('advSave').disabled = false;
+        if (d && d.ok) { paint(d); $('advMsg').textContent = 'נשמר ✓'; }
+        else $('advMsg').textContent = d && d.error === 'window-too-short' ? 'חלון השיחות צריך להיות לפחות שעה' : 'לא נשמר, נסו שוב';
+      }).catch(function () { $('advSave').disabled = false; $('advMsg').textContent = 'לא נשמר, נסו שוב'; });
     });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();

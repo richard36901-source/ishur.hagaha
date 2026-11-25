@@ -582,6 +582,12 @@ export function sendReplyButtons(env, to, text, buttons, channel, ctx) {
   return post(env, { to: normPhone(to), type: 'interactive',
     interactive: { type: 'button', body: { text: String(text) }, action: { buttons: (buttons || []).slice(0, 3).map(b => ({ type: 'reply', reply: { id: String(b.id).slice(0, 256), title: String(b.title).slice(0, 20) } })) } } }, channel, ctx);
 }
+/* 25/11: a list message (≤10 rows {id,title≤24}) inside an open 24h window — the event's follow-up questions (food) */
+export function sendList(env, to, text, button, rows, channel, ctx) {
+  return post(env, { to: normPhone(to), type: 'interactive',
+    interactive: { type: 'list', body: { text: String(text) }, action: { button: String(button || 'בחירה').slice(0, 20),
+      sections: [{ title: 'אפשרויות', rows: (rows || []).slice(0, 10).map(r => ({ id: String(r.id).slice(0, 200), title: String(r.title).slice(0, 24) })) }] } } }, channel, ctx);
+}
 export function sendCtaUrl(env, to, text, label, url, channel, ctx) {
   return post(env, { to: normPhone(to), type: 'interactive',
     interactive: { type: 'cta_url', body: { text: String(text) }, action: { name: 'cta_url', parameters: { display_text: String(label).slice(0, 20), url: String(url) } } } }, channel, ctx);
