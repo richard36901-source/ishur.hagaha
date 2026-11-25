@@ -8387,6 +8387,16 @@ async function inboxData(env, body = {}) {
      without it (older, or over 1 KB) is read as before */
   const convEntries = await kvKeysMeta(env, 'conv:');
   const convVals = await Promise.all(convEntries.map(k => (k.metadata && typeof k.metadata === 'object' && k.metadata.v && typeof k.metadata.v === 'object') ? k.metadata.v : env.RATE.get(k.name).catch(() => null)));
+  /* one-time backfill: a conversation written before 25/11 gets its metadata now (quiet ones only — an hour without a
+     message, so a webhook cannot be updating it at the same moment); at most 500 per call */
+  let backfill = 0;
+  for (let i = 0; i < convVals.length && backfill < 500; i++) {
+    if (typeof convVals[i] !== 'string') continue;
+    let c0 = null; try { c0 = JSON.parse(convVals[i]); } catch {}
+    if (!c0 || !c0.phone || !(Date.now() - (Number(c0.last_ts) || 0) > 3600e3)) continue;
+    const o = convPutOpts(c0); if (!o) continue;
+    backfill++; await env.RATE.put(convEntries[i].name, convVals[i], o).catch(() => {});
+  }
   for (const v of convVals) {
     try {
       const c = typeof v === 'string' ? JSON.parse(v) : v;
