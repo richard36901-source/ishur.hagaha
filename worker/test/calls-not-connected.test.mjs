@@ -48,7 +48,8 @@ test('a refused dial frees the guest for one more call the same day, once (24/11
   assert.ok(src.includes('seenOnce(env, `notconnfree:${meta.guest_id}:${ilDate()}`)'));
   assert.ok(src.includes('env.RATE.delete(`shirtry:${meta.guest_id}:${ilDate()}`)'));
   assert.match(src, /const PACE_CALLS = 18;/);
-  assert.match(fs.readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8'), /^CALL_PARALLEL = "16"/m);
+  /* 25/11: 16 at once was above Telnyx's own limit of 10 concurrent outbound calls (its e-mail to Richard); 9 now */
+  assert.match(fs.readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8'), /^CALL_PARALLEL = "9"/m);
 });
 
 test('25/11 a "לא" said before Shir asked is a hang-up to try again, never "לא מגיע"', async () => {

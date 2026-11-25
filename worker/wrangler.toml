@@ -17,7 +17,7 @@ cpu_ms = 120000
 [vars]
 GOOGLE_CLIENT_IDS = "141736472121-38deufih5suu1nvrch1a4mvh53qv0qoh.apps.googleusercontent.com"   # 22/11 Sign in with Google: the app's iOS OAuth client (identity.js); public, not a secret
 SLACK_STRICT = "1"
-CALL_PARALLEL = "16"   # 24/11 Richard: more calls per tick. Retell allows 20 at once; 4 stay free for inbound calls and ring-backs. Back to 10: delete this line.
+CALL_PARALLEL = "9"   # 25/11: Telnyx allows 10 outbound calls at once on this account (its own e-mail, 14:06: "maximum capacity of 10 outbound concurrent calls"); 16 was refused at the carrier. 9 leaves one line for a rehearsal or a ring-back. Raise only after Telnyx raises the limit.
 SHIR_INBOUND_AGENT = "agent_c7d317f758ed084571630ce25e"
 
 # נועה — קו הלקוחות והלידים, בבידוד מלא מקו האורחים של שיר. סוכנת המכירות
