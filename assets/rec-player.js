@@ -78,7 +78,7 @@
   }
   function ready(box) {
     var a = box.querySelector('audio');
-    if (a.src) return Promise.resolve(a);
+    if (a.src || a.currentSrc) return Promise.resolve(a);
     return load(box).then(function (u) {
       if (!u) { box.setAttribute('data-state', 'none'); box.querySelector('.rp-t').textContent = 'ההקלטה לא זמינה'; return null; }
       a.src = u; box.setAttribute('data-state', 'ready'); box.querySelector('input').disabled = false;
@@ -100,7 +100,7 @@
     root = root || document;
     if (root.__recp) return; root.__recp = true;
     root.addEventListener('click', function (e) {
-      var box = e.target.closest && e.target.closest('.recp[data-rec]'); if (!box || e.__recp) return;
+      var box = e.target.closest && e.target.closest('.recp[data-rec], .recp[data-up]'); if (!box || e.__recp) return;
       e.__recp = true;   /* bound on a dialog AND its page: one click is handled once */
       if (e.target.closest('.rp-play')) {
         e.preventDefault();
@@ -114,11 +114,46 @@
         b.setAttribute('data-sp', SPEEDS[i]); b.textContent = SPEEDS[i] + 'x'; a.playbackRate = SPEEDS[i]; a.defaultPlaybackRate = SPEEDS[i];
       } else if (e.target.closest('.rp-dl')) {
         var dl = e.target.closest('.rp-dl');
-        if (dl.getAttribute('href') === '#') { e.preventDefault(); ready(box).then(function (a) { if (a) dl.click(); }); }
+        if (dl.getAttribute('href') === '#') { e.preventDefault(); if (!box.hasAttribute('data-rec')) return; ready(box).then(function (a) { if (a) dl.click(); }); }
       }
     });
   }
   function pauseAll(root, except) { var a = (root || document).querySelectorAll('.recp audio'); for (var i = 0; i < a.length; i++) if (a[i] !== except) a[i].pause(); }
   function addLoader(name, fn) { if (/^[a-z]{2,12}$/.test(String(name)) && typeof fn === 'function') loaders[name] = fn; }
-  window.IshurRec = { html: html, bind: bind, pauseAll: pauseAll, idOf: idOf, addLoader: addLoader, _fmt: fmt };
+  /* 26/11 Richard ("already told you not to use basic chrome design"): any <audio controls> on a page that loads this file
+     becomes our player — the same element is kept (its src, blob or URL), only the browser's controls are hidden. */
+  function upgrade(a, name) {
+    if (!a || a.__recp || a.closest('.recp')) return;
+    a.__recp = true; ensureCss(); bind(document);
+    var src = a.currentSrc || a.getAttribute('src') || '';
+    var box = document.createElement('div');
+    box.className = 'recp' + (a.className ? ' ' + a.className : ''); box.setAttribute('data-up', '1');
+    box.setAttribute('data-name', name || a.getAttribute('data-name') || a.getAttribute('title') || 'recording');
+    box.setAttribute('data-state', 'ready');
+    box.innerHTML = '<button type="button" class="rp-play" aria-label="ניגון">' + PLAY + '</button>' +
+      '<input type="range" min="0" max="1000" value="0" step="1" aria-label="מיקום בהקלטה">' +
+      '<span class="rp-t">0:00 / --:--</span>' +
+      '<button type="button" class="rp-sp" aria-label="מהירות">1x</button>' +
+      '<a class="rp-dl" aria-label="הורדה" title="הורדה" href="' + esc(src || '#') + '" download="' + esc(box.getAttribute('data-name')) + '">⬇</a>';
+    if (a.getAttribute('style')) box.setAttribute('style', a.getAttribute('style'));
+    a.parentNode.insertBefore(box, a);
+    a.controls = false; a.removeAttribute('controls'); a.hidden = true; a.removeAttribute('style'); a.className = '';
+    box.appendChild(a);
+    wire(box, a);
+    a.addEventListener('loadedmetadata', function () { var u = a.currentSrc || a.src; if (u) box.querySelector('.rp-dl').setAttribute('href', u); });
+    if (a.autoplay || !a.paused) { pauseAll(document, a); }
+  }
+  function upgradeAll(root) { var list = (root || document).querySelectorAll ? (root || document).querySelectorAll('audio[controls]') : []; for (var i = 0; i < list.length; i++) upgrade(list[i]); }
+  function watch() {
+    upgradeAll(document);
+    if (!window.MutationObserver) return;
+    new MutationObserver(function (muts) {
+      for (var i = 0; i < muts.length; i++) for (var j = 0; j < muts[i].addedNodes.length; j++) {
+        var n = muts[i].addedNodes[j]; if (n.nodeType !== 1) continue;
+        if (n.tagName === 'AUDIO' && n.hasAttribute('controls')) upgrade(n); else if (n.querySelector && n.querySelector('audio[controls]')) upgradeAll(n);
+      }
+    }).observe(document.documentElement, { childList: true, subtree: true });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watch); else watch();
+  window.IshurRec = { html: html, bind: bind, pauseAll: pauseAll, idOf: idOf, addLoader: addLoader, upgrade: upgrade, upgradeAll: upgradeAll, _fmt: fmt };
 })();

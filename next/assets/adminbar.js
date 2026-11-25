@@ -436,6 +436,7 @@
 (function () {
   try {
     if (/[?&]embed=1/.test(location.search) || document.querySelector('script[data-teampanel]')) return;
+    if (!window.IshurRec && !document.querySelector('script[src*="rec-player.js"]')) { var rp = document.createElement('script'); rp.src = '/assets/rec-player.js?v=3'; rp.defer = true; document.head.appendChild(rp); }   /* 26/11: our player replaces every <audio controls> */
     var s = document.createElement('script'); s.src = '/assets/teampanel.js?v=2'; s.defer = true; s.setAttribute('data-teampanel', '1');
     (document.head || document.documentElement).appendChild(s);
   } catch (e) {}
