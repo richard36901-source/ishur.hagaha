@@ -8,6 +8,8 @@ import vm from 'node:vm';
 import worker from '../index.js';
 import { clientFlags } from '../speed.js';
 import { swrKey, swrServe, swrReset, swrBust, swrHook, OVERVIEW, BUST_KEY } from '../swr.js';
+import { quietRead } from '../team-log.js';
+import { ensureSeed, createSession } from '../auth.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 /* a KV fake that counts every call and can answer slowly (lat ms per call, like a real KV round trip) */
@@ -117,7 +119,7 @@ test('a copy whose build started before the change is not kept as fresh', async 
 });
 test('swrHook: serves only an admin; a change on an overview route drops the copies and goes through', async () => {
   swrReset(); const env = { RATE: kv() }; let built = 0;
-  const deps = { isAdmin: (e, k) => k === 'k', cors: () => ({}), fetchMain: async () => { built++; return new Response(JSON.stringify({ ok: true, built })); } };
+  const deps = { isAdmin: (e, k) => k === 'k', cors: () => ({}), isRead: quietRead, fetchMain: async () => { built++; return new Response(JSON.stringify({ ok: true, built })); } };
   const req = body => new Request('https://go.ishur.io/api/answers-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const url = new URL('https://go.ishur.io/api/answers-log');
   assert.equal(await swrHook({ request: req({ admin_key: 'no' }), url, env, ctx, origin: '', deps }), null, 'not an admin: falls through to the route');
@@ -126,6 +128,13 @@ test('swrHook: serves only an admin; a change on an overview route drops the cop
   await sleep(2);
   assert.equal(await swrHook({ request: req({ admin_key: 'k', action: 'set', token: tok(1), guest_id: 'G1', rsvp: 'מגיע' }), url, env, ctx, origin: '', deps }), null, 'the change itself runs on the real route');
   const c = await swrHook({ request: req({ admin_key: 'k' }), url, env, ctx, origin: '', deps }); assert.equal((await c.json()).built, 2, 'and the list after it is fresh');
+  const bust0 = env.RATE.m.get(BUST_KEY);
+  assert.equal(await swrHook({ request: req({ admin_key: 'no', action: 'set', token: tok(1) }), url, env, ctx, origin: '', deps }), null);
+  assert.equal(env.RATE.m.get(BUST_KEY), bust0, 'a stranger cannot drop the copies');
+  const fl = new URL('https://go.ishur.io/api/future-log');
+  const live = new Request(fl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_key: 'k', action: 'live' }) });
+  assert.equal(await swrHook({ request: live, url: fl, env, ctx, origin: '', deps }), null, 'live calls are always live');
+  assert.equal(env.RATE.m.get(BUST_KEY), bust0, "and the 10-second 'live' poll is not a change");
 });
 test('the audit tap: an admin write drops the copies, an admin read does not', async () => {
   swrReset(); const env = { ADMIN_KEY: 'k', RATE: kv() };
@@ -191,4 +200,51 @@ test('team panel: the first page asks once and keeps the answer; the next page w
   const other = JSON.parse(kept); other.k = 'someone-else';
   const d = tpWindow({ ishur_tp_me: JSON.stringify(other) }); await sleep(20);
   assert.deepEqual(d.calls, ['me'], "another session's copy is never used");
+});
+
+/* ── §5 what counts as a change, through the real Worker (no request leaves this machine) ── */
+test('every read the pages make on open or poll leaves the copies alone; every change that feeds an overview board drops them', async () => {
+  const realFetch = globalThis.fetch; globalThis.fetch = async () => { throw new Error('no network in tests'); };
+  try {
+    const READS = [['/api/status', { view: 'biz' }], ['/api/leads', {}], ['/api/evlog', { n: 400 }], ['/api/ads-health', {}], ['/api/brain-toggle', {}], ['/api/pause', {}],
+      ['/api/ops-stats', {}], ['/api/cost-log', {}], ['/api/traffic', { days: 90 }], ['/api/campaign-stats', { days: 400 }], ['/api/call-board', {}], ['/api/feedback-list', {}],
+      ['/api/client-flags', { tokens: [] }], ['/api/referrals', {}], ['/api/partner/list', {}], ['/api/design-list', {}], ['/api/event-flag', { token: tok(1), flag: 'hold' }],
+      ['/api/inbox', {}], ['/api/callers', {}], ['/api/stream', { days: 2, limit: 2000 }], ['/api/audit', { kind: 'call', limit: 5000 }], ['/api/answers-log', {}],
+      ['/api/answers-log', { token: tok(1), action: 'proof' }], ['/api/future-log', { days: 14 }], ['/api/future-log', { action: 'live' }], ['/api/calls-log', { queue: true }], ['/api/playbook', {}]];
+    for (const [p, b] of READS) {
+      swrReset(); const env = { ADMIN_KEY: 'k', RATE: kv() };
+      await worker.fetch(new Request('https://go.ishur.io' + p, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://ishur.io' }, body: JSON.stringify({ admin_key: 'k', ...b }) }), env, ctx).catch(() => null);
+      assert.equal(env.RATE.m.get(BUST_KEY), undefined, p + ' ' + JSON.stringify(b) + ' is a read');
+    }
+    const WRITES = [['/api/client-active', { token: tok(1), active: false }], ['/api/event-flag', { token: tok(1), flag: 'hold', on: true }], ['/api/answers-log', { action: 'set', token: tok(1), guest_id: 'G1', rsvp: 'מגיע' }],
+      ['/api/guest-card', { action: 'set', token: tok(1), guest_id: 'G1' }], ['/api/referrals/act', { act: 'approve', id: 'x' }], ['/api/partner/update', { id: 'x', name: 'y' }], ['/api/lead-update', { id: 'x', status: 'y' }]];
+    for (const [p, b] of WRITES) {
+      swrReset(); const env = { ADMIN_KEY: 'k', RATE: kv() };
+      await worker.fetch(new Request('https://go.ishur.io' + p, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://ishur.io' }, body: JSON.stringify({ admin_key: 'k', ...b }) }), env, ctx).catch(() => null);
+      assert.ok(env.RATE.m.get(BUST_KEY), p + ' is a change');
+    }
+    swrReset(); const env = { ADMIN_KEY: 'k', RATE: kv() };
+    await worker.fetch(new Request('https://go.ishur.io/api/ops/call-round', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://ishur.io', 'x-admin-key': 'k' }, body: JSON.stringify({ token: 'not-a-token' }) }), env, ctx).catch(() => null);
+    assert.ok(env.RATE.m.get(BUST_KEY), 'a call round (routed before the tap) is a change');
+    swrReset(); const e2 = { ADMIN_KEY: 'k', RATE: kv() };
+    await worker.fetch(new Request('https://go.ishur.io/api/client-active', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://ishur.io' }, body: JSON.stringify({ admin_key: 'wrong', token: tok(1), active: false }) }), e2, ctx).catch(() => null);
+    assert.equal(e2.RATE.m.get(BUST_KEY), undefined, 'not an admin: nothing dropped');
+  } finally { globalThis.fetch = realFetch; }
+});
+test('the live floor keeps its copy for its full soft age even when the build is slow (age counts from the end of the build)', async () => {
+  swrReset(); const env = { RATE: kv() }; let n = 0; const jobs = []; const c = { waitUntil: p => jobs.push(p) };
+  const call = now => swrServe({ pathname: '/api/floor', body: {}, env, ctx: c, now, produce: async () => { await sleep(700); return JSON.stringify({ ok: true, n: ++n }); } });
+  await call(Date.now()); const r = await call(Date.now() + 5600);   /* 5.6 s after a 0.7 s build: inside soft (6 s) from its end, past it from its start */
+  assert.deepEqual([r.cached, jobs.length, n], [true, 0, 1], 'no rebuild one second after a slow build');
+});
+test('production sign-in: a Google session (sign-in enforced) gets the overview copy on the second open', async () => {
+  swrReset(); const env = { ADMIN_KEY: 'k', RATE: kv({ 'cfg:auth_enforce': 'on', 'ref:abc': JSON.stringify({ code: 'abc' }) }) };
+  await ensureSeed(env); const sess = await createSession(env, 'richardtomskiy@gmail.com');
+  const open = () => worker.fetch(new Request('https://go.ishur.io/api/referrals', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://ishur.io' }, body: JSON.stringify({ admin_key: sess }) }), env, ctx);
+  const a = await open(); assert.equal(a.status, 200); const ja = await a.json(); assert.equal(ja.ok, true);
+  const listsAfterFirst = env.RATE.n.list;
+  const b = await open(); assert.equal(b.status, 200); assert.equal(b.headers.get('x-ishur-age'), '0', 'served from the copy');
+  assert.deepEqual(await b.json(), ja); assert.equal(env.RATE.n.list, listsAfterFirst, 'the referral records were not listed again');
+  const bad = await worker.fetch(new Request('https://go.ishur.io/api/referrals', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://ishur.io' }, body: JSON.stringify({ admin_key: 'us.forged' }) }), env, ctx);
+  assert.notEqual(bad.status, 200, 'a forged session never sees the copy');
 });

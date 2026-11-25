@@ -11566,7 +11566,10 @@ function opsDeps() {
 }
 /* 25/11 future-log.js / guest-card.js: the ops deps + the wave template the sender would pick now */
 /* 26/11 track-speed: what swr.js swrHook needs from here */
-function swrDeps() { return { isAdmin, cors, fetchMain: (r, e, c) => WORKER.fetchMain(r, e, c) }; }
+function swrDeps() { return { isAdmin, cors, isRead: (p, b) => quietRead(p, b), fetchMain: (r, e, c) => WORKER.fetchMain(r, e, c) }; }
+/* admin read routes that are not on the batch list but are polled by the pages (inbox: callers every 60 s; leads: playbook) —
+   never "a change" for the overview copies */
+const SWR_READS = new Set(['/api/callers', '/api/playbook']);
 function futureDeps() {
   return { ...opsDeps(), callsAddonTokens: e => callsAddonTokens(e),
     inviteTemplateFor: async (env, token) => {
@@ -11941,6 +11944,13 @@ const WORKER = {
       }));
       return okJson({ ok: true, results }, origin);
     }
+    /* 26/11 track-speed: changes routed before the audit tap that feed an overview board — a call round (call board),
+       a guest-card change (answers log) — drop the overview copies too (swr.js). Admin only. */
+    if (request.method === 'POST' && (url.pathname === '/api/ops/call-round' || url.pathname === '/api/guest-card')) {
+      const pk = await request.clone().json().catch(() => null);
+      const key = request.headers.get('x-admin-key') || (pk && pk.admin_key) || '';
+      if (isAdmin(env, key) && (url.pathname === '/api/ops/call-round' || !quietRead(url.pathname, pk))) await swrBust(env);
+    }
     /* 03/11 edit-in-place: the cron-driven settings also bind the ops routes and the manual send routes */
     if (url.pathname.startsWith('/api/ops/') || CFG_ROUTES.has(url.pathname)) env = await withCfg(env).catch(() => env);
     /* 03/11 ops control center (ops.js) — admin_key or an admin session stamp */
@@ -11994,7 +12004,7 @@ const WORKER = {
           /* 01/11: the board polls hold/extra state every few seconds; a READ (no 'on') is not an action and was flooding the journal */
           const readOnlyFlag = url.pathname === '/api/event-flag' && peek && typeof peek.on !== 'boolean';
           /* 26/11 track-speed: an admin CHANGE drops the overview copies (swr.js), so the board read after it is fresh */
-          if (peek && peek.admin_key && !readOnlyFlag && !quietRead(url.pathname, peek) && !homeReadOk(url.pathname, 'POST', peek) && !OVERVIEW[url.pathname] && isAdmin(env, peek.admin_key)) await swrBust(env);
+          if (peek && peek.admin_key && !readOnlyFlag && !quietRead(url.pathname, peek) && !homeReadOk(url.pathname, 'POST', peek) && !OVERVIEW[url.pathname] && !SWR_READS.has(url.pathname) && isAdmin(env, peek.admin_key)) await swrBust(env);
           if (peek && peek.admin_key && !readOnlyFlag && !quietRead(url.pathname, peek) && isAdmin(env, peek.admin_key)) {
             const ua = String(request.headers.get('User-Agent') || '');
             const who = /curl|python|node/i.test(ua) ? 'Claude' : 'דפדפן';

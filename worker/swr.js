@@ -63,11 +63,11 @@ export async function swrServe({ pathname, body, env, ctx, now = Date.now(), pro
   const soft = (ov ? ov.soft : SWR_ROUTES[pathname]) * 1000, hard = (ov ? ov.hard : (HARD_BY_ROUTE[pathname] || HARD_MAX_S)) * 1000;
   let hit = mem.get(key);
   if (!hit && env.RATE) { try { const v = JSON.parse(await env.RATE.get('swr:' + key) || 'null'); if (v && v.at && typeof v.text === 'string') { hit = v; mem.set(key, v); } } catch {} }
-  if (hit && ov && hit.at <= await bustedAt(env)) hit = null;   /* built before the last admin change: build it again first */
+  if (hit && ov && (hit.t0 || hit.at) <= await bustedAt(env)) hit = null;   /* built before the last admin change: build it again first */
   const build = async () => {
-    const t0 = Date.now();   /* stamped with the START of the build: a change made while it ran makes it stale */
+    const t0 = Date.now();   /* t0 = when the build STARTED: a change made while it ran makes the copy stale (bust check only) */
     const text = await produce(); if (typeof text !== 'string') return null;
-    const v = { at: t0, text }; mem.set(key, v);
+    const v = { at: Date.now(), t0, text }; mem.set(key, v);
     if (env.RATE) await env.RATE.put('swr:' + key, JSON.stringify(v), { expirationTtl: Math.round(hard / 1000) }).catch(() => {});
     return v;
   };
@@ -85,14 +85,16 @@ export function swrReset() { mem.clear(); busy.clear(); bustAt = 0; }
 /* 26/11 the hook both index.js call sites use (the overview logs are routed early, the rest after the audit tap).
    Only a request with a valid admin key is ever served from a copy; a non-read on an overview route drops the copies.
    deps: { isAdmin(env, key), fetchMain(request, env, ctx), cors(origin) } → a Response, or null to fall through. */
-const READ_ACTS = new Set(['', 'list', 'get', 'read']);
 export async function swrHook({ request, url, env, ctx, origin, deps }) {
   if (request.method !== 'POST' || !swrRouted(url.pathname) || request.headers.get('x-swr-inner') || String(env.SWR_OFF || '') === '1') return null;
   let sb = null, stext = '';
   try { stext = await request.clone().text(); sb = JSON.parse(stext); } catch { sb = null; }
   if (!sb || typeof sb !== 'object') return null;
-  if (OVERVIEW[url.pathname] && !READ_ACTS.has(String(sb.action || sb.act || ''))) { await swrBust(env); return null; }
   if (!deps.isAdmin(env, sb.admin_key)) return null;
+  /* a change through an overview route itself (answers-log 'set', referrals/partner acts…) drops the copies; a read action
+     ('live', 'proof', 'plan'…) is not a change — deps.isRead is team-log.js quietRead, the same list the action log uses */
+  const act = String(sb.action || sb.act || '');
+  if (OVERVIEW[url.pathname] && act && !(deps.isRead && deps.isRead(url.pathname, sb))) { await swrBust(env); return null; }
   const hit = await swrServe({ pathname: url.pathname, body: sb, env, ctx, produce: async () => {
     const r = await deps.fetchMain(new Request(request.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-swr-inner': '1', ...(origin ? { Origin: origin } : {}) }, body: stext }), env, ctx);
     if (r.status !== 200) return null; const t = await r.text(); return /^\s*\{[\s\S]*"ok"\s*:\s*true/.test(t.slice(0, 400)) ? t : null; } }).catch(() => null);
