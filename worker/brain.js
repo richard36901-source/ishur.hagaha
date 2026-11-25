@@ -841,7 +841,7 @@ export async function buildBrain(env, { since = 0, now = Date.now() } = {}) {
   const logs = (await Promise.all(runList.map(r => kjson(env, P.log + r.run_id)))).filter(Boolean);
   const stream = logs.flatMap(l => l.lines || []).filter(l => !since || l.id > since).sort((a, b) => a.id - b.id).slice(-300);
   const sevenAgo = new Date(now - 7 * 86400e3).toISOString();
-  const brainRuns = (await listRuns(env, { from: sevenAgo, limit: 200 })).items.filter(r => /^brain_/.test(r.automation_id));
+  const brainRuns = (await listRuns(env, { from: sevenAgo, limit: 200 }, { sel: m => /^brain_/.test(String(m.a || '')) })).items.filter(r => /^brain_/.test(r.automation_id));   /* 25/11: non-brain rows are not read */
   const pbStats = id => { const xs = brainRuns.filter(r => r.automation_id === 'brain_fix:' + id); return { runs_7d: xs.length, last_run: xs[0] ? xs[0].started_at : null, last_status: xs[0] ? xs[0].status : null }; };
   return {
     ok: true, at: new Date(now).toISOString(), last_check_at: last ? last.at : null, last_check_run_id: last ? last.run_id : null,

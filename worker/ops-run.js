@@ -185,21 +185,25 @@ function keyMatches(k, f) {
   return true;
 }
 /* the rows that match f, newest first, at most `limit` of them (0 = all) */
-async function ringRows(env, f = {}, limit = 0) {
+/* 25/11 the KV bill: sel(metadata) — a caller that will throw away every row whose metadata fails sel (the brain keeps
+   brain_* only) lets those rows hold their place in the newest-first order WITHOUT being read: a key with metadata
+   already matched f, so its row would have been kept; it is counted toward the limit and dropped from the answer. */
+async function ringRows(env, f = {}, limit = 0, sel = null) {
   const keys = (await ringKeys(env, { fromMs: msOf(f.from) })).filter(k => keyMatches(k, f));
   const out = [];
   for (let i = 0; i < keys.length && (!limit || out.length < limit); i += 50) {
     const part = keys.slice(i, i + 50);
-    const vals = await Promise.all(part.map(k => env.RATE.get(k.name).catch(() => null)));
-    for (const v of vals) { try { const r = parseRow(JSON.parse(v || 'null')); if (r) out.push(r); } catch {} }
+    const vals = await Promise.all(part.map(k => (sel && k.m && !sel(k.m) ? Promise.resolve(SKIP) : env.RATE.get(k.name).catch(() => null))));
+    vals.forEach((v, j) => { if (v === SKIP) { out.push({ started_at: new Date(part[j].ms).toISOString(), __skip: true }); return; } try { const r = parseRow(JSON.parse(v || 'null')); if (r) out.push(r); } catch {} });
   }
   const rows = filterRows(out, f);
   rows.sort((x, y) => (x.started_at < y.started_at ? 1 : -1));
-  return limit ? rows.slice(0, limit) : rows;
+  return limit ? rows.slice(0, limit) : rows;   /* with sel the placeholders are still in: the caller slices, then drops them */
 }
+const SKIP = Symbol('skip');
 
 /* { automation_id, status, from, to, cursor (= started_at of the last row seen), limit ≤ 200 } */
-export async function listRuns(env, f = {}) {
+export async function listRuns(env, f = {}, { sel = null } = {}) {
   const limit = Math.max(1, Math.min(200, Number(f.limit) || 50));
   const before = f.cursor ? String(f.cursor) : '';
   if (env.OPS_DB) {
@@ -218,9 +222,9 @@ export async function listRuns(env, f = {}) {
       return { source: 'd1', items, next_cursor: more ? items[items.length - 1].started_at : null };
     } catch (e) { /* fall through to the ring */ }
   }
-  const all = await ringRows(env, { ...f, before }, limit + 1);
-  const items = all.slice(0, limit);
-  return { source: 'kv', items, next_cursor: all.length > limit ? items[items.length - 1].started_at : null };
+  const all = await ringRows(env, { ...f, before }, limit + 1, sel);
+  const page = all.slice(0, limit); const items = page.filter(r => !r.__skip);
+  return { source: 'kv', items, next_cursor: all.length > limit ? page[page.length - 1].started_at : null };
 }
 export async function getRun(env, id) {
   if (!id) return null;
