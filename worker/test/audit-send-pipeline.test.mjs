@@ -152,7 +152,9 @@ async function runEngine(extraStore = {}, { tomorrow = false } = {}) {
   return { env, res, out: sent.filter(s => s.body.type === 'template' && s.pid !== 'C') };
 }
 
-test('engine e2e: no guest template carries the client name; table has no double article', async () => {
+test('engine e2e: no guest template carries the client name; table has no double article', async (t) => {
+  /* 25/11 (Richard OK'd): this test reads the real clock and failed every evening; it runs at a fixed weekday 11:00 Israel time. What it checks is unchanged. */
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-25T09:00:00Z') });
   const { out } = await runEngine();
   if (process.env.AUDIT_PEEK) for (const s of out) console.log('SEND', s.pid, s.body.to, s.body.template.name, JSON.stringify(paramsOf(s.body)));
   /* 03/11 R1: was >= 5 — two of those were the day-before reminder sent ON the

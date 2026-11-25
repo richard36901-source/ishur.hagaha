@@ -266,7 +266,9 @@ test('hostess import: KV bookings surface as events needing a hostess; no roster
 });
 
 /* ── 5. notes, reminders, agenda, brain ── */
-test('notes + reminders + agenda (overdue first) + brain crm_overdue', async () => {
+test('notes + reminders + agenda (overdue first) + brain crm_overdue', async (t) => {
+  /* 25/11 (Richard OK'd): this test reads the real clock and failed every evening; it runs at a fixed weekday 11:00 Israel time. What it checks is unchanged. */
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-25T09:00:00Z') });
   const e = env();
   await post(e, '/api/crm/leads', { phone: '0501234567', name: 'דנה' });
   assert.equal((await post(e, '/api/crm/notes', { entity_type: 'lead', entity_id: 'L972501234567', text: '' })).status, 400);
