@@ -30,6 +30,7 @@
 import { planVsCapacity } from './budget.js';
 import { giftActive } from './gifts.js';
 import { subeventBoard } from './subevent.js';   /* 03/11 linked sub-events */
+import { plannedMarks } from './calendar-log.js';   /* 25/11 one listing per marker kind instead of a read per guest */
 
 /* ── §1a message types, in board order ─────────────────────────────────── */
 export const TYPES = [
@@ -455,8 +456,12 @@ export async function sendBoardData(env, deps, b = {}) {
   for (const r of rows) { if (r.kind === 'wa_out') waOut.push(r); else if (r.kind === 'wa_status') waStatus.push(r); else if (r.kind === 'wa_in') waIn.push(r); }
 
   /* the engine's own per-guest markers, for every (guest, due type) */
+  /* 25/11 the KV bill: one build read four keys per guest and due type — 42,000 reads on 25/11, three builds in four
+     minutes when the week view was opened. Most of those keys do not exist. One listing per event + kind (+ wave)
+     says which do, and only those are read (calendar-log.js plannedMarks, the same trade the client board made on
+     18/11). Display only; a marker written in the last minute can be missing from the listing until the next build. */
   const markers = {};
-  const jobs = [];
+  const want = []; const slots = [];
   for (const ev of events) {
     const seen = new Set();
     for (const g of guests[ev.token] || []) {
@@ -465,20 +470,17 @@ export async function sendBoardData(env, deps, b = {}) {
         const due = dueDate(T.key, ev);
         /* gift markers are written by the decline reply BEFORE the event — read them whenever links are on */
         if (!(T.key === 'gift' && ev.gift_on) && (!due || due > today)) continue;
-        jobs.push(async () => {
-          const isWave = T.key[0] === 'w';
-          const [m, wst, err, dead] = await Promise.all([
-            env.RATE.get(T.marker(ev.token, g.phone)).catch(() => null),
-            T.wave ? env.RATE.get(`wst:${ev.token}:${T.wave}:${g.phone}`).catch(() => null) : null,
-            T.wave ? env.RATE.get(`wferr:${ev.token}:${T.wave}:${g.phone}`).catch(() => null) : null,
-            isWave ? env.RATE.get(`wdead:${ev.token}:${T.wave}:${g.phone}`).catch(() => null) : null,
-          ]);
-          markers[`${ev.token}|${T.key}|${g.phone}`] = { m, wst, err, dead };
-        });
+        const isWave = T.key[0] === 'w';
+        const ix = k => (want.push(k), want.length - 1);
+        slots.push([`${ev.token}|${T.key}|${g.phone}`, ix(T.marker(ev.token, g.phone)),
+          T.wave ? ix(`wst:${ev.token}:${T.wave}:${g.phone}`) : -1, T.wave ? ix(`wferr:${ev.token}:${T.wave}:${g.phone}`) : -1,
+          isWave ? ix(`wdead:${ev.token}:${T.wave}:${g.phone}`) : -1]);
       }
     }
   }
-  for (let i = 0; i < jobs.length; i += 50) await Promise.all(jobs.slice(i, i + 50).map(f => f()));
+  const { marks } = await plannedMarks(env, want);
+  const at = i => (i < 0 ? null : marks[i]);
+  for (const [k, m, wst, err, dead] of slots) markers[k] = { m: at(m), wst: at(wst), err: at(err), dead: at(dead) };
 
   const coverageFrom = rows.length ? deps.ilDate(new Date(rows[rows.length - 1].ts)) : today;
   const data = aggregateSendBoard({ today, now: Date.now(), events, guests, waOut, waStatus, waIn, markers, gates, detail, coverageFrom });
