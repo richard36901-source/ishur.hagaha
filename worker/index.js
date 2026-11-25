@@ -37,7 +37,7 @@ import { clientWaba, clientToken, clientOnPortfolio, clientPhoneId, isGuestPhone
 import { sendCtaUrl, sendReplyButtons, guestCapacity, guestCapScope, pinGuestPhone, guestPortfolioBudget } from './whatsapp.js';
 import { fitBatch, dynamicPace } from './budget.js';
 import * as tguard from './templateguard.js';
-import { eventDayMessageFor, edMarkKey, ED_MARK_TTL, dayBeforeAllowed, dayBeforeDropped, navTarget, COMBO_NAMES, dayBeforeMessageFor, eventDayNeeded, eventStarted, retryDayAllowed } from './eventday.js';
+import { eventDayMessageFor, edMarkKey, ED_MARK_TTL, dayBeforeAllowed, dayBeforeDropped, navTarget, COMBO_NAMES, dayBeforeMessageFor, eventDayNeeded, eventStarted, retryDayAllowed, pastEventDayCutoff, eventDayOver, eventDayRetryAllowed, EVENT_DAY_CUTOFF_MIN } from './eventday.js';
 import { giftActive, giftKey, declineGiftText, eventDayGiftSlot, eventHasSeating, giftVariantName, giftButtonComponent, giftSlug, planGiftBlast, giftPageHtml, cleanLink, giftRoute, giftCountable, giftHitKey, giftStats, GIFT_HIT_TTL, GIFT_METHODS } from './gifts.js';
 import { waveNoteDeps } from './whatsapp.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, isQuestion, touchConversation, guestsReady } from './whatsapp.js';
@@ -5509,7 +5509,15 @@ async function eventDayMessage(env, ev, guest, job = null) {
 }
 /* a reopened table / event-day send (status webhook) must be allowed to go again */
 async function reopenEdMark(env, m) {
-  if (env.RATE && m && (m.wave === 'seating' || m.wave === 'eventday')) await env.RATE.delete(edMarkKey(m.token, m.phone)).catch(() => {});
+  if (!(env.RATE && m && (m.wave === 'seating' || m.wave === 'eventday'))) return;
+  /* 25/11 eventDayCutoff: a failed event-day send is retried only while it can still arrive 2 h before the event;
+     after that the ed: mark stays, so neither event-day path sends to this guest again */
+  let em = null; try { em = JSON.parse((await env.RATE.get('evmeta:' + m.token)) || 'null'); } catch {}
+  if (em && !eventDayRetryAllowed({ date: em.date, time: em.time }, ilDate(), ilTime())) {
+    await logEvent(env, { area: 'שליחה', action: 'הודעת יום האירוע: ניסיון חוזר בוטל (פחות משעתיים לאירוע)', ok: true, token: m.token, phone: m.phone, detail: `cutoff ${EVENT_DAY_CUTOFF_MIN} דק׳ · ${em.time || ''}` }).catch(() => {});
+    return;
+  }
+  await env.RATE.delete(edMarkKey(m.token, m.phone)).catch(() => {});
 }
 async function eventDayJobOf(env, token) {
   try { return env.RATE ? JSON.parse((await env.RATE.get('edblast:' + token)) || 'null') : null; } catch { return null; }
@@ -5720,9 +5728,12 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
     /* 02/11 audit: the job is a KV record set by hand; the event can be
        cancelled or put on hold after it was set — never blast those */
     const evRow = eventRowOf(raw, token);
-    if (!dry && evRow && eventStarted(evRow[36], ilTime())) {
-      if (!(await seenOnce(env, `edlate:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', 'שעת האירוע כבר עברה — ההודעה של היום לא נשלחה', token.slice(0, 8), { key: 'eventday_late:' + token.slice(0, 8), sev: 'P1' }).catch(() => {});
-      res.push({ token: token.slice(0, 8), skipped: 'event-started' }); continue;
+    if (!dry && evRow && (eventStarted(evRow[36], ilTime()) || pastEventDayCutoff(evRow[36], ilTime()) || eventDayOver(evRow[6], today))) {
+      /* 25/11 eventDayCutoff: less than 2 h to the event (or its day is over) — the job is cancelled, never sent late */
+      if (!(await seenOnce(env, `edlate:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', `פחות מ-${EVENT_DAY_CUTOFF_MIN / 60} שעות לאירוע — ההודעה של היום בוטלה ולא תישלח`, token.slice(0, 8), { key: 'eventday_late:' + token.slice(0, 8), sev: 'P1' }).catch(() => {});
+      await env.RATE.delete('edblast:' + token).catch(() => {});
+      await logEvent(env, { area: 'שליחה', action: 'הודעת יום האירוע בוטלה (פחות משעתיים לאירוע)', ok: true, token, detail: `שעת האירוע ${String(evRow[36] || '')} · cutoff ${EVENT_DAY_CUTOFF_MIN} דק׳` }).catch(() => {});
+      res.push({ token: token.slice(0, 8), skipped: 'event-day-cutoff' }); continue;
     }
     if (!dry && (!evRow || String(evRow[27] || '').trim() === 'כן' || await env.RATE.get('hold:' + token))) {
       if (!(await seenOnce(env, `edblastoff:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', 'האירוע מבוטל / מושהה / לא נמצא בגיליון — ההודעה לא יצאה', token.slice(0, 8), { key: 'eventday:' + token.slice(0, 8) });
@@ -5745,7 +5756,9 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
     let sent = 0, failed = 0, skipped = 0, heldCap = 0, combos = 0, waitTmpl = 0, toTable = 0;
     /* 02/11: the event-day blast had no budget at all — it now stops at the room Meta still gives */
     let room = (await guestCapacity(env).catch(() => ({ remaining: 0 }))).remaining;
+    let lateCut = 0;
     for (const p of people) {
+      if (pastEventDayCutoff(evRow && evRow[36], ilTime())) { lateCut = people.length - sent - failed - skipped - heldCap - waitTmpl - toTable; break; }   /* the cutoff passed mid-run */
       const mk = `s5e:${token}:${p.phone}`;
       if (await env.RATE.get(mk)) { skipped++; continue; }
       /* 03/11 R2: one event-day message per guest — the table stage (or an earlier tick) already sent it */
@@ -5779,7 +5792,8 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
     }
     if (sent) await addEvCost(env, token, sent * msgCost('ishur_yom_lifnei')).catch(() => {});
     await logEvent(env, { area: 'שליחה', action: 'הודעת יום האירוע', ok: !failed, review: !!failed, token, detail: `נשלחו ${sent}${combos ? ` (מאוחדות ${combos})` : ''} · נכשלו ${failed} · דולגו ${skipped}${toTable ? ` · להודעת השולחן ${toTable}` : ''}${waitTmpl ? ` · ממתינים לאישור התבנית ${waitTmpl}` : ''}${heldCap ? ` · held: cap ${heldCap} (בתור לפעימה הבאה)` : ''}` }).catch(() => {});
-    if (!failed && !heldCap && !waitTmpl) await env.RATE.delete('edblast:' + token).catch(() => {});
+    if ((!failed && !heldCap && !waitTmpl) || lateCut) await env.RATE.delete('edblast:' + token).catch(() => {});
+    if (lateCut) await logEvent(env, { area: 'שליחה', action: 'הודעת יום האירוע: השאר בוטלו (פחות משעתיים לאירוע)', ok: true, token, detail: `${lateCut} אורחים לא קיבלו` }).catch(() => {});
     if (sent || failed) await slackPost(env, `🎉 *הודעת יום האירוע* · ${job.what}: נשלחו ${sent}${failed ? ` · נכשלו ${failed} (ינסה שוב בפעימה הבאה)` : ''}${skipped ? ` · דולגו ${skipped}` : ''}${heldCap ? ` · ממתינים לתקרה ${heldCap}` : ''}`, { oneoff: true }).catch(() => {});   /* oneoff: a send completed */
     res.push({ token: token.slice(0, 8), sent, failed, skipped, held_cap: heldCap, combos, to_table: toTable, wait_template: waitTmpl });
   }
@@ -7139,8 +7153,8 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     if (env.RATE && await env.RATE.get('seat:' + token)) continue;
     if (env.RATE && await env.RATE.get('hold:' + token)) continue;
     /* 25/11: once the event has started nothing of "today" goes out; said once in Slack so a person can reach the hosts */
-    if (eventStarted(ev[36], ilTime())) {
-      if (!dry && env.RATE && !(await seenOnce(env, `edlate:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', 'שעת האירוע כבר עברה — ההודעה של היום לא נשלחה', `${guestEventName(ev, { article: false })} · ${String(ev[36] || '')}`, { key: 'eventday_late:' + token.slice(0, 8), sev: 'P1' }).catch(() => {});
+    if (eventStarted(ev[36], ilTime()) || pastEventDayCutoff(ev[36], ilTime())) {
+      if (!dry && env.RATE && !(await seenOnce(env, `edlate:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', `פחות מ-${EVENT_DAY_CUTOFF_MIN / 60} שעות לאירוע — ההודעה של היום בוטלה ולא תישלח`, `${guestEventName(ev, { article: false })} · ${String(ev[36] || '')}`, { key: 'eventday_late:' + token.slice(0, 8), sev: 'P1' }).catch(() => {});
       continue;
     }
 
@@ -7164,6 +7178,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     for (const g of gRows) {
       if (String(g[28] || '').trim() !== token) continue;
       if (budget && budget.left <= 0) { cut = true; break; }
+      if (!dry && pastEventDayCutoff(ev[36], ilTime())) break;   /* 25/11 eventDayCutoff passed mid-run: the rest is cancelled */
       const phone = String(g[4] || '').trim();
       const table = String(g[30] || '').trim();
       const rsvp = String(g[15] || '').trim();

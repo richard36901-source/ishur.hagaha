@@ -182,6 +182,34 @@ export function eventStarted(time, nowHm) {
   if (!a || !b) return false;
   return Number(b[1]) * 60 + Number(b[2]) >= Number(a[1]) * 60 + Number(a[2]);
 }
+/* 25/11 Richard: the event-day message must REACH the guest at least two hours before the event. Whatever has not gone
+   out by then (the first send, a cap-held guest, a retry of a failed send) is cancelled, never sent late.
+   EVENT_DAY_CUTOFF_MIN is the one constant; time = the event's reception time ("19:30"), nowHm = "HH:MM" in Israel.
+     · an event with no readable time is not cut (same as eventStarted)
+     · an event before 02:00 (cutoff falls on the previous day) is cut for its whole day
+     · a 10:00 event is cut from 08:00, i.e. before the 09:00 send window opens: nothing goes on the day */
+export const EVENT_DAY_CUTOFF_MIN = 120;
+export function eventDayCutoffAt(time, min = EVENT_DAY_CUTOFF_MIN) {
+  const a = /^(\d{1,2}):(\d{2})/.exec(String(time || '').trim());
+  if (!a) return null;
+  return Number(a[1]) * 60 + Number(a[2]) - min;   /* minutes after midnight; may be negative */
+}
+export function pastEventDayCutoff(time, nowHm, min = EVENT_DAY_CUTOFF_MIN) {
+  const cut = eventDayCutoffAt(time, min), b = /^(\d{1,2}):(\d{2})/.exec(String(nowHm || '').trim());
+  if (cut == null || !b) return false;
+  return Number(b[1]) * 60 + Number(b[2]) >= cut;
+}
+/* a hand-set event-day job whose event day is over: cancelled, never sent the next morning */
+export function eventDayOver(eventDate, today) {
+  const d = String(eventDate || '').slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(d) && /^\d{4}-\d{2}-\d{2}$/.test(String(today || '')) && d < today;
+}
+/* may a failed event-day send be reopened for a retry? not once the cutoff passed on the event day (or the day is over) */
+export function eventDayRetryAllowed({ date = '', time = '' } = {}, today, nowHm, min = EVENT_DAY_CUTOFF_MIN) {
+  if (eventDayOver(date, today)) return false;
+  if (String(date || '').slice(0, 10) === today && pastEventDayCutoff(time, nowHm, min)) return false;
+  return true;
+}
 export function eventDayNeeded({ dbMark, table = '', giftOn = false, navOn = false }) {
   const c = carriedOf(dbMark);
   if (!c) return true;
