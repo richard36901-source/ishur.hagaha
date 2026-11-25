@@ -90,6 +90,8 @@ import { handleAccount, handleReviewClaim, sendLoginCode, adminSendPin, reviewSt
 import { sendEmail as sendPlainEmail } from './outreach.js';
 import { navLinkOk, giftLinkOk } from './links.js';
 import { isTeamNote, saveNote, listNotes, closeNote } from './teamnotes.js';
+import { handleFutureLog } from './future-log.js';   /* 25/11 what is planned + live calls */
+import { handleGuestCard } from './guest-card.js';   /* 25/11 one guest, everything */
 import { handleAnswersLog } from './answers-log.js';   /* 25/11 who answered, how, and the proof */   /* 24/11 the team's requests to Richard */
 import { cleanQuery, inboxSearch } from './inbox-search.js';   /* 23/11 inbox search box */
 import { handleSubeventCreate, handleSubeventSend, handleSubeventRemind, handleSubeventSummary, continueSubevents, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
@@ -11415,6 +11417,16 @@ function opsDeps() {
     runShirDispatch: (e, o) => runShirDispatch(e, o), dailyCallCap: (e) => dailyCallCap(e),
     markCallResult: async (e, gid, outcome, tries) => { const res = callOutcome(outcome, tries); if (!res) return null; return { ok: await writeCallResult(e, gid, res, null), ...res }; } };
 }
+/* 25/11 future-log.js / guest-card.js: the ops deps + the wave template the sender would pick now */
+function futureDeps() {
+  return { ...opsDeps(), callsAddonTokens: e => callsAddonTokens(e),
+    inviteTemplateFor: async (env, token) => {
+      const custom = await customTemplateFor(env, token); if (custom) return custom.name;
+      const inviteTmpl = (env.RATE && await env.RATE.get('invitetmpl')) || 'hazmana_ishur';
+      const [vidT, imgT, vidOk] = env.RATE ? await Promise.all([env.RATE.get('invitetmpl_vid'), env.RATE.get('invitetmpl_img'), env.RATE.get('vidok:' + token)]) : [];
+      return styledTemplate(env, token, (vidT && vidOk) ? 'vid' : imgT ? 'img' : 'text', (vidT && vidOk) ? vidT : imgT ? imgT : inviteTmpl);
+    } };
+}
 /* 03/11 CRM: the ops deps plus what the CRM needs on top */
 function crmDeps(ctx) {
   /* route(): the client card reuses the existing admin routes in-process (same validation, same KV writes,
@@ -11770,6 +11782,9 @@ const WORKER = {
         readSnapshot: e => readSnapshot(e, 'write'), auditQuery: (e, q) => audit.query(e, q), recordingLink: (e, id, days) => audit.recordingLink(e, id, days),
         writeAnswer: (e, guest, outcome, party) => writeGuestReply(e, guest, outcome, party) });
     }
+    /* 25/11 the future log (planned sends + calls, live calls) and the guest card — read-mostly admin routes */
+    if (url.pathname === '/api/future-log' && request.method === 'POST') return handleFutureLog(request, env, origin, futureDeps());
+    if (url.pathname === '/api/guest-card' && request.method === 'POST') return handleGuestCard(request, env, origin, { ...futureDeps(), readSnapshot: e => readSnapshot(e, 'write'), logEvent, logRow: (e, t, r) => logRow(e, t, r) });
     if (url.pathname.startsWith('/api/auth/')) return handleAuth(request, env, origin, url);   /* 16/11 Google sign-in, users, action log (auth.js) */
     /* iPad sessions: a valid sess. token becomes the real admin key before any
        handler reads the body. Grow's IPN is skipped — its body is not ours. */

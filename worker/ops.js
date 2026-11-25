@@ -458,7 +458,7 @@ export async function buildRealtime(env, d, now = Date.now(), pre = null) {
 }
 
 /* ── capacity ────────────────────────────────────────────────────────────── */
-async function projectionInputs(env, d, today, days) {
+export async function projectionInputs(env, d, today, days) {
   const raw = await d.snapshotCached(env).catch(() => null);
   if (!raw) return null;
   const { events, guests } = eventsFromRaw(raw, today, { isTestEventRow: d.isTestEventRow, planKeyOf: d.planKeyOf, from: addDays(today, -14) });
