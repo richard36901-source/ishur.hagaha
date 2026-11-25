@@ -274,46 +274,72 @@ export async function query(env, qy = {}) {
 export const CHUNK_PREFIX = 'auditc:';
 export const SEAL_MS = 10 * 60e3;
 const CHUNK_TTL = 40 * 86400;
-const CHUNK_MEMO_MAX = 26;   /* about one day of chunks per isolate (a busy hour is ~1 MB) */
+const CHUNK_MEMO_MAX = 40;   /* about one day of hours + the open hour's slots per isolate (a busy hour is ~1 MB) */
 const MEMO = new WeakMap();
-const hourOf = k => Math.floor(keyTs(k) / 3600e3);
 /* the chunk holds one GROUP: the hour's records of the query's kind (or of every kind, '*'), as list() metadata says.
    It is built only by a query that would have read exactly that set anyway, so building never costs more than before. */
 export const chunkKey = (day, hour, group = '*') => `${CHUNK_PREFIX}${day}:${hour}:${group}`;
 function memoOf(env) { let m = MEMO.get(env.RATE); if (!m) { m = new Map(); MEMO.set(env.RATE, m); } return m; }
 export function _clearChunkMemo(env) { if (env && env.RATE) MEMO.delete(env.RATE); }
+/* the bucket a record is kept in: its hour once the hour is sealed, else its 10-minute slot once THAT is sealed
+   (inside the open hour the jobs re-read every record each tick; with slots only the last ~20 minutes are read live) */
+export const SLOT_MS = 10 * 60e3;
+export const slotKey = (day, slot, group = '*') => `${CHUNK_PREFIX}${day}:m${slot}:${group}`;
+const SLOT_TTL = 2 * 86400;
 function chunkReader(env, day, keys, cand, group, inGroup, res, budget, now = Date.now()) {
   const memo = memoOf(env);
-  const sealed = h => (h + 1) * 3600e3 + SEAL_MS <= now;
-  const count = list => { const m = new Map(); for (const k of list) { const h = hourOf(k); m.set(h, (m.get(h) || 0) + 1); } return m; };
-  let groupByHour = null; const candN = count(cand);
+  const bucketOf = k => {
+    const ts = keyTs(k), h = Math.floor(ts / 3600e3);
+    if ((h + 1) * 3600e3 + SEAL_MS <= now) return 'h' + h;
+    const s = Math.floor(ts / SLOT_MS);
+    return (s + 1) * SLOT_MS + SEAL_MS <= now ? 'm' + s : null;
+  };
+  const keyOf = b => (b[0] === 'h' ? chunkKey(day, Number(b.slice(1)), group) : slotKey(day, Number(b.slice(1)), group));
+  const count = list => { const m = new Map(); for (const k of list) { const b = bucketOf(k); if (b) m.set(b, (m.get(b) || 0) + 1); } return m; };
+  let groupBy = null; const candN = count(cand);
+  const namesOf = b => { if (!groupBy) { groupBy = new Map(); for (const k of keys) if (inGroup(k)) { const x = bucketOf(k); if (!x) continue; if (!groupBy.has(x)) groupBy.set(x, []); groupBy.get(x).push(k.name); } } return groupBy.get(b) || []; };
+  const remember = (ck, c) => { memo.set(ck, c); while (memo.size > CHUNK_MEMO_MAX) memo.delete(memo.keys().next().value); return c; };
+  const fromKv = async ck => { res.ops++; try { const c = JSON.parse((await env.RATE.get(ck)) || 'null'); return c && typeof c === 'object' ? c : null; } catch { return null; } };
   const loaded = new Map();
-  const load = async h => {
-    const ck = chunkKey(day, h, group);
+  const load = async b => {
+    const ck = keyOf(b);
     if (memo.has(ck)) { const v = memo.get(ck); memo.delete(ck); memo.set(ck, v); return v; }
-    if ((candN.get(h) || 0) < 2 || budget - res.ops < 1) return null;   /* one record: a plain read is as cheap */
-    res.ops++;
-    let c = null; try { c = JSON.parse((await env.RATE.get(ck)) || 'null'); } catch { c = null; }
-    if (!c || typeof c !== 'object') {
-      if (!groupByHour) { groupByHour = new Map(); for (const k of keys) if (inGroup(k)) { const x = hourOf(k); if (!groupByHour.has(x)) groupByHour.set(x, []); groupByHour.get(x).push(k.name); } }
-      const names = groupByHour.get(h) || [];
-      /* build only when this query reads the whole group of the hour anyway (no phone / token / since narrowing) */
-      if (!names.length || names.length !== candN.get(h) || budget - res.ops < names.length) return null;
-      res.ops += names.length;
-      const vals = await Promise.all(names.map(n => env.RATE.get(n).catch(() => undefined)));
-      if (vals.some(v => v === undefined)) return null;   /* a failed read: keep nothing; the records are read one by one below */
-      c = {}; names.forEach((n, j) => { c[n] = vals[j]; });
-      await env.RATE.put(ck, JSON.stringify(c), { expirationTtl: CHUNK_TTL }).catch(() => {});
+    if ((candN.get(b) || 0) < 2 || budget - res.ops < 1) return null;   /* one record: a plain read is as cheap */
+    let c = await fromKv(ck);
+    if (c) return remember(ck, c);
+    const names = namesOf(b);
+    /* build only when this query reads the whole group of the bucket anyway (no phone / token / since narrowing) */
+    if (!names.length || names.length !== candN.get(b)) return null;
+    /* an hour that just sealed: put together from its six slots when they are all kept and hold exactly its records */
+    const hh = b[0] === 'h' ? Number(b.slice(1)) : -1;
+    if (hh >= 0 && (hh + 1) * 3600e3 + SEAL_MS + 2 * 3600e3 > now && budget - res.ops >= 6) {   /* slots exist only for an hour that sealed lately */
+      const h = hh, want = new Set(names), merged = {};
+      let whole = true;
+      for (let s = h * 6; s < h * 6 + 6 && whole; s++) {
+        const sk = slotKey(day, s, group);
+        const part = memo.has(sk) ? memo.get(sk) : await fromKv(sk);
+        if (!part) { whole = names.every(n => Math.floor(keyTs({ name: n }) / SLOT_MS) !== s); continue; }   /* a slot with no record is never kept */
+        Object.assign(merged, part);
+      }
+      if (whole && Object.keys(merged).length === want.size && Object.keys(merged).every(n => want.has(n))) {
+        await env.RATE.put(ck, JSON.stringify(merged), { expirationTtl: CHUNK_TTL }).catch(() => {});
+        return remember(ck, merged);
+      }
     }
-    memo.set(ck, c); while (memo.size > CHUNK_MEMO_MAX) memo.delete(memo.keys().next().value);
-    return c;
+    if (budget - res.ops < names.length) return null;
+    res.ops += names.length;
+    const vals = await Promise.all(names.map(n => env.RATE.get(n).catch(() => undefined)));
+    if (vals.some(v => v === undefined)) return null;   /* a failed read: keep nothing; the records are read one by one below */
+    c = {}; names.forEach((n, j) => { c[n] = vals[j]; });
+    await env.RATE.put(ck, JSON.stringify(c), { expirationTtl: b[0] === 'h' ? CHUNK_TTL : SLOT_TTL }).catch(() => {});
+    return remember(ck, c);
   };
   return {
     /* raw values for these keys, undefined where no sealed chunk has the key */
     async values(batch) {
-      const hours = [...new Set(batch.map(hourOf).filter(sealed))];
-      for (const h of hours) if (!loaded.has(h)) loaded.set(h, await load(h));
-      return batch.map(k => { const c = loaded.get(hourOf(k)); return c && Object.prototype.hasOwnProperty.call(c, k.name) ? c[k.name] : undefined; });
+      const bs = [...new Set(batch.map(bucketOf).filter(Boolean))];
+      for (const b of bs) if (!loaded.has(b)) loaded.set(b, await load(b));
+      return batch.map(k => { const b = bucketOf(k); const c = b && loaded.get(b); return c && Object.prototype.hasOwnProperty.call(c, k.name) ? c[k.name] : undefined; });
     },
   };
 }

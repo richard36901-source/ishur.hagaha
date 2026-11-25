@@ -39,14 +39,14 @@ test('chunks: same answer as the record-by-record read, for every filter the job
   const first = await q(env, { kind: 'wa_out' });
   assert.deepEqual(first.items, expect['{"kind":"wa_out"}']); assert.equal(first.truncated, false);
   assert.equal([...RATE.m.keys()].filter(k => k.startsWith('auditc:')).length, 12, 'one chunk per sealed hour');
-  assert.ok(RATE.n.get <= 12 + 120, 'building costs what the old read cost (+ one miss per hour): ' + RATE.n.get);
+  assert.ok(RATE.n.get <= 12 + 120 + 2, 'building costs what the old read cost (+ one miss per hour, + one slot look for the 1–2 hours that sealed lately): ' + RATE.n.get);
   /* pass 1 builds what each filter needs (never more than the old read), pass 2 — a fresh isolate — reads the chunks */
   for (const pass of [1, 2]) for (const [f, want] of Object.entries(expect)) {
     audit._clearChunkMemo(env);
     const before = RATE.n.get; const r = await q(env, JSON.parse(f));
     assert.deepEqual(r.items, want, f); assert.equal(r.truncated, false, f);
     const oldCost = want.length + 0;   /* the record-by-record read: one get per matching record (metadata skips the rest) */
-    if (pass === 1) assert.ok(RATE.n.get - before <= Math.max(oldCost, 1) + 12 + (JSON.parse(f).kind ? 0 : 480), `${f}: pass 1 ${RATE.n.get - before} reads`);
+    if (pass === 1) assert.ok(RATE.n.get - before <= Math.max(oldCost, 1) + 12 + 2 + (JSON.parse(f).kind ? 0 : 480), `${f}: pass 1 ${RATE.n.get - before} reads`);
     else assert.ok(RATE.n.get - before <= 12, `${f}: pass 2 ${RATE.n.get - before} reads (was ${oldCost})`);
   }
   const before = RATE.n.get; await q(env, { kind: 'wa_status' }); await q(env, { kind: 'wa_status' });
@@ -82,4 +82,22 @@ test('chunks: the budget still cuts the OLDEST records first and says so; a fail
   const builtHours = [...bad.m.keys()].filter(x => x.startsWith('auditc:')).map(x => JSON.parse(bad.m.get(x)));
   assert.ok(builtHours.every(c => Object.values(c).every(v => v !== undefined && v !== null)), 'no chunk holds a failed read');
   assert.ok(r3.items.length >= 119);
+});
+
+test('slots: inside the open hour the 10-minute slots are kept too; when the hour seals it is put together from them, not re-read', async () => {
+  const { RATE } = seed(); const env = { RATE };
+  for (let i = 0; i < 30; i++) { const ts = Date.parse('2026-11-25T18:00:00Z') + i * 60e3 + 3; const name = `stream:${DAY}:${ts}:s${i}`; RATE.m.set(name, JSON.stringify({ id: 's' + i, ts, kind: 'wa_out' })); RATE.md.set(name, { k: 'wa_out' }); }
+  const run = async t => { audit._clearChunkMemo(env); const b = RATE.n.get; const r = await at(t, () => audit.queryEx(env, { days: 1, kind: 'wa_out', limit: 20000 })); return { r, reads: RATE.n.get - b }; };
+  const a = await run(Date.parse('2026-11-25T18:45:00Z'));
+  assert.equal(a.r.items.length, 120 + 30); assert.equal(a.r.items[0].id, 's29');
+  assert.ok(RATE.m.has(audit.slotKey(DAY, Math.floor(Date.parse('2026-11-25T18:00:00Z') / audit.SLOT_MS), 'wa_out')), 'slot 18:00–18:10 kept');
+  const b = await run(Date.parse('2026-11-25T18:46:00Z'));
+  assert.deepEqual(b.r.items, a.r.items);
+  assert.ok(b.reads <= 12 + 3, 'a fresh isolate: one read per hour + one per slot: ' + b.reads);
+  /* 19:15: hour 18Z sealed → assembled from the slots (3 kept, 3 empty), not re-read */
+  const c = await run(Date.parse('2026-11-25T19:15:00Z'));
+  assert.deepEqual(c.r.items, a.r.items);
+  assert.ok(c.reads <= 12 + 1 + 6, 'hour 18 put together from its slots: ' + c.reads + ' reads');
+  const hk = audit.chunkKey(DAY, Math.floor(Date.parse('2026-11-25T18:00:00Z') / 3600e3), 'wa_out');
+  assert.equal(Object.keys(JSON.parse(RATE.m.get(hk))).length, 30);
 });
