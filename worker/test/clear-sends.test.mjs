@@ -40,3 +40,9 @@ test('24/11 the board offers the extra send only to guests who have not answered
   assert.ok(body.includes('if (!un || !un.n)'));
   assert.ok(h.includes("priceOf(k, (k === 'extra_send' || k === 'extrasend') ? 'unanswered' : 'all')"));
 });
+
+test('25/11 the host can mark a guest undecided by hand, like coming / not coming', () => {
+  const h = fs.readFileSync(new URL('../../dashboard.html', import.meta.url), 'utf8');
+  assert.ok(h.includes('data-do="maybe"') && h.includes("save('מתלבט', 0, b)") && h.includes("outcome === 'מתלבט' ? 'undecided'"));
+  assert.ok(src.includes("b.outcome === 'מתלבט' ? 'מתלבט' : 'מגיע'"));
+});

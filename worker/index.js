@@ -14554,7 +14554,8 @@ const WORKER = {
       if (!rec) return deny(404, 'unknown-token', origin);
       if (await overBudget(env, 'rl:grsvp:' + tok, 120, 3600)) return deny(429, 'slow-down', origin);
       const gid = String(b.guest_id || '').trim();
-      const outcome = b.outcome === 'לא מגיע' ? 'לא מגיע' : 'מגיע';
+      /* 25/11 Richard: the host can also mark a guest as undecided, not only coming / not coming */
+      const outcome = b.outcome === 'לא מגיע' ? 'לא מגיע' : b.outcome === 'מתלבט' ? 'מתלבט' : 'מגיע';
       const party = outcome === 'מגיע' ? Math.max(1, Math.min(30, parseInt(b.party, 10) || 1)) : 0;
       const raw = await readSnapshot(env, 'guest');
       const row = ((raw && raw.guests && raw.guests.values) || []).find(r => String(r[2] || '').trim() === gid && String(r[28] || '').trim() === tok);
