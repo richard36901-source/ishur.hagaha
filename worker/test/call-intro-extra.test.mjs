@@ -78,6 +78,6 @@ test('25/11 real calls keep the old wording until the new opening is switched on
   assert.match(buildCallPayload(g, '+97200').retell_llm_dynamic_variables.opening, /^היי דנה, מדברת שיר, מאישורי הגעה בשם שוהם ושי — /);
   const src = fs.readFileSync(new URL('../index.js', import.meta.url), 'utf8');
   assert.ok(src.includes("env.RATE.get('cfg:opening_v2')") && src.includes('legacy_opening: !('));
-  const tc = src.slice(src.indexOf("body.action === 'testcall' && body.agent === 'shir_out'"), src.indexOf("body.action === 'testcall' && body.agent === 'shir_out'") + 4200);
+  const tc = src.slice(src.indexOf("body.action === 'testcall' && body.agent === 'shir_out'"), src.indexOf("body.action === 'testcall' && body.agent === 'shir_out'") + 12000);   /* the block's lines are long: 4,200 characters ended before the call */
   assert.ok(tc.includes('buildCallPayload(g, env.SHIR_FROM)'), 'the rehearsal uses the new opening');
 });
