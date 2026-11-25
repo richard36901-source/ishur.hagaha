@@ -265,7 +265,7 @@
     if (phone.replace(/\D/g, '').length < 9) { note.textContent = 'כתבו את מספר הטלפון המלא שנרשמתם איתו.'; return; }
     if (code.length !== 4) { note.textContent = 'הקוד הוא 4 ספרות.'; return; }
     go.disabled = true; note.textContent = 'בודקים…';
-    post('/api/account/pin-login', { phone: phone, pin: code, app: 1 }).then(function (r) {
+    post('/api/account/pin-login', IOS ? { phone: phone, pin: code, app: 1 } : { phone: phone, pin: code }).then(function (r) {
       go.disabled = false;
       if (r.status === 200 && r.body.session) { session = r.body.session; store.set('session', session); note.textContent = ''; haptic(); T('signin_ok'); afterCode(); return; }
       if (r.status === 403 && r.body && r.body.error === 'use-identity') { T('signin_fail', { kind: 'use-identity' }); note.textContent = 'החשבון שלכם מחובר ל-Apple או ל-Google. היכנסו עם הכפתור למטה.'; return; }
@@ -293,7 +293,11 @@
      After the first sign-in with the code the app asks once to connect Apple (or Google); from then on the server
      refuses the code in the app for that phone and these buttons sign in. The App Store reviewer's demo phone is
      never asked. ENV.googleClientId turns the Google button on once Richard's Google Cloud client exists. */
-  var SL = plugin('SocialLogin'), slReady = null;
+  /* 25/11 Apple / Google sign-in is iPhone only for v1: on Android neither is set up (Apple needs a web redirect, Google
+     an Android client made from Play's signing key). Android keeps the phone and code, with no connect step, and does not
+     claim to be the app to the server, so a phone linked on an iPhone can still sign in on Android with its code. */
+  var IOS = !!(NATIVE && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios');
+  var SL = IOS ? plugin('SocialLogin') : null, slReady = null;
   function idInit() {
     if (!SL) return Promise.reject(new Error('no-plugin'));
     if (!slReady) { var cfg = { apple: { clientId: 'io.ishur.client' } }; if (ENV.googleClientId) { cfg.google = { iOSClientId: ENV.googleClientId }; if (ENV.googleServerClientId) cfg.google.iOSServerClientId = ENV.googleServerClientId; } slReady = SL.initialize(cfg); }
@@ -305,7 +309,7 @@
   }
   var cancelled = function (e) { return /cancel|1001/i.test(String((e && (e.code || e.message)) || e)); };
   /* Google only on iPhone for now: Android needs its own Google client (signing key fingerprint), not made yet */
-  var googleOn = !!ENV.googleClientId && !!(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios');
+  var googleOn = !!ENV.googleClientId && IOS;
   if (SL) { $('idBtns').hidden = false; if (googleOn) { $('googleIn').hidden = false; $('googleLink').hidden = false; } }
   function idSignIn(provider) {
     var note = $('signinNote');
