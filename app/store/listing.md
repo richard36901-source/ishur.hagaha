@@ -63,11 +63,16 @@ collects RSVPs. Clients buy the service on our website or through a sales call, 
 them then; the app has no sign-up and sells nothing. Sign in with the demo account below to see a demo event.
 Demo phone: 050-000-5201 · Code: [read with /api/client-pin after the promote; the production code differs from staging]. The demo event is invented and sends nothing: actions that would message guests are refused. Notifications: after sign-in the app explains them and asks; they are
 optional. Account deletion: Account tab → "בקשה למחיקת החשבון והמידע".
+Sign in with Apple / Google (iPhone): these sign in an existing client only. A client signs in once with the phone and
+code, then connects Apple or Google, and uses that from then on. An Apple or Google account that was never connected gets
+a message to sign in with the phone and code first. The demo phone above always signs in with its code and is never asked
+to connect.
 
 ## Privacy answers (App Store "App Privacy" and Google "Data safety"), draft
 | Data | Collected | Linked to the user | Used for tracking | Purpose |
 |---|---|---|---|---|
 | Phone number | yes | yes | no | App functionality (sign-in) |
+| Email address and Apple/Google account ID (only if the client connects Sign in with Apple or Google; Apple may give a private relay address) | yes | yes | no | App functionality (sign-in) |
 | Name | yes | yes | no | App functionality |
 | User ID (client id) | yes | yes | no | App functionality |
 | Contacts (guest names and phones the client uploaded) | yes | yes | no | App functionality |
@@ -84,3 +89,19 @@ optional. Account deletion: Account tab → "בקשה למחיקת החשבון 
 ## Age rating answers (draft)
 No web browsing outside our own pages, no user-generated content shown to other users, no chat, no ads, no
 gambling, no violence or mature content. Expected rating: 4+.
+
+## Google Play listing (25/11/2026)
+- **App name (30):** אישורי הגעה לאירועים
+- **Short description (80):** רואים מי מגיע לאירוע, מי עוד לא ענה ומה נשלח, בזמן אמת. ללקוחות ishur.io.
+- **Full description:** the Hebrew App Store description above, without the Apple/Google sign-in sentence (Android v1 signs in
+  with phone and code only).
+- **Category:** Lifestyle (tags: Events). **Contact:** info@ishur.io, https://ishur.io. **Privacy:** https://ishur.io/terms.html#privacy
+- **Graphics:** icon `store/icon-512.png`, feature graphic `store/feature-graphic-1024x500.png`, phone screenshots
+  `store/screenshots/android-phone/` (1080x1920).
+- **App access:** restricted; give Google the same demo phone and code as Apple (production demo client).
+- **Ads:** no. **Content rating (IARC):** utility/productivity, no violence, no user interaction between users, no ads → Everyone.
+- **Target audience:** 18+. **News app:** no. **Health app:** no. **Government:** no. **Financial features:** none.
+- **Data safety:** collected (not shared): name, phone number, email (only Apple/Google sign-in on iPhone, so Android: no),
+  contacts (guest list), user IDs, device or other IDs (push token, only if notifications are allowed), app interactions,
+  diagnostics. Encrypted in transit: yes. Users can request deletion: yes (in the app and https://ishur.io/delete-account.html).
+- **Release:** a closed test first (12 testers for 14 days, Google's rule for new personal accounts), then production.
