@@ -78,7 +78,9 @@ test('23/11 הכל כלול: three call rows, a day apart, each with its own sta
   const r3 = d3.sends.filter(s => /^calls/.test(s.key));
   assert.equal(r3.length, 1); assert.equal(r3[0].label, 'שיחה טלפונית למי שלא ענה');
 });
-test('23/11 a call round that already dialled never shows a day in the future', () => {
+test('23/11 a call round that already dialled never shows a day in the future', (t) => {
+  /* 26/11 (Richard OK'd clock pins): the test's day() is UTC and the board's day is Israel's, so it failed 00:00–02:00; fixed weekday 11:00 Israel time, assertions unchanged */
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-25T09:00:00Z') });
   const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
   const evRow = Array(45).fill(''); evRow[1] = 'TOK4'; evRow[6] = day(6); evRow[31] = 'הכל כלול'; evRow[39] = day(-12); evRow[40] = day(-10);
   const g = Array(35).fill(''); g[1] = 'c'; g[2] = 'G1'; g[3] = 'a'; g[4] = '972501234561'; g[28] = 'TOK4'; g[29] = '3';
@@ -98,7 +100,9 @@ test('23/11 the rounds are dated from the day they really opened, not from a day
   const later = buildDashboard('TOK5', { events: { values: [Array(45).fill('h'), evRow] }, guests: { values: [Array(35).fill('h'), g] } }, 0, { callDate: day(-8), escDate: day(-6) });
   assert.equal(later.sends.find(s => s.key === 'calls').date, day(-8), 'an earlier hand-set day still wins');
 });
-test('24/11 an opened extra round does not rewrite the plan rounds; it has its own row and result', () => {
+test('24/11 an opened extra round does not rewrite the plan rounds; it has its own row and result', (t) => {
+  /* 26/11 (Richard OK'd clock pins): the test's day() is UTC and the board's day is Israel's, so it failed 00:00–02:00; fixed weekday 11:00 Israel time, assertions unchanged */
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-25T09:00:00Z') });
   const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
   const evRow = Array(45).fill(''); evRow[1] = 'TOK6'; evRow[6] = day(3); evRow[31] = 'הכל כלול'; evRow[39] = day(-12); evRow[40] = day(-10);
   const G = (id, tries, v21, rsvp, ans) => { const g = Array(35).fill(''); g[1] = 'c'; g[2] = id; g[3] = id; g[4] = '97250123456' + id.slice(-1); g[15] = rsvp || ''; g[21] = v21 || ''; g[22] = ans || ''; g[28] = 'TOK6'; g[29] = String(tries); return g; };
