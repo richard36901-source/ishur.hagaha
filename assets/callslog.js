@@ -197,7 +197,8 @@
         var d = ds[i++];
         return Promise.resolve(opt.api('calls-log', Object.assign({ count_day: d }, sf))).catch(function () { return null; }).then(function (r) { if (r && r.ok) { tot.calls += r.calls; tot.review += r.review; tot.cost += r.cost || 0; tot.done++; paintHead(tot, ds.length); } return next(); });
       }
-      return Promise.all([next(), next(), next()]).then(function () { return tot; });
+      /* 26/11 track-speed: six days at a time (was three): a week is counted in two rounds instead of three */
+      return Promise.all([next(), next(), next(), next(), next(), next()]).then(function () { return tot; });
     }
     function paintHead(tot, n) {
       $('xH').textContent = tot.calls + ' שיחות · ' + tot.review + ' לבדיקה';

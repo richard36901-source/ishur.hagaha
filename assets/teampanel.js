@@ -20,7 +20,15 @@
     var S = { me: null, team: [], items: [], counts: {}, tab: 'assigned', all: false, open: false, view: 'list', item: null, events: null, busy: false, types: {}, sh: {} };
     try { S.open = sessionStorage.getItem('ishur_tp_open') === '1'; S.tab = sessionStorage.getItem('ishur_tp_tab') || 'assigned'; } catch (e) {}
 
+    /* 26/11 track-speed: the panel's first answer (op 'me': who I am, the team, my items, the role map) is kept per tab
+       for the next page. Under a minute old it is used as is; older, it paints at once and is asked again behind.
+       Any panel action (create, move, comment…) drops the copy, so the next page asks again. */
+    var CK = 'ishur_tp_me', CK_FRESH = 60000, CK_MAX = 10 * 60000;
+    function cacheGet() { try { var c = JSON.parse(sessionStorage.getItem(CK) || 'null'); if (c && c.k === k.slice(-12) && c.j && Date.now() - c.at < CK_MAX) return c; } catch (e) {} return null; }
+    function cachePut(j) { try { sessionStorage.setItem(CK, JSON.stringify({ k: k.slice(-12), at: Date.now(), j: j })); } catch (e) {} }
+    function cacheDrop() { try { sessionStorage.removeItem(CK); } catch (e) {} }
     function api(body) {
+      if (body.op !== 'me' && body.op !== 'list') cacheDrop();
       body.session = k;
       return fetch(API + '/api/team', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
         .then(function (r) { return r.json().catch(function () { return { ok: false }; }); }).catch(function () { return { ok: false }; });
@@ -51,6 +59,7 @@
       if (x.view && map[x.view] !== undefined) return map[x.view];
       return map[x.base] !== undefined ? map[x.base] : null;
     }
+    var roleNodes = [], rolesSig = null;
     function applyRoles(j) {
       var map = j.page_of || {}, allowed = j.pages || [], css = [];
       if (!allowed.length) return;   /* nothing known → hide nothing */
@@ -59,7 +68,7 @@
         var q = h.replace(/"/g, '');
         ['.ibar', '.ibar-menu', '.ibar-tmenu', '.ibar-sub'].forEach(function (p) { css.push(p + ' a[href="' + q + '"]', p + ' a[href$="/' + q + '"]'); });
       });
-      if (css.length) { var st = el('style'); st.textContent = css.join(',') + '{display:none!important}'; document.head.appendChild(st); }
+      if (css.length) { var st = el('style'); st.textContent = css.join(',') + '{display:none!important}'; document.head.appendChild(st); roleNodes.push(st); }
       var pid = pageIdOf(map, here + location.search);
       if (pid && allowed.indexOf(pid) < 0) {
         var first = Object.keys(map).filter(function (h) { return allowed.indexOf(map[h]) > -1 && h.indexOf('#') < 0; })[0];
@@ -67,7 +76,7 @@
         c.appendChild(el('h2', '', 'אין לך גישה לעמוד הזה'));
         c.appendChild(el('p', '', 'העמוד שייך לתפקיד אחר בצוות. אם צריך גישה, אפשר לבקש מריצארד.'));
         if (first) { var a = el('a', 'tp-btn tp-pri', 'למסך שלי'); a.href = first; c.appendChild(a); }
-        g.appendChild(c); document.body.appendChild(g);
+        g.appendChild(c); document.body.appendChild(g); roleNodes.push(g);
       }
     }
 
@@ -271,18 +280,28 @@
       });
     }
 
+    var started = false;
+    function start(j) {
+      S.me = j.me; S.team = j.team || []; S.items = j.items || []; S.counts = j.counts || {}; S.types = j.types || {}; S.sh = j.status_he || {};
+      var sig = JSON.stringify([j.pages || [], j.page_of || {}]);
+      if (sig !== rolesSig) { roleNodes.forEach(function (n) { if (n.parentNode) n.parentNode.removeChild(n); }); roleNodes = []; rolesSig = sig; try { applyRoles(j); } catch (e) {} }
+      if (started) { if (S.me.lead) allSw.hidden = false; if (S.view === 'list') render(); else badge(); return; }
+      started = true;
+      mount();
+      if (S.me.lead) allSw.hidden = false;
+      if (S.tab === 'all') S.tab = 'assigned';
+      tab.hidden = false; badge();
+      var m = location.hash.match(/team=([A-Za-z0-9]+)/);
+      if (m) { setOpen(true); openItem(m[1]); } else if (S.open) setOpen(true);
+      setInterval(function () { if (document.visibilityState === 'visible') refresh(); }, 180000);
+    }
     function boot() {
+      var c = cacheGet();
+      if (c) start(c.j);
+      if (c && Date.now() - c.at < CK_FRESH) return;
       api({ op: 'me' }).then(function (j) {
         if (!j || !j.ok || !j.me) return;   /* no person → nothing hidden, no panel */
-        S.me = j.me; S.team = j.team || []; S.items = j.items || []; S.counts = j.counts || {}; S.types = j.types || {}; S.sh = j.status_he || {};
-        try { applyRoles(j); } catch (e) {}
-        mount();
-        if (S.me.lead) allSw.hidden = false;
-        if (S.tab === 'all') S.tab = 'assigned';
-        tab.hidden = false; badge();
-        var m = location.hash.match(/team=([A-Za-z0-9]+)/);
-        if (m) { setOpen(true); openItem(m[1]); } else if (S.open) setOpen(true);
-        setInterval(function () { if (document.visibilityState === 'visible') refresh(); }, 180000);
+        cachePut(j); start(j);
       });
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();

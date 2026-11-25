@@ -10,11 +10,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="/config.js?v=96"></script>
 <script src="/next/assets/batch.js?v=6"></script>
-<script src="/assets/ux.js?v=4"></script>
+<script src="/assets/ux.js?v=8"></script>
 <script src="/assets/addround.js?v=1"></script>
 <script src="/next/assets/adminbar.js?v=18" defer></script>
 <script src="/assets/guard.js?v=22"></script>
-<script src="/next/assets/lite.js?v=3"></script>
+<script src="/next/assets/lite.js?v=4"></script>
 <script src="/assets/sendboard.js?v=5"></script>
 <script>(function(){try{var t=localStorage.getItem('ishur_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <style>
@@ -219,6 +219,10 @@
 
   window.addEventListener('ishur:fresh', function () { load(); });
   function load() {
+    /* 26/11 track-speed: the referrals, partners and designs tabs and the feedback do not need the event list; they start
+       with it instead of after it, and the list itself is drawn the moment the events arrive (the flags fill in after). */
+    loadRefs(); loadPartners(); loadDesigns();
+    var fbP = api('feedback-list', {}).then(function (r) { return r.json(); }).catch(function () { return null; });
     api('status', { view: 'biz' }).then(function (r) {
       if (r.status === 403) { if (/^sess\./.test(adminKey) && (window.__k403 = (window.__k403 || 0) + 1) < 4) { setTimeout(load, 2500); return null; } localStorage.removeItem('ishur_calls_key'); gate('המפתח לא נכון'); return null; }
       return r.json();
@@ -227,8 +231,8 @@
       $('gate').hidden = true; $('main').hidden = false;
       subevents = d.subevents || [];
       events = (d.events || []).slice().sort(function (a, b) { return when(b) - when(a); });
-      api('feedback-list', {}).then(function (r) { return r.json(); }).then(function (f) { fb = {}; ((f && f.feedback) || []).forEach(function (x) { (fb[x.token] = fb[x.token] || []).push(x); }); render(); }).catch(function () {});
-      loadRefs(); loadPartners(); loadDesigns();
+      render();
+      fbP.then(function (f) { if (!f) return; fb = {}; ((f && f.feedback) || []).forEach(function (x) { (fb[x.token] = fb[x.token] || []).push(x); }); render(); }).catch(function () {});
       return api('client-flags', { tokens: events.map(function (e) { return e.token; }) }).then(function (r) { return r.json(); }).then(function (f) { flags = (f && f.flags) || {}; render(); });
     }).catch(function () { $('main').hidden = false; $('list').innerHTML = '<p class="empty">לא הצלחנו לטעון</p>'; });
   }

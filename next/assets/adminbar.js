@@ -436,7 +436,7 @@
 (function () {
   try {
     if (/[?&]embed=1/.test(location.search) || document.querySelector('script[data-teampanel]')) return;
-    var s = document.createElement('script'); s.src = '/assets/teampanel.js?v=1'; s.defer = true; s.setAttribute('data-teampanel', '1');
+    var s = document.createElement('script'); s.src = '/assets/teampanel.js?v=2'; s.defer = true; s.setAttribute('data-teampanel', '1');
     (document.head || document.documentElement).appendChild(s);
   } catch (e) {}
 })();

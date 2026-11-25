@@ -165,3 +165,30 @@ test('ux.js: a cold open (nothing cached) does not tell the page to load again; 
   await sleep(400);
   assert.deepEqual(warm.events, ['ishur:fresh'], 'the newer answer repaints the page');
 });
+
+/* ── §4 the team panel: one /api/team 'me' per minute per tab, not one per page ── */
+function tpWindow(stored = {}) {
+  const ss = new Map(Object.entries(stored)); const calls = [];
+  const node = () => new Proxy(function () {}, { get: (t, k) => (k === 'classList' ? { add() {}, remove() {}, toggle() {}, contains: () => false } : k === 'style' || k === 'dataset' ? {} : k === 'querySelectorAll' ? () => [] : k === 'querySelector' || k === 'closest' ? () => null : k === 'parentNode' ? null : k === Symbol.toPrimitive ? () => '' : node()), set: () => true, apply: () => node() });
+  const document = { readyState: 'complete', documentElement: node(), head: node(), body: node(), createElement: () => node(), querySelector: () => null, querySelectorAll: () => [], getElementById: () => null, addEventListener() {}, visibilityState: 'visible' };
+  const ME = { ok: true, me: { email: 'a@x', name: 'A' }, team: [], items: [{ id: 'i1', status: 'open' }], counts: { badge: 1 }, pages: [], page_of: {} };
+  const w = { document, location: { pathname: '/next/clients.html', search: '', hash: '', hostname: 'ishur.io' },
+    sessionStorage: { getItem: k => (ss.has(k) ? ss.get(k) : null), setItem: (k, v) => ss.set(k, String(v)), removeItem: k => ss.delete(k) },
+    localStorage: { getItem: k => (k === 'ishur_calls_key' ? 'us.session-abcdefghijkl' : null), setItem() {} },
+    fetch: async (url, opts) => { const b = JSON.parse(opts.body); calls.push(b.op); return new Response(JSON.stringify(b.op === 'me' ? ME : { ok: true, items: [], counts: {} })); },
+    setInterval: () => 0, setTimeout, clearTimeout, Promise, JSON, Date, Response };
+  w.window = w; vm.createContext(w); vm.runInContext(readFileSync(new URL('../../assets/teampanel.js', import.meta.url), 'utf8'), w);
+  return { calls, ss, w };
+}
+test('team panel: the first page asks once and keeps the answer; the next page within a minute does not ask; an older copy paints and is asked again', async () => {
+  const a = tpWindow(); await sleep(20);
+  assert.deepEqual(a.calls, ['me']); const kept = a.ss.get('ishur_tp_me'); assert.ok(kept && JSON.parse(kept).j.me.email === 'a@x');
+  const b = tpWindow({ ishur_tp_me: kept }); await sleep(20);
+  assert.deepEqual(b.calls, [], 'next page, same tab, under a minute: no request');
+  const old = JSON.parse(kept); old.at -= 2 * 60000;
+  const c = tpWindow({ ishur_tp_me: JSON.stringify(old) }); await sleep(20);
+  assert.deepEqual(c.calls, ['me'], 'older copy: painted, then asked again');
+  const other = JSON.parse(kept); other.k = 'someone-else';
+  const d = tpWindow({ ishur_tp_me: JSON.stringify(other) }); await sleep(20);
+  assert.deepEqual(d.calls, ['me'], "another session's copy is never used");
+});
