@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
   parentsText, normalizeSettings, normCallWindow, eventCallWindowOpen, questionMessage, parseFollowupAnswer,
-  shirFollowupVars, followupsFromRetell, startFollowups, handleFollowupReply, listAnswers, yesGift, saveSettings,
+  shirFollowupVars, followupsFromRetell, saveRetellFollowups, rsvpishText, startFollowups, handleFollowupReply, listAnswers, yesGift, saveSettings,
   getSettings, handleEventSettings, whoIsText, cleanText, enabledSteps, FOOD_OPTIONS, GIFT_YES_LINE, callWindowGate,
 } from '../event-settings.js';
 import { buildCallPayload, introFor } from '../shir.js';
@@ -176,12 +176,30 @@ test('Shir\'s answers come back through the tool args or the post-call analysis;
   const meta = { guest_id: 'G-1', token: TOK, kind: 'guest' };
   assert.deepEqual(followupsFromRetell({ name: 'record_rsvp_outcome', args: { outcome: 'מגיע', party_size: 2, shuttle: 'כן', food: 'צמחוני', custom_answer: 'רכב אחד' }, call: { metadata: meta } }),
     { token: TOK, guest_id: 'G-1', answers: { shuttle: 'כן', food: 'צמחוני', custom: 'רכב אחד' } });
-  assert.deepEqual(followupsFromRetell({ event: 'call_analyzed', call: { metadata: meta, call_analysis: { custom_analysis_data: { outcome: 'מגיע', shuttle_answer: 'לא', food_answer: 'כשר למהדרין' } } } }),
-    { token: TOK, guest_id: 'G-1', answers: { shuttle: 'לא', food: 'אחר' } });
+  assert.deepEqual(followupsFromRetell({ event: 'call_analyzed', call: { metadata: meta, call_analysis: { custom_analysis_data: { outcome: 'מגיע', shuttle_answer: 'לא', food_answer: 'כשר למהדרין', custom_answer: 'לא צוין' } } } }),
+    { token: TOK, guest_id: 'G-1', answers: { shuttle: 'לא' } }, 'an unknown food value and a placeholder are dropped, never guessed');
   assert.equal(followupsFromRetell({ name: 'record_rsvp_outcome', args: { outcome: 'מגיע' }, call: { metadata: meta } }), null);
-  assert.equal(followupsFromRetell({ name: 'record_rsvp_outcome', args: { shuttle: 'כן' }, call: { metadata: {} } }), null, 'no guest, nowhere to write');
+  assert.equal(followupsFromRetell({ name: 'record_rsvp_outcome', args: { outcome: 'לא מגיע', shuttle: 'כן', food: 'רגיל' }, call: { metadata: meta } }), null, 'only a yes on this call carries answers');
+  assert.equal(followupsFromRetell({ event: 'call_analyzed', call: { metadata: meta, call_analysis: { custom_analysis_data: { outcome: 'לא ברור', food_answer: 'רגיל' } } } }), null);
+  assert.equal(followupsFromRetell({ name: 'record_rsvp_outcome', args: { outcome: 'מגיע', shuttle: 'כן' }, call: { metadata: {} } }), null, 'no guest, nowhere to write');
   const src = fs.readFileSync(new URL('../index.js', import.meta.url), 'utf8');
-  assert.ok(src.includes("try { const fu = followupsFromRetell(body); if (fu) await fqPut(env, fu.token, fu.guest_id, fu.answers, 'call'); } catch {}"));
+  assert.ok(src.includes('try { await saveRetellFollowups(env, body); } catch {}'));
+});
+
+test('Shir\'s answers are kept only for the questions the event has on', async () => {
+  const env = { RATE: kv({ ['evsettings:' + TOK]: JSON.stringify({ questions: { food: { on: true } } }) }) };
+  const body = { name: 'record_rsvp_outcome', args: { outcome: 'מגיע', party_size: 2, shuttle: 'כן', food: 'טבעוני', custom_answer: 'משהו' }, call: { metadata: { guest_id: 'G-5', token: TOK } } };
+  const rec = await saveRetellFollowups(env, body);
+  assert.equal(rec.food, 'טבעוני'); assert.equal(rec.shuttle, undefined); assert.equal(rec.custom, undefined); assert.equal(rec.via, 'call');
+  assert.equal(await saveRetellFollowups({ RATE: kv() }, body), null, 'an event with no questions stores nothing');
+});
+
+test('free text while the client\'s own question is open: a cancellation is never swallowed as the answer', () => {
+  for (const t of ['לא נוכל', 'לצערנו מוותרים', 'אי אפשר', 'בסוף לא נגיע', 'לא נוכל להגיע', 'לא מסתדר לנו', 'מה השעה?', 'אנחנו מגיעים 3']) assert.equal(rsvpishText(t), true, t);
+  for (const t of ['לא', 'לא תודה', 'לא צריך', 'כן', 'רכב אחד', '2', 'אולי', 'כן, שני רכבים']) assert.equal(rsvpishText(t), false, t);
+  assert.equal(rsvpishText('כן', true), true, 'a template button is always the RSVP flow');
+  const src = fs.readFileSync(new URL('../index.js', import.meta.url), 'utf8');
+  assert.ok(src.includes("const rsvpish = rsvpishText(String((msg.text && msg.text.body) || '').trim(), msg.type === 'button');"));
 });
 
 test('gift line after a yes: once, only with active links, the client can turn it off', async () => {
@@ -261,6 +279,8 @@ test('client pages: the settings card is its own card on the board (not in the s
   assert.ok(dash.includes(".replace(/\\/api\\/status$/, '/api/event-settings')"), 'reached through the status URL, so a stale cached config.js still finds it');
   assert.ok(dash.includes("id=\"exportCsv\"") && dash.includes("a.download = 'מוזמנים.csv'"));
   assert.ok(dash.includes("else if (/^fq-/.test(filter)) { if (!fqMatch(g, filter)) return false; }"));
+  assert.ok(dash.includes("tbl + '</div>' + fq;"), 'the answers sit on their own full-width line under the row (phone width)');
+  assert.ok(dash.includes('html.in-app[data-view=home] #exportCsv,') && dash.includes("advCard: 'sends'"), 'in the app: export not in the home grid, the card in the settings tab');
   const up = fs.readFileSync(new URL('../../upload.html', import.meta.url), 'utf8');
   assert.ok(!up.includes('advCard') && !up.includes('event-settings'), 'the setup flow does not get the advanced settings');
   assert.ok(up.includes('id="f-last1"') && up.includes('id="f-last2"'));

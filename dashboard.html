@@ -60,7 +60,7 @@
       window.addEventListener('message', function (e) { if (e.source === window.parent && e.data && e.data.ishurView) setView(String(e.data.ishurView)); });
       document.addEventListener('DOMContentLoaded', function () {
         var MAP = { statusCard: 'home', shareCard: 'sends', afterCard: 'home', guestsCard: 'home guests', gaddCard: 'guests',
-          mediaCard: 'sends', designCard: 'sends', guestLangCard: 'sends', extraCard: 'sends', sendsCard: 'sends', changeNote: 'sends', refCard: 'account', invoiceCard: 'account', addonsCard: 'none', pwaCard: 'none' };
+          mediaCard: 'sends', designCard: 'sends', guestLangCard: 'sends', extraCard: 'sends', sendsCard: 'sends', changeNote: 'sends', refCard: 'account', invoiceCard: 'account', addonsCard: 'none', pwaCard: 'none', advCard: 'sends' };   /* 25/11: the advanced settings sit with the other event settings (share, language) */
         Object.keys(MAP).forEach(function (id) { var el = document.getElementById(id); if (el) el.setAttribute('data-v', MAP[id]); });
       });
       var m = /(?:^#|&)s=(acct\.[0-9a-zA-Z._-]{20,200})(?:&|$)/.exec(location.hash || '');
@@ -81,7 +81,7 @@
   /* the guests card: in home only its buttons (seating, table codes, budget); in guests the list, print and replace */
   html.in-app[data-view=home] #guestsCard > :not(.card-h),
   html.in-app[data-view=home] #guestsCard .card-h > span:first-child,
-  html.in-app[data-view=home] #checklistLink,html.in-app[data-view=home] #replaceLink,
+  html.in-app[data-view=home] #checklistLink,html.in-app[data-view=home] #replaceLink,html.in-app[data-view=home] #exportCsv,
   html.in-app[data-view=guests] #seatingLink,html.in-app[data-view=guests] #qrLink,html.in-app[data-view=guests] #budgetLink,html.in-app[data-view=guests] #lineupLink{display:none!important}
   html.in-app[data-view=home] #guestsCard .gl-acts{width:100%;justify-content:center;flex-wrap:wrap;overflow:visible;row-gap:.5rem}
   /* 22/11 Richard ("aligning it properly"): in the app the four buttons sit in an even 2 x 2 grid, same width each */
@@ -241,7 +241,8 @@
   .row-n.editable:hover{text-decoration:underline dotted;text-underline-offset:3px}
   .row-p{font-size:.74rem;color:var(--ink3);direction:ltr;text-align:right}
   /* 25/11 הגדרות מתקדמות: the follow-up answers under the guest's name, and the settings card */
-  .row-fq{display:block;font-size:.74rem;color:var(--ink2);margin-top:.15rem}
+  .row.has-fq{border-bottom:0;padding-bottom:.2rem}
+  .row-fq{padding:0 1rem .55rem;font-size:.76rem;color:var(--ink2);border-bottom:1px solid var(--bdr);line-height:1.5;overflow-wrap:anywhere}
   .adv-g{padding:.8rem 0;border-top:1px solid var(--bdr)}
   .adv-g:first-of-type{border-top:0;padding-top:0}
   .adv-t{font-size:.9rem;font-weight:600;margin:0 0 .25rem}
@@ -1951,7 +1952,7 @@
     if (on.shuttle && a.shuttle) parts.push('🚌 הסעה: ' + a.shuttle);
     if (on.food && a.food) parts.push('🍽 ' + a.food);
     if (on.custom && a.custom) parts.push('❓ ' + a.custom);
-    return parts.length ? '<span class="row-fq">' + escH(parts.join(' · ')) + '</span>' : '';
+    return parts.length ? '<div class="row-fq">' + escH(parts.join(' · ')) + '</div>' : '';
   }
   /* the whole list to a file Excel opens in Hebrew (UTF-8 with BOM) */
   function exportCsv() {
@@ -2034,11 +2035,12 @@
       var ck = data.checkin && data.checkin.enabled && g.id
         ? '<button type="button" class="chk' + (g.arrived ? ' on' : '') + '" data-ck="' + esc(g.id) + '" aria-label="סימון הגעה">' + (g.arrived ? '✓ ' + escH(g.arrived) : 'הגיע?') + '</button>'
         : '';
-      return '<div class="row' + (g.self ? ' self' : '') + '">' + ck +
-             '<span class="row-n' + (g.id && !over ? ' editable' : '') + '"' + (g.id ? ' data-gid="' + esc(g.id) + '" title="לחיצה לעריכת שם וטלפון"' : '') + '>' + (g.name ? escH(g.name) : '<span style="color:var(--ink3)">ללא שם</span>') + (g.self ? ' <span class="self-tag" title="נרשם דרך הקישור לקבוצה. הודעות ותזכורות אליו נפתחות בתוספת">מהקישור</span>' : '') + '<br><span class="row-p">' + escH(g.phone || '') + '</span>' + fqLine(g) + '</span>' +
+      var fq = fqLine(g);   /* 25/11: the follow-up answers on their own full-width line under the row */
+      return '<div class="row' + (g.self ? ' self' : '') + (fq ? ' has-fq' : '') + '">' + ck +
+             '<span class="row-n' + (g.id && !over ? ' editable' : '') + '"' + (g.id ? ' data-gid="' + esc(g.id) + '" title="לחיצה לעריכת שם וטלפון"' : '') + '>' + (g.name ? escH(g.name) : '<span style="color:var(--ink3)">ללא שם</span>') + (g.self ? ' <span class="self-tag" title="נרשם דרך הקישור לקבוצה. הודעות ותזכורות אליו נפתחות בתוספת">מהקישור</span>' : '') + '<br><span class="row-p">' + escH(g.phone || '') + '</span></span>' +
              '<span class="pill ' + st.pill + '">' + st.label + '</span>' +
              sendBadge(g) +
-             '<span class="row-s">' + (g.seats ? escH(g.seats) : '—') + '</span>' + tbl + '</div>';
+             '<span class="row-s">' + (g.seats ? escH(g.seats) : '—') + '</span>' + tbl + '</div>' + fq;
     }).join('');
     var anyConfirmed = (data.guests || []).some(function (g) { return g.status === 'confirmed' && g.id; });
     $('seatBar').hidden = !anyConfirmed;

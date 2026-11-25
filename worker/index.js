@@ -44,7 +44,7 @@ import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseIn
 import { isAppAutoReply, chaseStopReason, leadAlertHeader, lastInboundTs } from './inbound.js';
 import { isTableQuestion, tableFor, tableReply } from './seating.js';
 import { guestLangApi } from './guest-lang.js';
-import { startFollowups, handleFollowupReply, yesGift, introNow, whoIsText, callWindowGate, getSettings as evSettings, saveSettings as evSettingsSave, shirFollowupVars, followupsFromRetell, putAnswer as fqPut, listAnswers as fqList, enabledSteps as fqSteps, handleEventSettings, Q_LABEL as FQ_LABEL, questionMessage, FOOD_OPTIONS, GIFT_YES_LINE } from './event-settings.js';   /* 25/11 הגדרות מתקדמות */
+import { startFollowups, handleFollowupReply, yesGift, introNow, whoIsText, callWindowGate, getSettings as evSettings, saveSettings as evSettingsSave, shirFollowupVars, saveRetellFollowups, rsvpishText, listAnswers as fqList, enabledSteps as fqSteps, handleEventSettings, Q_LABEL as FQ_LABEL, questionMessage, FOOD_OPTIONS, GIFT_YES_LINE } from './event-settings.js';   /* 25/11 הגדרות מתקדמות */
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
 import { logEvent, flushEventLog, readLogTail, OWNER_PHONE, stream } from './evlog.js';
 import { recordHit, recordPurchase, trafficReport } from './traffic.js';
@@ -2867,7 +2867,7 @@ async function handleShirWebhook(request, env) {
 async function processRetellEvent(env, body) {
   /* 25/11 הגדרות מתקדמות: answers to the event's follow-up questions, when the agent sends them (tool args or the
      post-call analysis). Absent until the Retell agent is updated; never in the way of the RSVP itself. */
-  try { const fu = followupsFromRetell(body); if (fu) await fqPut(env, fu.token, fu.guest_id, fu.answers, 'call'); } catch {}
+  try { await saveRetellFollowups(env, body); } catch {}
   const action = retellToCallResult(body);
   if (!action) return okJsonPlain({ ok: true });
   /* the calls log: mid-call outcome → update; end of call → update the dial
@@ -4338,8 +4338,7 @@ async function handleWaWebhook(request, env, url) {
        Read from the raw message: parsed turns a bare "כן"/"לא" into an RSVP. A template button, a question, or words
        about arriving are never taken as an answer — they fall through to the normal flow. */
     if (env.RATE && guest) {
-      const rawFq = String((msg.text && msg.text.body) || '').trim();
-      const rsvpish = msg.type === 'button' || isQuestion(rawFq) || /(מגיע|נגיע|להגיע|לבוא|נבוא|אגיע|אבוא)/.test(rawFq);
+      const rsvpish = rsvpishText(String((msg.text && msg.text.body) || '').trim(), msg.type === 'button');
       if (await handleFollowupReply(env, guest, from, msg, sendCh, FQ_DEPS, { rsvpish }).catch(() => false)) continue;
     }
     if (env.RATE && guest) {

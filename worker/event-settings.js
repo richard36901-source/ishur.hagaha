@@ -26,6 +26,7 @@
 
 import { giftActive, giftKey, giftPageUrl } from './gifts.js';
 import { introFor } from './shir.js';
+import { guestIntent, isQuestion } from './whatsapp.js';
 
 /* ── §1 pure ──────────────────────────────────────────────────────────────── */
 
@@ -185,6 +186,21 @@ export function parseFollowupAnswer(step, text, interactiveId, opts = {}) {
   return null;
 }
 
+/* Free text that must NOT be taken as the answer to the client's own (free-text) question: a template button, a
+   question, words about arriving, or a cancellation ("לא נוכל", "לצערנו מוותרים", "אי אפשר"). A cancellation goes to
+   the RSVP flow: a missed one costs the hosts a plate, a missed custom answer costs little. A bare "לא" / "לא תודה" is
+   an answer ("תצטרכו חניה?" "לא"). Undecided words ("אולי") and numbers stay answers: they are normal answers to a
+   question the hosts wrote ("כמה רכבים?" "2"), and "אולי" must not turn a confirmed guest into מתלבט. */
+export function rsvpishText(text, isButton = false) {
+  if (isButton) return true;
+  const t = String(text || '').replace(/[\u200e\u200f]/g, '').trim();
+  if (!t) return false;
+  if (isQuestion(t)) return true;
+  if (/(מגיע|נגיע|להגיע|לבוא|נבוא|אגיע|אבוא)/.test(t)) return true;
+  if (guestIntent(t) === 'no' && !/^(לא|לא תודה|לא צריך|לא צריכים|אין)[.!]*$/.test(t)) return true;
+  return false;
+}
+
 /* what Shir gets: always-present strings, empty when the question is off (braces must never be read out loud) */
 export function shirFollowupVars(s) {
   const q = normQuestions(s && s.questions);
@@ -212,14 +228,27 @@ export function followupsFromRetell(body) {
   if (body.name === 'record_rsvp_outcome') { src = body.args || {}; meta = (body.call && body.call.metadata) || {}; }
   else if (body.event === 'call_analyzed' && body.call) { src = ((body.call.call_analysis || {}).custom_analysis_data) || {}; meta = body.call.metadata || {}; }
   if (!src || !meta.guest_id || !meta.token) return null;
+  /* only a guest who said yes on this call was asked the questions */
+  if (String(src.outcome || '').trim() !== 'מגיע') return null;
+  /* unknown values are dropped, never guessed: an analysis field comes back as "לא צוין" more often than not */
   const yn = v => { const s = String(v == null ? '' : v).trim(); if (/^(כן|yes|true)$/i.test(s)) return 'כן'; if (/^(לא|no|false)$/i.test(s)) return 'לא'; return ''; };
-  const food = v => { const s = String(v == null ? '' : v).trim(); return FOOD_OPTIONS.includes(s) ? s : (s ? 'אחר' : ''); };
+  const food = v => { const s = String(v == null ? '' : v).trim(); return FOOD_OPTIONS.includes(s) ? s : ''; };
   const out = {};
   const sh = yn(src.shuttle != null ? src.shuttle : src.shuttle_answer); if (sh) out.shuttle = sh;
   const fo = food(src.food != null ? src.food : src.food_answer); if (fo) out.food = fo;
-  const cu = cleanText(src.custom_answer, 300); if (cu && !/^(לא ברור|לא נשאל|none|null)$/i.test(cu)) out.custom = cu;
+  const cu = cleanText(src.custom_answer, 300); if (cu && !/^(לא ברור|לא נשאל|לא נשאלה|לא צוין|לא צויין|לא ידוע|לא רלוונטי|אין|אין תשובה|ללא|none|null|n\/a|na|unknown|not specified|not asked|-)$/i.test(cu)) out.custom = cu;
   if (!Object.keys(out).length) return null;
   return { token: String(meta.token), guest_id: String(meta.guest_id), answers: out };
+}
+
+/* The webhook side: only answers to questions the event has ON are kept. → the stored record, or null. */
+export async function saveRetellFollowups(env, body) {
+  const fu = followupsFromRetell(body);
+  if (!fu || !env || !env.RATE) return null;
+  const on = new Set(enabledSteps(await getSettings(env, fu.token)));
+  const a = {}; for (const k of Object.keys(fu.answers)) if (on.has(k)) a[k] = fu.answers[k];
+  if (!Object.keys(a).length) return null;
+  return putAnswer(env, fu.token, fu.guest_id, a, 'call');
 }
 
 /* the short form kept in the KV key's metadata (≤1024 bytes) */
