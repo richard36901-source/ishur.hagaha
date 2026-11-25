@@ -288,6 +288,8 @@
   .row-s{flex-shrink:0;font-family:'Rubik',sans-serif;font-size:.85rem;color:var(--ink2);min-width:1.4rem;text-align:center}
   .tbl-in{flex-shrink:0;width:4.4rem;font:inherit;font-size:.78rem;padding:.25rem .4rem;border:1px solid var(--bdr);border-radius:8px;text-align:center;background:var(--card);color:var(--ink)}
   .tbl-sp{flex-shrink:0;width:4.4rem}
+  .more-c{flex-shrink:0;font:inherit;font-size:1rem;line-height:1;letter-spacing:.05em;color:var(--ink3);background:none;border:1px solid transparent;border-radius:8px;padding:.1rem .3rem;margin-inline-start:.15rem;cursor:pointer}
+  .more-c:hover,.more-c:focus-visible{border-color:var(--bdr);color:var(--ink)}
   .seat-bar{display:flex;align-items:center;gap:.7rem;padding:.55rem 1rem;background:rgba(15,76,53,.06);border-bottom:1px solid var(--bdr);font-size:.8rem}
   .seat-bar button{font:inherit;font-size:.8rem;font-weight:600;background:#0F4C35;color:#fff;border:0;border-radius:9px;padding:.4rem .9rem;cursor:pointer}
   .seat-bar button:disabled{opacity:.5}
@@ -1929,7 +1931,9 @@
       var esc = function (s) { return String(s || '').replace(/[&<>"]/g, ''); };
       var tbl = g.status === 'confirmed' && g.id
         ? '<input class="tbl-in" data-id="' + esc(g.id) + '" value="' + esc(seatDirty[g.id] != null ? seatDirty[g.id] : g.table) + '" placeholder="שולחן" maxlength="12"' +
-          (over ? ' disabled title="' + OVER_HINT + '"' : '') + '>'
+          (over ? ' disabled title="' + OVER_HINT + '"' : '') + '>' +
+          /* 25/11 Richard: a guest who confirmed can still be changed by hand (not coming / undecided / another count) */
+          (over ? '' : '<button type="button" class="more more-c" data-id="' + esc(g.id) + '" aria-label="שינוי סטטוס">⋯</button>')
         : (g.id && !over ? '<span class="tbl-sp"><button type="button" class="more" data-id="' + esc(g.id) + '" aria-label="עדכון ידני">⋯</button>' + (g.table ? '<span class="tbl-chip">' + esc(g.table) + '</span>' : '') + '</span>' : (anyConfirmedNow ? '<span class="tbl-sp">' + (g.table ? '<span class="tbl-chip">' + esc(g.table) + '</span>' : '') + '</span>' : ''));
       var ck = data.checkin && data.checkin.enabled && g.id
         ? '<button type="button" class="chk' + (g.arrived ? ' on' : '') + '" data-ck="' + esc(g.id) + '" aria-label="סימון הגעה">' + (g.arrived ? '✓ ' + escH(g.arrived) : 'הגיע?') + '</button>'

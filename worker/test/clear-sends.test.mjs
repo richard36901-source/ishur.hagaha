@@ -46,3 +46,9 @@ test('25/11 the host can mark a guest undecided by hand, like coming / not comin
   assert.ok(h.includes('data-do="maybe"') && h.includes("save('מתלבט', 0, b)") && h.includes("outcome === 'מתלבט' ? 'undecided'"));
   assert.ok(src.includes("b.outcome === 'מתלבט' ? 'מתלבט' : 'מגיע'"));
 });
+
+test('25/11 a confirmed guest still has the manual-change button on the board', () => {
+  const h = fs.readFileSync(new URL('../../dashboard.html', import.meta.url), 'utf8');
+  const a = h.indexOf("var tbl = g.status === 'confirmed' && g.id"), b = h.slice(a, a + 900);
+  assert.ok(a > 0 && b.includes('class="more more-c"') && b.includes("(over ? '' :"), 'the button sits next to the table box, not after the event');
+});
