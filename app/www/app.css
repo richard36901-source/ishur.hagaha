@@ -398,3 +398,11 @@ html[data-theme=dark] .tabs{box-shadow:0 10px 30px rgba(0,0,0,.5),0 0 0 .5px var
   background:color-mix(in srgb,var(--card) 75%,transparent);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);box-shadow:0 4px 16px rgba(0,0,0,.18),0 0 0 .5px var(--hair)}
 .navhint svg{width:20px;height:20px;fill:none;stroke:var(--green);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
 .navhint.ready{background:var(--green)}.navhint.ready svg{stroke:#fff}
+/* 26/11 Richard: the bar sits lower (it was too high), and the marker of the current tab slides from tab to tab */
+.tabs{bottom:max(6px,calc(env(safe-area-inset-bottom) - 14px))}
+.view{padding-bottom:calc(var(--tabh) + max(6px,calc(env(safe-area-inset-bottom) - 14px)) + 1.4rem)}
+.tabs{position:fixed}.tabs button{position:relative;z-index:1}
+.tabs button.on{background:none}
+.tabpill{position:absolute;top:5px;bottom:5px;left:0;width:0;border-radius:999px;background:var(--fill);z-index:0;pointer-events:none;
+  transition:transform .45s cubic-bezier(.2,.9,.25,1.12),width .45s cubic-bezier(.2,.9,.25,1.12)}
+@media (prefers-reduced-motion:reduce){.tabpill{transition:none}}

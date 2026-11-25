@@ -11,7 +11,19 @@
     /* 26/11 Richard (app round 9): no web scroll line, no zoom on a double tap, and room at the end for the app's floating tab bar */
     + 'html{scrollbar-width:none;touch-action:manipulation}::-webkit-scrollbar{display:none;width:0;height:0}body{padding-bottom:96px}'
     /* and Apple's current shapes inside the app: rounder cards, capsule buttons and inputs (the website itself is unchanged) */
-    + '.card{border-radius:24px!important}.btn,button.btn,a.btn{border-radius:999px!important}input[type=text],input[type=tel],input[type=search],input[type=number],select,textarea{border-radius:14px!important}'; document.head.appendChild(s);
+    + '.card{border-radius:24px!important}.btn,button.btn,a.btn{border-radius:999px!important}input[type=text],input[type=tel],input[type=search],input[type=number],select,textarea{border-radius:14px!important}'
+    /* 26/11 Richard: the board's own pages (seating, budget, QR) are part of the app, not "the website": no "→ ללוח"
+       button (swipe back or the ראשי tab do that), and a pop-up scrolls itself, not the page behind, and keeps its
+       buttons above the app's floating tab bar */
+    + '.top #back{display:none!important}[aria-modal=true],.dpop{overscroll-behavior:contain;-webkit-overflow-scrolling:touch;max-height:calc(100vh - 150px)!important}'
+    + 'div:has(> [aria-modal=true]){padding-bottom:110px!important}html.modal-open,html.modal-open body{overflow:hidden!important}';
+  document.documentElement.classList.add('in-app');
+  /* a page of our own site that asks for a new window opens inside the app instead (the table QR page) */
+  document.addEventListener('click', function (e) { var a = e.target.closest && e.target.closest('a[target=_blank]'); if (!a || !a.href) return;
+    try { if (new URL(a.href, location.href).origin === location.origin) { e.preventDefault(); location.href = a.href; } } catch (x) {} }, true);
+  /* while a pop-up is open the page under it does not scroll */
+  var mo = function () { var on = Array.prototype.some.call(document.querySelectorAll('[aria-modal=true]'), function (m) { return m.getClientRects().length > 0; }); document.documentElement.classList.toggle('modal-open', on); };
+  try { new MutationObserver(mo).observe(document.body || document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'style', 'class'] }); } catch (x) {} document.head.appendChild(s);
   var vp = document.querySelector('meta[name=viewport]'); if (vp) vp.setAttribute('content', 'width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover');
   /* dragging the page down while typing hides the keyboard, as in iOS apps */
   var y0 = null; document.addEventListener('touchstart', function (e) { y0 = e.touches.length === 1 ? e.touches[0].clientY : null; }, { passive: true });

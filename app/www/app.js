@@ -91,6 +91,7 @@
     requestAnimationFrame(function () { requestAnimationFrame(go); }); setTimeout(go, 2500); })();
   function show(signedIn) {
     $('signin').hidden = signedIn; $('app').hidden = !signedIn; $('tabs').hidden = !signedIn; $('connect').hidden = true;
+    if (signedIn) requestAnimationFrame(function () { var p = $('tabPill'); if (!p) return; p.style.transition = 'none'; movePill(); void p.offsetWidth; p.style.transition = ''; });
     splashOut();
   }
   /* Home ("ראשי") is the regular client board itself, so the app looks and works like the board clients know.
@@ -99,6 +100,12 @@
   /* 20/11 Richard: ראשי, מוזמנים and שליחות are three views of the regular board (home, guests, sends), so every
      setting works the way clients know it. With no network each tab falls back to the app's own slim screen. */
   var VIEW_OF = { board: 'home', guests: 'guests', sends: 'sends' }, view = 'home', curTab = 'board';
+  /* 26/11 the current tab's marker slides to the tapped tab (Apple's tab bar, Instagram) */
+  function movePill() {
+    var pill = $('tabPill'), on = document.querySelector('#tabs button.on'), bar = $('tabs'); if (!pill || !on || bar.hidden) return;
+    pill.style.width = on.offsetWidth + 'px'; pill.style.transform = 'translateX(' + on.offsetLeft + 'px)';
+  }
+  window.addEventListener('resize', movePill);
   function tab(name) {
     if (name === 'summary') name = 'board';
     curTab = name;
@@ -110,6 +117,7 @@
     }
     ['summary', 'guests', 'sends', 'board', 'account'].forEach(function (t) { $('v-' + t).hidden = t !== screen; });
     Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === name); });
+    movePill();
     window.scrollTo(0, 0);
     if (screen === 'board') openBoard();
     navTitle();
