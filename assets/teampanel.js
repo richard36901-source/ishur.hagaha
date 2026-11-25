@@ -230,7 +230,7 @@
       var mv = moves(it);
       if (mv.length) {
         var acts = el('div', 'tp-acts');
-        mv.forEach(function (m) { var b = el('button', 'tp-btn' + (m[0] === 'done' || m[0] === 'closed' ? ' tp-pri' : ''), m[1]); b.type = 'button'; b.addEventListener('click', function () { send({ action: 'status', id: it.id, to: m[0], text: ta.value.trim() }, b); }); acts.appendChild(b); });
+        mv.forEach(function (m) { var b = el('button', 'tp-btn' + (m[0] === 'done' || m[0] === 'closed' ? ' tp-pri' : ''), m[1]); b.type = 'button'; b.addEventListener('click', function () { if (cmp.busy()) { msg.textContent = 'רגע, הקבצים עוד עולים.'; return; } send({ action: 'status', id: it.id, to: m[0], text: ta.value.trim(), files: cmp.keys() }, b); }); acts.appendChild(b); });
         d.appendChild(acts);
       }
       (it.comments || []).forEach(function (c) {
@@ -550,7 +550,8 @@
       });
       ta.addEventListener('paste', function (e) {
         var fs = [].slice.call((e.clipboardData && e.clipboardData.files) || []);
-        if (!fs.length) return;
+        /* cells copied from Excel carry a picture of themselves too: text wins, only a bare image becomes a file */
+        if (!fs.length || (e.clipboardData.getData && e.clipboardData.getData('text/plain'))) return;
         e.preventDefault();
         var d = new Date(), pad = function (n) { return ('0' + n).slice(-2); };
         add(fs.map(function (f, i) {

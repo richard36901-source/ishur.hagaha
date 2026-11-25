@@ -264,9 +264,12 @@ export async function handleTeam(request, env, origin, d) {
     } else {
       const to = String(b.to || ''); const err = moveError(it, who, to);
       if (err) return d.okJson({ ok: false, error: err, item: it }, origin);
+      const rf = await resolveFiles(env, it, who, b.files);
+      if (rf.error) return d.okJson({ ok: false, error: rf.error }, origin);
       it.history = [...(it.history || []), { at, by: who, from: it.status, to }].slice(-100);
       it.status = to;
-      if (b.text) { const t = clean(b.text, 2000); if (t) { it.comments = [...(it.comments || []), { by: who, at, text: t }].slice(-MAX_COMMENTS); extra = t; } }
+      const t = clean(b.text, 2000);
+      if (t || rf.files.length) { it.comments = [...(it.comments || []), { by: who, at, text: t, ...(rf.files.length ? { files: rf.files } : {}) }].slice(-MAX_COMMENTS); extra = t || `${rf.files.length} קבצים מצורפים`; }
       if (it.from_note && (to === 'done' || to === 'closed') && NOTE_RE.test(it.from_note)) await closeNote(env, it.from_note, 'בוצע בפאנל הצוות').catch(() => false);
     }
     it.updated_at = at;

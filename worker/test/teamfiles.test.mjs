@@ -210,3 +210,15 @@ test('wired: a Google session uploads raw bytes, comments with the key and reads
   assert.equal(anon.status, 403);
   assert.ok([...env.RATE.m.keys()].some(k => k.startsWith('act:')), 'the upload and the writes are in her action log');
 });
+test('status with files: "בוצע" with a screenshot keeps the file on the comment; a bad key refuses the move', async () => {
+  const { env, id } = await setup();
+  const f = await upload(env, X, id, 'fixed.png', 20);
+  const bad = await team(env, X, { action: 'status', id, to: 'done', files: ['team/' + id + '/fzzzzzzzzzz-x.png'] });
+  assert.equal(bad.error, 'bad-file');
+  assert.equal(JSON.parse(env.RATE.m.get('teamissue:' + id)).status, 'open', 'nothing moved');
+  const ok = await team(env, X, { action: 'status', id, to: 'done', text: '', files: [f.file.key] });
+  assert.equal(ok.ok, true); assert.equal(ok.item.status, 'done');
+  assert.deepEqual(ok.item.comments.at(-1).files.map(x => x.name), ['fixed.png']);
+  const r = await fetchFile(env, S, f.file.key);
+  assert.equal(r.headers.get('Cache-Control'), 'private, no-store', 'the browser cache is keyed by URL, not by person');
+});

@@ -160,7 +160,7 @@ export async function handleTeamFile(request, env, origin, d) {
   const m = meta(o, key);
   const inline = INLINE.has(m.kind) && url.searchParams.get('dl') !== '1';
   const h = { ...(d.cors ? d.cors(origin) : {}), 'Content-Type': m.type, 'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(m.name)}`,
-    'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff' };
+    'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' };
   if (m.kind !== 'pdf') h['Content-Security-Policy'] = "default-src 'none'; sandbox";
   if (o.size) h['Content-Length'] = String(o.size);
   return new Response(o.body, { status: 200, headers: h });
