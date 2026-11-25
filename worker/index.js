@@ -2565,7 +2565,18 @@ async function writeCallResult(env, guestId, result, partySize) {
       ts: new Date().toISOString(),
     }),
   }).catch(() => null);
+  if (r && r.status === 200) await markFinalAnswer(env, guestId, result.rsvp);
   return !!r && r.status === 200;
+}
+
+/* 25/11 Richard ("לבדוק לפני כל שיחה יוצאת אם האורח אולי סימן... רק אם מתלבט או לא ענה לחייג"): the moment a final
+   answer is written, from any channel, the guest id is marked. The dialer reads this mark right before each dial, so
+   an answer given a minute ago stops the call even though the sheet snapshot it works from is older. */
+async function markFinalAnswer(env, guestId, rsvp) {
+  if (!env.RATE || !guestId) return;
+  const v = String(rsvp || '');
+  if (v === 'מגיע' || v === 'לא מגיע') await env.RATE.put('rsvpfinal:' + guestId, v, { expirationTtl: 120 * 86400 }).catch(() => {});
+  else if (v === 'מתלבט') await env.RATE.delete('rsvpfinal:' + guestId).catch(() => {});
 }
 
 async function trackCallCost(env, cents) {
@@ -3165,6 +3176,9 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
     const dayKey = `shirtry:${g.guest_id}:${day}`;
     if (await env.RATE.get(dayKey)) continue;
     /* 08/11: one new call at a time, ~1.5 s apart — the carrier also refuses bursts per second */
+    /* 25/11: the last look before the phone rings - a final answer written since the snapshot was read stops the call.
+       Only a call the team asked for by name goes through. */
+    if (await env.RATE.get('rsvpfinal:' + g.guest_id).catch(() => null) && !(await env.RATE.get('callforce:' + g.guest_id).catch(() => null))) { blocked++; continue; }
     if (dialed.length) await new Promise(res => setTimeout(res, Number(env.CALL_GAP_MS) || 1500));
     /* 24/11: the event's own addition to the first sentence (callintro:<token>, e.g. the parents' names) */
     if (!introCache.has(g.token)) introCache.set(g.token, introFor(await env.RATE.get('callintro:' + g.token).catch(() => null), day));
@@ -6160,6 +6174,7 @@ async function writeGuestReply(env, guest, outcome, party) {
     }),
   }).catch(() => null);
   const ok = !!r && r.status === 200;
+  if (ok) await markFinalAnswer(env, guest.guest_id, outcome);
   /* 20/11 client app: tell the event's client that a guest answered (off unless cfg:app_push = 1; never throws).
      Skipped when the client made the change themselves on the board. */
   if (ok && !guest.by_client) await appAnswerHook(env, { tokenRecord }, guest, outcome, party);
@@ -13108,6 +13123,7 @@ const WORKER = {
           corrected.push({ id, was: cur, to: to || 'ללא תשובה', again });
         });
         const okw = data.length ? await sheetBatchWrite(env, data) : true;
+        if (okw) await Promise.all(corrected.map(x => env.RATE.delete('rsvpfinal:' + x.id).catch(() => {})));
         if (okw) for (const it of (Array.isArray(b.records) ? b.records : []).slice(0, 100)) {
           const id = String((it && it.guest_id) || '').trim(), rsvp = String((it && it.rsvp) || '').trim(), party = Math.max(0, Math.min(30, parseInt(it && it.party, 10) || 0));
           const g = gRows.find(r => String((r || [])[2] || '').trim() === id);
@@ -13143,6 +13159,7 @@ const WORKER = {
         });
         const okw = data.length ? await sheetBatchWrite(env, data) : true;
         if (okw && data.length) await env.RATE.delete('snapcache').catch(() => {});
+        if (okw) await Promise.all(done.map(x => env.RATE.delete('rsvpfinal:' + x.id).catch(() => {})));
         await logEvent(env, { area: 'שיחות', action: 'תשובה שנרשמה בטעות בוטלה', ok: !!okw, review: !okw, token: tok, detail: `${done.length} אורחים · ${String(b.note || '').slice(0, 100)}` }).catch(() => {});
         return okJson({ ok: !!okw, reopened: done, skipped }, origin);
       }

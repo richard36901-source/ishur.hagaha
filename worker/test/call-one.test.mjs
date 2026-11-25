@@ -36,3 +36,13 @@ test('25/11 a guest with a final answer is never dialled, unless the team asked 
   const q = buildCallQueue({ events: { values: [ev] }, guests: { values: [mk('G-1', ''), mk('G-2', 'לא מגיע')] } }, 3, null).queue;
   assert.deepEqual(q.map(g => [g.guest_id, g.row, g.rsvp]), [['G-1', 2, ''], ['G-2', 3, 'לא מגיע']]);
 });
+
+test('25/11 the dialer looks for a final answer right before each dial, whatever the snapshot says', () => {
+  const loop = src.slice(src.indexOf('for (const g of queue) {\n    if (dialed.length >= cap) break;'));
+  const look = loop.indexOf("env.RATE.get('rsvpfinal:' + g.guest_id)"), dial = loop.indexOf("fetch('https://api.retellai.com/v2/create-phone-call'");
+  assert.ok(look > 0 && look < dial, 'the look comes before the dial');
+  assert.ok(loop.slice(look, look + 260).includes("'callforce:' + g.guest_id"));
+  assert.ok(src.includes("if (v === 'מגיע' || v === 'לא מגיע') await env.RATE.put('rsvpfinal:' + guestId, v"));
+  for (const fn of ['async function writeCallResult', 'async function writeGuestReply']) { const a = src.indexOf(fn); assert.ok(src.slice(a, a + 1100).includes('markFinalAnswer(env'), fn); }
+  assert.ok(src.includes("corrected.map(x => env.RATE.delete('rsvpfinal:' + x.id)") && src.includes("done.map(x => env.RATE.delete('rsvpfinal:' + x.id)"), 'an answer taken back frees the guest');
+});
