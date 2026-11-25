@@ -3,7 +3,9 @@
    second staging demo client. Needs the same STAGING_SECRETS and PLAYWRIGHT_PATH as test/app-check.mjs.
    Output: store/screenshots/ios-6.9/*.png */
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path'; import { fileURLToPath } from 'node:url';
-const HERE = path.dirname(fileURLToPath(import.meta.url)), WWW = path.join(HERE, '..', 'www'), OUT = path.join(HERE, '..', 'store', 'screenshots', 'ios-6.9');
+const HERE = path.dirname(fileURLToPath(import.meta.url)), WWW = path.join(HERE, '..', 'www'), OUT = path.join(HERE, '..', 'store', 'screenshots', process.env.SHOTS === 'android' ? 'android-phone' : 'ios-6.9');
+/* 25/11 SHOTS=android: Google Play phone screenshots, 1080x1920 (9:16; Play refuses taller than 2:1) */
+const VIEW = process.env.SHOTS === 'android' ? { width: 360, height: 640 } : { width: 440, height: 956 };
 const BASE = 'https://go-staging.ishur.io', PHONE = '0500000102', TOKEN = 'bbbbbbbb-0000-4000-8000-000000000002';
 const { chromium } = await import(process.env.PLAYWRIGHT_PATH || 'playwright');
 const key = fs.readFileSync(process.env.STAGING_SECRETS || path.join(HERE, '..', '..', 'worker', '.staging.secrets'), 'utf8').match(/^ADMIN_KEY=(.+)$/m)[1].trim();
@@ -18,7 +20,7 @@ try {
   const PIN = (await api('/api/client-pin', { admin_key: key, token: TOKEN })).pin;
   fs.mkdirSync(OUT, { recursive: true });
   const b = await chromium.launch({ channel: 'chrome' });
-  const p = await (await b.newContext({ viewport: { width: 440, height: 956 }, deviceScaleFactor: 3, locale: 'he-IL' })).newPage();
+  const p = await (await b.newContext({ viewport: VIEW, deviceScaleFactor: 3, locale: 'he-IL' })).newPage();
   const shot = n => p.screenshot({ path: path.join(OUT, n + '.png') });
   await p.goto('http://localhost:4180/'); await p.waitForSelector('#signin:not([hidden])');
   await p.fill('#phone', PHONE); await p.fill('#code', PIN); await p.click('#go');
