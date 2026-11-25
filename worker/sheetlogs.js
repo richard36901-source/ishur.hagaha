@@ -169,6 +169,18 @@ export async function ensureTab(env, tab) {
   return sheetId;
 }
 
+/* 25/11 the KV bill: a row / update key is written once and deleted after its flush, never changed. While the sheet
+   refuses rows (25/11 16:49Z → night: 458 rows waiting) every tick re-read all of them. This isolate keeps what it read. */
+const ROWMEMO = new WeakMap(); const ROWMEMO_MAX = 3000;
+async function getRowOnce(env, name) {
+  let m = ROWMEMO.get(env.RATE); if (!m) { m = new Map(); ROWMEMO.set(env.RATE, m); }
+  if (m.has(name)) return m.get(name);
+  const v = await env.RATE.get(name);
+  if (v) { m.set(name, v); while (m.size > ROWMEMO_MAX) m.delete(m.keys().next().value); }
+  return v;
+}
+const forgetRow = (env, name) => { const m = ROWMEMO.get(env.RATE); if (m) m.delete(name); };
+
 /* ── the flush: rows + updates → merged → one appendCells per tab ────────── */
 async function flushTab(env, tab) {
   const def = TABS[tab];
@@ -181,8 +193,8 @@ async function flushTab(env, tab) {
   /* updates first, grouped by id */
   const upd = new Map();
   for (const k of updKeys) {
-    const raw = await env.RATE.get(k.name); if (!raw) continue;
-    let u; try { u = JSON.parse(raw); } catch { await env.RATE.delete(k.name); continue; }
+    const raw = await getRowOnce(env, k.name); if (!raw) continue;
+    let u; try { u = JSON.parse(raw); } catch { forgetRow(env, k.name); await env.RATE.delete(k.name); continue; }
     const ts = Number(k.name.split(':')[3]) || now;
     if (!upd.has(u.id)) upd.set(u.id, []);
     upd.get(u.id).push({ key: k.name, ts, u });
@@ -192,8 +204,8 @@ async function flushTab(env, tab) {
   let held = 0;
   for (const k of rowKeys) {
     const ts = Number(k.name.split(':')[3]) || 0;
-    const raw = await env.RATE.get(k.name); if (!raw) continue;
-    let r; try { r = JSON.parse(raw); } catch { await env.RATE.delete(k.name); continue; }
+    const raw = await getRowOnce(env, k.name); if (!raw) continue;
+    let r; try { r = JSON.parse(raw); } catch { forgetRow(env, k.name); await env.RATE.delete(k.name); continue; }
     const pend = r.id ? (upd.get(r.id) || []) : [];
     /* a young row with no update yet may still get delivered/read — wait */
     if (now - ts < GRACE_S * 1000 && !pend.length) { held++; continue; }
@@ -230,7 +242,7 @@ async function flushTab(env, tab) {
     } }] },
   });
   if (!res || !Array.isArray(res.replies)) return { flushed: 0, why: 'append-failed', pending: rows.length };
-  for (const k of done) await env.RATE.delete(k).catch(() => {});
+  for (const k of done) { forgetRow(env, k); await env.RATE.delete(k).catch(() => {}); }   /* forgotten first: a listing that still shows a deleted key must find null, not the memo */
   return { flushed: rows.length, held };
 }
 
