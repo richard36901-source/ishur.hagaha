@@ -115,6 +115,8 @@ export function rowStateHe(row, ctx = {}) {
     return `בשליחה עכשיו${Number(s.sent_n) ? ' · נשלחו ' + s.sent_n : ''}`;
   }
   if (s.status === 'passed') return `המועד עבר (${dm(day)})`;
+  /* message rounds open at 09:00, calls at 10:00; the event-day / thank-you messages keep their own timing, so no hour */
+  if (s.key === 'event_day' || s.key === 'day_after') return `מתוזמן ל-${dm(day)}`;
   return `מתוזמן ל-${dm(day)} · מ-${call ? '10:00' : '09:00'}`;
 }
 
@@ -145,21 +147,18 @@ export async function handleCallsAddonDate(request, env, origin, d) {
   return d.okJson({ ok: true, date }, origin);
 }
 
-/* how many guests of one wave Meta reported delivered or read (wst:<token>:<n>:<phone>), cached 10 minutes so a board
-   refresh does not read every guest again */
+/* how many guests of one wave Meta reported delivered or read. Counted when the status arrives (the WhatsApp webhook
+   calls bumpDelivered once per guest, on the first delivered/read), so the board reads ONE key instead of every guest.
+   KV is not atomic: two statuses in the same instant can lose one count — this is a display number, not billing.
+   No counter (a wave sent before 25/11) → null, and the board says "N נשלחו" instead. */
 export async function deliveredCount(env, token, n) {
-  const ck = `wdlvc:${token}:${n}`;
-  const hit = await env.RATE.get(ck).catch(() => null);
-  if (hit != null && hit !== '') return Number(hit) || 0;
-  const names = [];
-  try { let cursor; do { const l = await env.RATE.list({ prefix: `wst:${token}:${n}:`, limit: 1000, cursor }); for (const k of l.keys || []) names.push(k.name); cursor = l.list_complete ? undefined : l.cursor; } while (cursor && names.length < 3000); } catch { return null; }
-  let c = 0;
-  for (let i = 0; i < names.length; i += 50) {
-    const vals = await Promise.all(names.slice(i, i + 50).map(k => env.RATE.get(k).catch(() => null)));
-    for (const v of vals) if (v === 'delivered' || v === 'read') c++;
-  }
-  await env.RATE.put(ck, String(c), { expirationTtl: 600 }).catch(() => {});
-  return c;
+  const v = await env.RATE.get(`wdlvn:${token}:${n}`).catch(() => null);
+  return v == null || v === '' ? null : Number(v) || 0;
+}
+export async function bumpDelivered(env, token, n) {
+  const k = `wdlvn:${token}:${n}`;
+  const cur = Number(await env.RATE.get(k).catch(() => 0)) || 0;
+  await env.RATE.put(k, String(cur + 1), { expirationTtl: 120 * 86400 });
 }
 
 /* 'YYYY-MM-DD HH:MM' (Israel) of the first wsent: key of a wave — its expiration minus the TTL it was written with */

@@ -190,3 +190,63 @@ test('board payload: rows carry state_he / sent_at / delivered_n, the stop and t
   assert.equal(d.sends.find(s => s.key === 'reminder').state_he, 'נעצר לבקשתכם');
   for (const s of d.sends) assert.equal(typeof s.state_he, 'string', s.key);
 });
+
+/* ── advisor follow-ups (25/11) ── */
+import vm from 'node:vm';
+import { deliveredCount, bumpDelivered } from '../send-plan.js';
+test('lift keeps what the team had set before the client pressed stop, and puts back the timed release', async () => {
+  const RATE = kv({ ['hold:' + TOK]: 'team', ['holdtill:' + TOK]: '2026-12-01' });
+  const d = stopDeps([], []);
+  await handleClientStop(req({ token: TOK, reason: 'other', note: NOTE, confirm: 'עצירה' }), { RATE }, '', d);
+  assert.ok(!RATE.m.has('holdtill:' + TOK));
+  const ld = { okJson, deny, isAdmin: (e, k) => k === 'K', logEvent: async () => {}, slackSend: async () => {} };
+  const j = await (await handleClientStopLift(req({ admin_key: 'K', token: TOK }), { RATE }, '', ld)).json();
+  assert.deepEqual(j.still, ['hold']);
+  assert.ok(RATE.m.has('hold:' + TOK), 'the team hold stays');
+  assert.equal(RATE.m.get('holdtill:' + TOK), '2026-12-01');
+  assert.ok(!RATE.m.has('callstop:' + TOK) && !RATE.m.has('sendsoff:' + TOK) && !RATE.m.has('clientstop:' + TOK));
+});
+test('delivered count: one key, bumped by the status webhook; none yet → null (the row says "נשלחו")', async () => {
+  const RATE = kv();
+  assert.equal(await deliveredCount({ RATE }, TOK, 1), null);
+  await bumpDelivered({ RATE }, TOK, 1); await bumpDelivered({ RATE }, TOK, 1);
+  assert.equal(await deliveredCount({ RATE }, TOK, 1), 2);
+  const src = fs.readFileSync(new URL('../index.js', import.meta.url), 'utf8');
+  assert.match(src, /\(st\.status === 'delivered' \|\| st\.status === 'read'\) && cur2 !== 'delivered' && cur2 !== 'read'\) await bumpDelivered\(env, m2\.token, m2\.wave \|\| 1\)/);
+  assert.equal(rowStateHe({ key: 'event_day', status: 'scheduled', date: '2026-12-20', auto: true }), 'מתוזמן ל-20/12');
+});
+function prefs(storage) {
+  const ctx = { window: { localStorage: storage } };
+  vm.runInNewContext(fs.readFileSync(new URL('../../assets/boardprefs.js', import.meta.url), 'utf8'), ctx);
+  return ctx.window.IshurBoardPrefs;
+}
+const memStore = () => { const m = {}; return { getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } }; };
+test('folded sections are remembered per device; blocked storage never breaks the page', () => {
+  const st = memStore();
+  const a = prefs(st);
+  a.setClosed('sendsCard', true); a.setClosed('guestsCard', true); a.setClosed('sendsCard', false);
+  assert.deepEqual([...prefs(st).closedList()], ['guestsCard'], 'a new page load on the same device reads it back');
+  const thrower = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); } };
+  const b = prefs(thrower);
+  assert.deepEqual([...b.closedList()], []);
+  b.setClosed('statusCard', true);
+  assert.equal(b.isClosed('statusCard'), true, 'kept in memory for this visit');
+  const c = prefs({ getItem: () => 'not json', setItem() {} });
+  assert.deepEqual([...c.closedList()], []);
+});
+test('the pick-a-date popup shows once per event and set of rounds, also without storage; "להגדיר" turns the pulse on', () => {
+  const st = memStore();
+  const a = prefs(st);
+  assert.equal(a.pickShouldShow(TOK, ['extra']), true);
+  assert.equal(a.pickShouldShow(TOK, ['extra']), false);
+  assert.equal(prefs(st).pickShouldShow(TOK, ['extra']), false, 'not again on this device');
+  assert.equal(a.pickShouldShow(TOK, ['extra', 'calls']), true, 'a new round to date asks again');
+  assert.equal(a.pickShouldShow(TOK, []), false);
+  const b = prefs({ getItem() { throw new Error('x'); }, setItem() { throw new Error('x'); } });
+  assert.equal(b.pickShouldShow(TOK, ['extra']), true); assert.equal(b.pickShouldShow(TOK, ['extra']), false, 'blocked storage: once per visit, not on every render');
+  assert.equal(a.pickPulse(TOK, ['extra']), false); a.setPickPulse(TOK, ['extra']); assert.equal(a.pickPulse(TOK, ['extra']), true);
+  const dash = fs.readFileSync(new URL('../../dashboard.html', import.meta.url), 'utf8');
+  assert.match(dash, /<script src="assets\/boardprefs\.js\?v=1"><\/script>/);
+  assert.match(dash, /if \(window\.IshurTour && IshurTour\.seen && !IshurTour\.seen\('dashboard'\)\) return;/);
+  assert.match(dash, /\.card\.sec-closed>:not\(\.card-h\)\{display:none!important\}/);
+});

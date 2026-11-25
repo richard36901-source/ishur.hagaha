@@ -770,7 +770,7 @@
       /* 25/11 track-board: only the team lifts the client's stop — sends, calls and the board state all come back */
       var cs = fl.client_stop || {};
       if (!(await askConfirm('הלקוח עצר את השליחות' + (cs.reason_he ? ' (' + cs.reason_he + ')' : '') + '. אחרי השחרור ההודעות והשיחות חוזרות לפי התכנון. כדאי לשחרר רק אחרי שיחה עם הלקוח.', { title: 'לשחרר את עצירת הלקוח?', ok: 'כן, לשחרר', danger: true }))) { b.disabled = false; return; }
-      p = api('client-stop-lift', { token: t }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { delete fl.client_stop; flags[t] = Object.assign(fl, { hold: false }); toast('העצירה שוחררה, השליחות חוזרות'); render(); } else toast('לא הצליח'); });
+      p = api('client-stop-lift', { token: t }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { delete fl.client_stop; flags[t] = Object.assign(fl, { hold: (j.still || []).indexOf('hold') >= 0 }); toast((j.still || []).length ? 'עצירת הלקוח שוחררה. ההקפאה שהצוות שם לפני כן נשארת' : 'העצירה שוחררה, השליחות חוזרות'); render(); } else toast('לא הצליח'); });
     } else if ((act === 'extrasend' || act === 'calls') && window.IshurAddRound) {
       /* 25/11 track-board: when (today-or-later / the client decides) and for whom, asked right away */
       var plan = await IshurAddRound.ask({ kind: act, name: e.name || '' });

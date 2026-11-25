@@ -661,6 +661,8 @@
   .card.sec-closed .sec-tog svg{transform:rotate(90deg)}
   /* the date the client still has to pick: a gentle pulse until it is set */
   @keyframes pickPulse{0%,100%{box-shadow:0 0 0 0 rgba(15,76,53,.35)}50%{box-shadow:0 0 0 6px rgba(15,76,53,0)}}
+  @keyframes pickPulseD{0%,100%{box-shadow:0 0 0 0 rgba(123,201,164,.55)}50%{box-shadow:0 0 0 6px rgba(123,201,164,0)}}
+  html[data-theme=dark] .send-edit.pulse{animation-name:pickPulseD}
   .send-edit.pick{border-color:var(--green);color:var(--green2);font-weight:600}
   .send-edit.pulse{animation:pickPulse 1.8s ease-in-out infinite}
   .pick-pop .dpop-ok{background:var(--green)}
@@ -1026,6 +1028,7 @@
 
 <script src="assets/select.js?v=19"></script>
 <script src="assets/datepicker.js?v=19"></script>
+<script src="assets/boardprefs.js?v=1"></script>
 <script src="assets/i18n.js?v=8" defer></script>
 <script>
 (function () {
@@ -1037,7 +1040,7 @@
      admin-phone 'sess.' session, never a raw key), every call to the worker carries it in x-ishur-staff so the action is
      recorded as the team's. It grants nothing; the worker ignores a value it can not verify. */
   var STAFF_SESS = '';
-  try { var ck0 = localStorage.getItem('ishur_calls_key') || ''; if (/^(us|sess)\./.test(ck0)) STAFF_SESS = ck0; } catch (e) {}
+  try { var ck0 = localStorage.getItem('ishur_calls_key') || ''; if (/^(us|sess)\./.test(ck0)) STAFF_SESS = ck0; else { var us0 = localStorage.getItem('ishur_session') || ''; if (/^us\./.test(us0)) STAFF_SESS = us0; } } catch (e) {}   /* next/login.html keeps the Google session in both keys */
   if (STAFF_SESS && window.fetch) (function () {
     var base = String(CFG.endpoint('status') || '').replace(/\/api\/status$/, '');
     var f0 = window.fetch;
@@ -2702,10 +2705,7 @@
      (4) "צריך לבחור מתי לשלוח" for a round the team added with "הלקוח יחליט".
      Everything goes through the worker (POST /api/client-stop, /api/send-date,
      /api/calls-addon-date) so the app can do the same. */
-  var LS = {
-    get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
-    set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
-  };
+  var BP = window.IshurBoardPrefs;   /* assets/boardprefs.js: per-device memory, safe without storage */
   function isCallKey(k) { return k === 'calls' || k === 'calls2' || /^calls_r\d$/.test(String(k || '')); }
   function postJson(name, payload) {
     return fetch(CFG.endpoint(name), { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -2714,9 +2714,8 @@
   }
 
   /* (2) folding sections */
-  var SEC_KEY = 'ishur_board_closed';
-  function closedList() { try { var a = JSON.parse(LS.get(SEC_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
-  function setClosed(id, on) { var a = closedList().filter(function (x) { return x !== id; }); if (on) a.push(id); LS.set(SEC_KEY, JSON.stringify(a)); }
+  function closedList() { return BP ? BP.closedList() : []; }
+  function setClosed(id, on) { if (BP) BP.setClosed(id, on); }
   function paintTog(sec, closed) {
     var tb = sec.querySelector('.sec-tog'); if (!tb) return;
     var host = tb.parentNode;   /* the title span (or the header itself), never the header's buttons */
@@ -2760,13 +2759,12 @@
   }, true);
 
   /* (4) a date the client has to pick */
-  function pickKey() { return 'ishur_pick:' + (token || 'demo') + ':' + (data.pick_date || []).join(','); }
-  function pickPulse() { return !!LS.get(pickKey() + ':pulse'); }
+  function pickPulse() { return !!(BP && BP.pickPulse(token, data.pick_date || [])); }
   function pickPrompt() {
     var p = data.pick_date || [];
-    if (!p.length || data.stop || eventIsOver() || !canMoveSends()) return;
-    if (LS.get(pickKey())) return;   /* once per device */
-    LS.set(pickKey(), '1');
+    if (!p.length || data.stop || eventIsOver() || !canMoveSends() || !BP || $('pickPop')) return;
+    if (window.IshurTour && IshurTour.seen && !IshurTour.seen('dashboard')) return;   /* never on top of the first-visit tour */
+    if (!BP.pickShouldShow(token, p)) return;   /* once per device (and once per visit without storage) */
     var row = (data.sends || []).filter(function (s) { return s.pick; })[0] || {};
     var bg = document.createElement('div'); bg.className = 'dpop-bg'; bg.id = 'pickBg';
     var box = document.createElement('div'); box.className = 'dpop pick-pop'; box.id = 'pickPop';
@@ -2779,7 +2777,7 @@
     bg.addEventListener('click', close);
     box.querySelector('[data-later]').addEventListener('click', close);
     box.querySelector('[data-go]').addEventListener('click', function () {
-      close(); LS.set(pickKey() + ':pulse', '1');
+      close(); BP.setPickPulse(token, data.pick_date || []);
       openSection($('sendsCard')); renderSends();
       var btn = $('sends').querySelector('.send-edit.pick');
       var target = btn || $('sendsCard');

@@ -19,7 +19,7 @@
    a team decision (event-flag cancel) after they talk to the client.
 
    POST /api/client-stop       {token, reason, note, confirm}  → {ok, stop}
-   POST /api/client-stop-lift  {admin_key, token, note?}       → {ok, lifted}
+   POST /api/client-stop-lift  {admin_key, token, note?}       → {ok, lifted, still:[hold|callstop|sendsoff the team had set before]}
    ========================================================================== */
 
 export const STOP_REASONS = {
@@ -53,6 +53,13 @@ export async function isClientStopped(env, token) { return !!(await clientStopOf
 /* the freeze itself, keys first — the alerts after it may fail, the stop may not */
 export async function applyClientStop(env, token, rec) {
   const at = rec.at || new Date().toISOString();
+  /* what the team had already set stays theirs: the lift removes only what the stop added and puts back the
+     timed release / release-on-approval it had to take away */
+  const had = [];
+  for (const k of ['hold:', 'callstop:', 'sendsoff:']) if (await env.RATE.get(k + token).catch(() => null)) had.push(k);
+  const restore = {};
+  for (const k of ['holdtill:', 'relonappr:']) { const v = await env.RATE.get(k + token).catch(() => null); if (v) restore[k] = v; }
+  rec = { ...rec, had, restore };
   await env.RATE.put('clientstop:' + token, JSON.stringify({ ...rec, at }), { expirationTtl: TTL });
   await env.RATE.put('hold:' + token, at, { expirationTtl: TTL });
   await env.RATE.put('callstop:' + token, JSON.stringify({ at, by: 'client', reason: 'עצירה מלוח הלקוח' }), { expirationTtl: TTL });
@@ -64,7 +71,10 @@ export async function applyClientStop(env, token, rec) {
 
 export async function liftClientStop(env, token) {
   const before = await clientStopOf(env, token);
-  for (const k of ['clientstop:', 'hold:', 'callstop:', 'sendsoff:']) await env.RATE.delete(k + token).catch(() => {});
+  const had = before && Array.isArray(before.had) ? before.had : [];
+  for (const k of ['hold:', 'callstop:', 'sendsoff:']) if (!had.includes(k)) await env.RATE.delete(k + token).catch(() => {});
+  for (const [k, v] of Object.entries((before && before.restore) || {})) if (k === 'holdtill:' || k === 'relonappr:') await env.RATE.put(k + token, String(v), { expirationTtl: 200 * 86400 }).catch(() => {});
+  await env.RATE.delete('clientstop:' + token).catch(() => {});
   await env.RATE.put('pacer:pending', new Date().toISOString().slice(0, 10), { expirationTtl: 86400 }).catch(() => {});
   return before;
 }
@@ -72,7 +82,7 @@ export async function liftClientStop(env, token) {
 /* what the board shows (no ip) */
 export function publicStop(rec) {
   if (!rec) return null;
-  return { at: rec.at || '', mode: rec.mode === 'cancel' ? 'cancel' : 'stop', reason: rec.reason || '', reason_he: STOP_REASONS[rec.reason] || '' };
+  return { at: rec.at || '', mode: rec.mode === 'cancel' ? 'cancel' : 'stop', reason: rec.reason || '', reason_he: STOP_REASONS[rec.reason] || '' };   /* never ip / note / had */
 }
 
 /* d: { json(request), okJson, deny, tokenRecord, overBudget, logEvent, slackSend, notifyEvent, eventName(token) } */
@@ -107,5 +117,5 @@ export async function handleClientStopLift(request, env, origin, d) {
   const before = await liftClientStop(env, token);
   await d.logEvent(env, { area: 'אירוע', action: 'עצירת הלקוח שוחררה ע"י הצוות', ok: true, token, detail: String(b.note || '').slice(0, 300) || (before ? before.reason_he || '' : 'לא הייתה עצירה') }).catch(() => {});
   await d.slackSend(env, `▶️ *עצירת הלקוח שוחררה* · אירוע ${token.slice(0, 8)}\n\nהשליחות והשיחות חוזרות לפי התכנון.`, { oneoff: true }).catch(() => {});
-  return d.okJson({ ok: true, lifted: !!before }, origin);
+  return d.okJson({ ok: true, lifted: !!before, still: before && Array.isArray(before.had) ? before.had.map(k => k.replace(':', '')) : [] }, origin);
 }

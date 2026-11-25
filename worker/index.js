@@ -111,7 +111,7 @@ import { JOB_TO_ID, AUTOMATIONS } from './automations-registry.js';
 import { readSnapshot, snapInfo, snapWhy, sheetWrite, drainSheetQueue, noteSheetWrite, noteHookWrite, markSnapDirty, makeStatus } from './snapshot.js';   /* 04/11 Make burn */
 import { handleClientStop, handleClientStopLift, clientStopOf, publicStop } from './client-stop.js';
 import { actorOf, actorLabel, boardActor } from './actor.js';   /* 25/11 track-board: who did it on the client board (team vs client, PIN vs link) */   /* 25/11 track-board: the client's red stop button */
-import { normAudience, audienceIncludes, parseAddon, dateGuard, ilHM, addonDialOk, addonDayReady, handleCallsAddonDate, deliveredCount, firstSentAt } from './send-plan.js';   /* 25/11 track-board: audience + day of an added round, the board's state line */
+import { normAudience, audienceIncludes, parseAddon, dateGuard, ilHM, addonDialOk, addonDayReady, handleCallsAddonDate, deliveredCount, bumpDelivered, firstSentAt } from './send-plan.js';   /* 25/11 track-board: audience + day of an added round, the board's state line */
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -3838,6 +3838,8 @@ async function handleWaWebhook(request, env, url) {
                 const k2 = `wst:${m2.token}:${m2.wave || 1}:${m2.phone}`;
                 const cur2 = await env.RATE.get(k2).catch(() => null);
                 if ((rank[st.status] || 0) >= (rank[cur2] || 0)) await env.RATE.put(k2, st.status, { expirationTtl: 120 * 86400 }).catch(() => {});
+                /* 25/11 track-board: the board's "412 נמסרו" — counted once per guest, when the message first reaches delivered/read */
+                if ((st.status === 'delivered' || st.status === 'read') && cur2 !== 'delivered' && cur2 !== 'read') await bumpDelivered(env, m2.token, m2.wave || 1).catch(() => {});
               }
               const e1 = (st.errors && st.errors[0]) || {};
               stream(env, { kind: 'wa_status', area: stab === 'msg_guests' ? 'שיר' : 'נועה', action: (st.status === 'read' ? '👁 נקרא' : st.status === 'delivered' ? '✓✓ נמסר' : st.status === 'failed' ? '⛔ נכשל' : '✓ ' + st.status) + ' · ' + String(st.recipient_id || ''), ok: st.status !== 'failed', review: st.status === 'failed', phone: String(st.recipient_id || ''), token: m2 && m2.token ? m2.token : '', detail: st.status === 'failed' ? `${e1.code || ''} ${e1.title || ''} ${(e1.error_data && e1.error_data.details) || ''}`.trim() : (cat || ''), data: { wamid: st.id, status: st.status, meta_ts: st.timestamp, wave: m2 ? m2.wave : '', pricing: st.pricing || null }, cost: st.status === 'delivered' && st.pricing && st.pricing.billable !== false ? ({ utility: 0.02, marketing: 0.13, authentication: 0.05, service: 0 }[String(st.pricing.category || '').toLowerCase()] ?? 0.02) : 0 }).catch(() => {});
@@ -5971,7 +5973,7 @@ async function auditClient(env, request, path, body) {
   await env.RATE.put(key, JSON.stringify(rec), { expirationTtl: 400 * 86400 });
   await env.RATE.put('auditlast:' + token, rec.hash, { expirationTtl: 400 * 86400 });
   const guestPath = path === '/api/rsvp-self' || (path === '/api/guest-rsvp' && !(actor && actor.kind === 'staff'));
-  stream(env, { kind: rec.actor_kind === 'admin-on-client' ? 'admin-on-client' : guestPath ? 'guest' : 'client', area: rec.actor_kind === 'admin-on-client' ? 'צוות בלוח לקוח' : guestPath ? 'אורח' : 'לקוח', action: (rec.actor_kind === 'admin-on-client' ? '🛠 ' + rec.actor + ' · ' : '👤 ' + (path === '/api/rsvp-self' ? '' : rec.actor + ' · ')) + rec.what, ok: true, token, phone: String(body.phone || ''), req: request, detail: rec.body.slice(0, 1500), data: { path, body: clean, chain_hash: rec.hash, posthog: String(body.ph || '').slice(0, 80), actor: rec.actor, via: rec.via || '', session: rec.session || '', staff: rec.staff || '' } }).catch(() => {});
+  stream(env, { kind: rec.actor_kind === 'admin-on-client' ? 'admin' : guestPath ? 'guest' : 'client'   /* audit.js keeps 12 chars of kind and the journal knows 'admin'; the detail kind is data.actor_kind */, area: rec.actor_kind === 'admin-on-client' ? 'צוות בלוח לקוח' : guestPath ? 'אורח' : 'לקוח', action: (rec.actor_kind === 'admin-on-client' ? '🛠 ' + rec.actor + ' · ' : '👤 ' + (path === '/api/rsvp-self' ? '' : rec.actor + ' · ')) + rec.what, ok: true, token, phone: String(body.phone || ''), req: request, detail: rec.body.slice(0, 1500), data: { path, body: clean, chain_hash: rec.hash, posthog: String(body.ph || '').slice(0, 80), actor: rec.actor, actor_kind: rec.actor_kind, via: rec.via || '', session: rec.session || '', staff: rec.staff || '' } }).catch(() => {});
 }
 async function auditExport(env, token, format) {
   const all = await kvPrefix(env, 'audit:' + token + ':');
@@ -11810,7 +11812,7 @@ const WORKER = {
                 /* 25/11 track-board: which staff member viewed, or how the client got in */
                 const va = await actorOf(env, request, peek, actorDeps()).catch(() => null);
                 const vStaff = va && va.kind === 'staff';
-                ctx.waitUntil(stream(env, { kind: vStaff ? 'admin-on-client' : 'client', area: vStaff ? 'צוות בלוח לקוח' : 'לקוח', action: vStaff ? `👁 ${actorLabel(va)} צפה בלוח הבקרה` : `👁 צפייה בלוח הבקרה · ${actorLabel(va)}`, ok: true, token: String(peek.token), req: request, data: { path: url.pathname, referer: request.headers.get('referer') || '', posthog: String(peek.ph || '').slice(0, 80), session: String(peek.ph_session || '').slice(0, 80), actor: actorLabel(va), via: va && !vStaff ? va.via : '', board_session: va && !vStaff ? va.session : '', staff: vStaff ? (va.email || va.name) : '' } }));
+                ctx.waitUntil(stream(env, { kind: vStaff ? 'admin' : 'client', area: vStaff ? 'צוות בלוח לקוח' : 'לקוח', action: vStaff ? `👁 ${actorLabel(va)} צפה בלוח הבקרה` : `👁 צפייה בלוח הבקרה · ${actorLabel(va)}`, ok: true, token: String(peek.token), req: request, data: { path: url.pathname, referer: request.headers.get('referer') || '', posthog: String(peek.ph || '').slice(0, 80), session: String(peek.ph_session || '').slice(0, 80), actor: actorLabel(va), actor_kind: vStaff ? 'admin-on-client' : 'client', via: va && !vStaff ? va.via : '', board_session: va && !vStaff ? va.session : '', staff: vStaff ? (va.email || va.name) : '' } }));
               }
             } else {
               ctx.waitUntil(auditClient(env, request, url.pathname, peek).catch(() => {}));
@@ -15497,7 +15499,7 @@ const WORKER = {
             /* 25/11 track-board: the time the wave started ("נשלח ב-25/11 10:12") from the keys this listing already has */
             sentWaves.sentAt = sentWaves.sentAt || {}; sentWaves.sentAt[n] = firstSentAt((l.keys || []).map(k => k.expiration), WSENT_TTL_S); } catch { sentWaves.count[n] = 0; }
           /* …and how many Meta reported delivered (cached 10 min) */
-          if (sentWaves.count[n]) { sentWaves.delivered = sentWaves.delivered || {}; sentWaves.delivered[n] = await deliveredCount(env, token, n).catch(() => null); }
+          if (sentWaves.count[n]) { sentWaves.delivered = sentWaves.delivered || {}; sentWaves.delivered[n] = await deliveredCount(env, token, n).catch(() => null); }   /* one key read; null → the row says "נשלחו" */
         }
         /* wave 3 is a paid add-on: the dashboard shows it only once Grow
            confirmed the payment (Richard 12/10) */
