@@ -1934,7 +1934,7 @@
           (over ? ' disabled title="' + OVER_HINT + '"' : '') + '>' +
           /* 25/11 Richard: a guest who confirmed can still be changed by hand (not coming / undecided / another count) */
           (over ? '' : '<button type="button" class="more more-c" data-id="' + esc(g.id) + '" aria-label="שינוי סטטוס">⋯</button>')
-        : (g.id && !over ? '<span class="tbl-sp"><button type="button" class="more" data-id="' + esc(g.id) + '" aria-label="עדכון ידני">⋯</button>' + (g.table ? '<span class="tbl-chip">' + esc(g.table) + '</span>' : '') + '</span>' : (anyConfirmedNow ? '<span class="tbl-sp">' + (g.table ? '<span class="tbl-chip">' + esc(g.table) + '</span>' : '') + '</span>' : ''));
+        : (g.id && !over ? '<span class="tbl-sp">' + (g.table ? '<span class="tbl-chip">' + esc(g.table) + '</span>' : '') + '</span><button type="button" class="more more-c" data-id="' + esc(g.id) + '" aria-label="עדכון ידני">⋯</button>' : (anyConfirmedNow ? '<span class="tbl-sp">' + (g.table ? '<span class="tbl-chip">' + esc(g.table) + '</span>' : '') + '</span>' : ''));
       var ck = data.checkin && data.checkin.enabled && g.id
         ? '<button type="button" class="chk' + (g.arrived ? ' on' : '') + '" data-ck="' + esc(g.id) + '" aria-label="סימון הגעה">' + (g.arrived ? '✓ ' + escH(g.arrived) : 'הגיע?') + '</button>'
         : '';
