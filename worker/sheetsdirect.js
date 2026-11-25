@@ -169,8 +169,9 @@ export async function eventsDirect(env, bodyText, fetcher = fetch) {
 /* ── the one door every BRAIN_HOOK / HOOK_EVENTS call goes through ───── */
 export async function sheetHookFetch(env, url, init = {}, fetcher = fetch) {
   const isBrain = !!url && url === env.BRAIN_HOOK, isEvents = !!url && url === env.HOOK_EVENTS;
-  if ((isBrain || isEvents) && await directOn(env)) {
-    const body = typeof (init && init.body) === 'string' ? init.body : '';
+  /* only a JSON text body is understood here; anything else goes to Make exactly as before (never a silent "ok") */
+  const body = init && typeof init.body === 'string' && init.body.trim().startsWith('{') ? init.body : null;
+  if ((isBrain || isEvents) && body !== null && await directOn(env)) {
     const r = await (isBrain ? brainDirect(env, body, fetcher) : eventsDirect(env, body, fetcher)).catch(() => respond(502, '{"error":"direct"}'));
     if (r) return r;
   }

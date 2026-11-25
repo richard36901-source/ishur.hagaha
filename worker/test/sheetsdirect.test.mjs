@@ -133,3 +133,10 @@ test('no file calls the Make sheet hooks around the one door', () => {
     assert.doesNotMatch(src, /[^.\w]fetch\(env\.(BRAIN_HOOK|HOOK_EVENTS)\b/, f);
   }
 });
+
+test('a body that is not JSON text goes to Make untouched, never a silent ok', async () => {
+  const env = envOf(); const f = fake([]);
+  await sheetHookFetch(env, env.HOOK_EVENTS, { method: 'POST', body: new URLSearchParams({ a: '1' }) }, f);
+  await sheetHookFetch(env, env.HOOK_EVENTS, { method: 'POST', body: '' }, f);
+  assert.deepEqual(f.calls.map(c => c.url), ['https://make/events', 'https://make/events']);
+});
