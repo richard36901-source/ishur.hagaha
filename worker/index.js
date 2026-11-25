@@ -27,7 +27,8 @@ import { parseGuestFile, guestsFromRows, nextGuestSeq } from './parse.js';
 import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf, isTestEventRow, planMaxCallTries } from './dashboard.js';
 import { logRow, logUpdate, flushSheetLogs, readTabTail, readTabAll, upsertClientRow, ilTime } from './sheetlogs.js';
 import { proxy as evProxy, appendTab, sheetId } from './evlog.js';
-import { installStagingGuard, wrapEmail, isStaging, isAllowedPhone } from './staging-guard.js';   /* dev-staging 12/11: staging never reaches a real guest */
+import { installStagingGuard, wrapEmail, isStaging, isAllowedPhone } from './staging-guard.js';
+import { meterEnv, beginInvocation, endInvocation, dailyRollup } from './kvmeter.js';   /* 25/11 the KV bill: every KV call counted by prefix, no extra reads */   /* dev-staging 12/11: staging never reaches a real guest */
 import { createInvoice, token as morningToken, invoiceTerms, HOSTESS_TERMS } from './invoice.js';
 import { safeCallParty, invitedFromCall } from './shir.js';   /* 23/11 headcount guard */
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, introFor, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
@@ -11657,10 +11658,10 @@ const WORKER = {
      off silently. The handler now also awaits every job it queued; a cron
      invocation may run up to 15 minutes. */
   async scheduled(event, env, ctx) {
-    installStagingGuard(env); env = wrapEmail(env);
-    const jobs = [];
+    installStagingGuard(env); env = meterEnv(wrapEmail(env));
+    const jobs = []; const meter = beginInvocation(env, 'cron ' + String(event.cron || ''));
     const inner = { waitUntil: p => { const q = Promise.resolve(p).catch(() => {}); jobs.push(q); ctx.waitUntil(q); } };
-    try { return await WORKER.scheduledMain(event, env, inner); } finally { await Promise.allSettled(jobs); }
+    try { return await WORKER.scheduledMain(event, env, inner); } finally { await Promise.allSettled(jobs); await endInvocation(env, meter).catch(() => {}); }
   },
   /* the morning run: reports (and, next stage, the guest sending waves) */
   async scheduledMain(event, env, ctx) {
@@ -11673,6 +11674,8 @@ const WORKER = {
     if (String(event.cron || '').startsWith('0 4 ')) {
       ctx.waitUntil(withRun(env, 'heartbeat', async () => {
         await checkTelnyx(env).catch(() => {});
+        /* 25/11 the KV bill: yesterday's KV calls, summed from every isolate's meter, into the one key kvmeter:<day> */
+        await dailyRollup(env, ilDate(new Date(Date.now() - 86400e3))).catch(() => {});
         if (env.RATE && !(await env.RATE.get('billcheck:' + ilDate()).catch(() => null))) {
           await env.RATE.put('billcheck:' + ilDate(), '1', { expirationTtl: 2 * 86400 }).catch(() => {});
           await checkBilling(env).catch(() => {});
@@ -11837,12 +11840,19 @@ const WORKER = {
      no content-type guessing (an uploaded file is never run as a page), and no full URL (tokens live in URLs)
      handed to other sites. A header a route already set is left as it is. */
   /* 16/11 login + users (auth.js): authGate is the one place a user session is accepted (and, only when KV cfg:auth_enforce = 'on', where a bare shared key from a browser is refused). No session and switch off = the same request, untouched. */
-  async fetch(request, env, ctx) { installStagingGuard(env); env = wrapEmail(env); const g = await authGate(request, env, ctx, { isRead: (p, m, b) => homeReadOk(p, m, b) || quietRead(p, b) }); if (g.response) return hardenResponse(g.response);
-    /* 25/11 team-log.js: a signed-in user's successful change → one line in words on the users page */
-    const tq = g.user && g.request.method === 'POST' && describedPath(new URL(g.request.url).pathname, CHANGE_ROUTES) ? g.request.clone() : null;
-    const res = await changeWrap(g.request, env, rq => WORKER.fetchMain(rq, env, ctx));
-    if (tq && res && res.ok) { const job = teamActionAfter(env, { path: new URL(g.request.url).pathname, reqClone: tq, resClone: res.clone(), user: g.user, changeRoutes: CHANGE_ROUTES }).catch(() => {}); if (ctx && ctx.waitUntil) ctx.waitUntil(job); }
-    return hardenResponse(res); },
+  async fetch(request, env, ctx) {
+    installStagingGuard(env); env = meterEnv(wrapEmail(env));
+    const meter = beginInvocation(env, request.method + ' ' + new URL(request.url).pathname.replace(/[0-9a-f-]{20,}|\d{6,}/gi, '#'));
+    const done = () => { const p = endInvocation(env, meter).catch(() => {}); try { ctx.waitUntil(p); } catch {} };
+    try {
+      const g = await authGate(request, env, ctx, { isRead: (p, m, b) => homeReadOk(p, m, b) || quietRead(p, b) }); if (g.response) return hardenResponse(g.response);
+      /* 25/11 team-log.js: a signed-in user's successful change → one line in words on the users page */
+      const tq = g.user && g.request.method === 'POST' && describedPath(new URL(g.request.url).pathname, CHANGE_ROUTES) ? g.request.clone() : null;
+      const res = await changeWrap(g.request, env, rq => WORKER.fetchMain(rq, env, ctx));
+      if (tq && res && res.ok) { const job = teamActionAfter(env, { path: new URL(g.request.url).pathname, reqClone: tq, resClone: res.clone(), user: g.user, changeRoutes: CHANGE_ROUTES }).catch(() => {}); if (ctx && ctx.waitUntil) ctx.waitUntil(job); }
+      return hardenResponse(res);
+    } finally { done(); }
+  },
   async fetchMain(request, env, ctx) {
     const origin = request.headers.get('Origin') || '';
     const url = new URL(request.url);
