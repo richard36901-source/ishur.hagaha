@@ -73,8 +73,12 @@ test('schema.sql: every mirror column the module writes exists with the declared
   for (const t of ['sends', 'calls', 'messages', 'answers_history', 'team_items', 'mirror_runs']) assert.ok(d.db.prepare(`PRAGMA table_info(${t})`).all().length, t);
   const idx = d.db.prepare("SELECT name FROM sqlite_master WHERE type='index'").all().map(r => r.name);
   for (const i of ['guests_token_rsvp', 'guests_phone', 'events_phone', 'sends_day', 'calls_day', 'messages_phone_at', 'messages_day']) assert.ok(idx.includes(i), i);
-  /* migration 0001 is the same SQL */
-  assert.equal(fs.readFileSync(path.join(HERE, '..', 'd1', 'migrations', '0001_init.sql'), 'utf8'), SCHEMA);
+  /* the migrations, applied in order, build exactly what schema.sql builds */
+  const mig = new DatabaseSync(':memory:');
+  const dir = path.join(HERE, '..', 'd1', 'migrations');
+  for (const f of fs.readdirSync(dir).filter(x => x.endsWith('.sql')).sort()) mig.exec(fs.readFileSync(path.join(dir, f), 'utf8'));
+  const shape = x => x.prepare("SELECT type, name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name").all().map(r => ({ ...r, sql: String(r.sql || '').replace(/\s+/g, ' ') }));
+  assert.deepEqual(shape(mig), shape(d.db));
 });
 
 test('first pass writes every row with typed columns; a second identical pass is idempotent and writes NOTHING', async () => {
@@ -163,14 +167,22 @@ test('reconcile: counts sheet vs D1 match after the full pass and the Slack line
   assert.equal(rep.ok, true);
   assert.deepEqual(rep.counts.guests, { sheet: 40, d1: 40, match: true });
   assert.deepEqual(rep.counts.events, { sheet: 2, d1: 2, match: true });
-  assert.equal(posted.length, 1); assert.match(posted[0], /guests: גיליון 40 · D1 40/);
+  assert.equal(posted.length, 1); assert.match(posted[0], /guests: גיליון 40 · D1 לפני 0 · אחרי 40/);
+  assert.equal(rep.clean, false, 'the first pass had everything to write'); assert.equal(rep.drift, 44);
+  const quiet = await reconcile(e, sheet(), { slackPost });
+  assert.equal(quiet.clean, true); assert.equal(quiet.drift, 0, 'incremental path left nothing to heal');
   /* a row written behind the mirror's back (or a delete the guard refused) shows as a gap */
   e.DB.db.prepare("INSERT INTO guests (key, raw, hash, first_seen, updated_at) VALUES ('stray', '[]', 'x', 'now', 'now')").run();
   const c = await counts(e, sheet());
   assert.deepEqual(c.guests, { sheet: 40, d1: 41, match: false });
   /* …which the next full pass heals (stray is not in the sheet → soft-deleted) */
   const rep2 = await reconcile(e, sheet(), { slackPost });
-  assert.equal(rep2.ok, true); assert.equal(rep2.mirror.tabs.guests.deleted, 1);
+  assert.deepEqual(rep2.before.guests, { sheet: 40, d1: 41, match: false }, 'the drift is measured BEFORE the full pass heals it');
+  assert.equal(rep2.ok, true); assert.equal(rep2.clean, false); assert.equal(rep2.mirror.tabs.guests.deleted, 1);
+  /* a stale row the incremental path missed (edited behind its back) is also drift */
+  e.DB.db.prepare("UPDATE guests SET hash='stale' WHERE key='G-9'").run();
+  const rep3 = await reconcile(e, sheet(), { slackPost, quiet: true });
+  assert.equal(rep3.drift, 1); assert.equal(rep3.clean, false); assert.equal(rep3.before.guests.match, true, 'counts alone would have missed it');
 });
 
 test('flag off / no DB: nothing happens, and without DB not even a KV read', async () => {

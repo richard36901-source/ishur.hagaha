@@ -12,7 +12,7 @@ Two billing rules matter for this plan:
 
 | # | What | Production reads from | Off switch |
 |---|---|---|---|
-| 1 | **Mirror.** Each snapshot refresh upserts only the changed sheet rows into D1. A nightly full pass reconciles row counts and posts them to Slack. | the sheet (unchanged) | KV `cfg:d1_mirror` off, or remove the `DB` binding |
+| 1 | **Mirror.** Each snapshot refresh upserts only the changed sheet rows into D1. A nightly full pass reconciles row counts (before and after healing) and posts them to Slack. | the sheet (unchanged) | KV `cfg:d1_mirror` off, or remove the `DB` binding |
 | 2 | **Dual-write + nightly diff.** Every writer that touches the sheet or a KV marker also writes D1 (sends, calls, messages, answers, team items). A nightly job diffs D1 against sheet+KV field by field and posts the diffs. | the sheet + KV (unchanged) | `cfg:d1_dual` off |
 | 3 | **Readers switch, one area at a time,** each behind its own flag: `d1_read_board` (client board), `d1_read_send` (pacer/waves), `d1_read_dial` (Shir dialer), `d1_read_ops` (admin screens), `d1_read_log` (answers log / inbox). The sheet stays the write target, and the diff from phase 2 keeps running. | D1 for the switched areas | each `d1_read_*` flag |
 | 4 | **The sheet becomes a nightly export.** D1 is the source of truth. A nightly job writes events/guests/leads back to the sheet for humans, and the sheet's hand edits stop flowing in. | D1 | `cfg:d1_primary` off, plus a reverse import (below) |
@@ -78,7 +78,7 @@ The KV side is what saves money. kvmeter's `kvmeter:<day>` top prefixes pick the
 
 ## What Richard approves at each gate
 
-1. **Gate 1, mirror to production.** Staging has run ≥3 nightly reconciles with all three counts matching. Then approve:
+1. **Gate 1, mirror to production.** Staging has no crons, so the nightly job cannot run there. The gate is instead ≥3 hand-run `reconcile` calls on staging, on different days, each with `clean: true`. Clean means the counts matched **before** the full pass and the full pass wrote and deleted 0 rows. Then approve:
    - creating `ishur-main`
    - adding the binding to production
    - turning `cfg:d1_mirror` on
@@ -100,6 +100,17 @@ The KV side is what saves money. kvmeter's `kvmeter:<day>` top prefixes pick the
 3. **Gate 3, per area.** A week of zero nightly diffs for that area. Approve each `d1_read_*` flag separately, starting with the board, the lowest risk.
 4. **Gate 4, sheet becomes export.** All areas on D1 for 2 weeks. Approve the end of hand edits in the sheet; the team edits through the admin screens instead.
 
+## Staging runbook (after the lead deploys staging)
+
+1. Turn the flag on in the staging KV:
+   ```
+   node -e "import('./worker/scripts/staging-seed.mjs').then(m=>m.kv({'cfg:d1_mirror':{value:'on'}})).then(r=>console.log(r.status))"
+   ```
+   `cfg:d1_mirror` is not in the cfg.js whitelist on purpose: the ops screen cannot flip it.
+2. Do the first backfill with `POST https://go-staging.ishur.io/api/d1-mirror {"admin_key":…, "action":"reconcile"}`. Use `reconcile`, not `sync`: `sync` caps at 3,000 statements, and the refresh hook waits only 2 s.
+3. Check with `{"action":"status"}`. It shows the counts and the last 10 runs.
+4. On later days, run `{"action":"reconcile"}` and expect `clean: true` and `drift: 0`.
+
 ## Phase 1 as built (track-d1, 26/11)
 
 - **`worker/d1mirror.js`**:
@@ -114,3 +125,6 @@ The KV side is what saves money. kvmeter's `kvmeter:<day>` top prefixes pick the
   - `sheet_row` is informational. A row that only moved is not rewritten, so its `sheet_row` may lag.
   - The `sync`/`reconcile` route mirrors the snapshot the reader holds, which includes the overlay patches of the last 15 minutes.
   - Unnamed columns keep their letters until the headers are confirmed.
+  - The hash memo is per isolate. Suppose isolate A writes a change and the row is reverted in the sheet before isolate A refreshes again. Isolate B, whose memo still says "unchanged", does not rewrite it. That row stays stale in D1 until the nightly full pass, and the same holds for a delete followed by a revive. The nightly `drift` number shows exactly these cases.
+  - Isolates also re-write each other's rows, because each one learns D1's state only from its own passes or a cold load. The write estimate above is therefore a lower bound; ×2–3 still leaves it under 5% of the included writes.
+  - Side finding, not changed here: `noteHookWrite` in snapshot.js patches party into column 16, while sheetsdirect.js `CALL_COLS` and the boards use column 13.

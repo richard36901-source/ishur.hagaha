@@ -213,7 +213,9 @@ export async function mirrorAfterRefresh(env, raw) {
   if (!env || !env.DB) return null;
   const copy = copyTabs(raw);
   const work = (async () => (await mirrorOn(env)) ? mirrorSnapshot(env, copy) : null)().catch(() => null);
-  return Promise.race([work, new Promise(r => setTimeout(() => r({ ok: false, waiting: true }), REFRESH_WAIT_MS))]);
+  let timer;
+  const wait = new Promise(r => { timer = setTimeout(() => r({ ok: false, waiting: true }), REFRESH_WAIT_MS); });
+  try { return await Promise.race([work, wait]); } finally { clearTimeout(timer); }
 }
 
 /* row counts, sheet vs D1 (live rows only) */
@@ -228,8 +230,8 @@ export async function counts(env, raw) {
 }
 
 export function reconcileText(rep) {
-  const line = t => { const c = rep.counts[t], x = rep.mirror.tabs ? rep.mirror.tabs[t] : null;
-    return `${c.match ? '✅' : '⚠️'} ${t}: גיליון ${c.sheet ?? '—'} · D1 ${c.d1 ?? '—'}` + (x ? ` · נכתבו ${x.upserted} · נמחקו ${x.deleted}` + (x.dupes ? ` · כפולים ${x.dupes}` : '') + (x.guard ? ` · ${x.guard}` : '') : ''); };
+  const line = t => { const c = rep.counts[t], b = rep.before ? rep.before[t] : null, x = rep.mirror.tabs ? rep.mirror.tabs[t] : null;
+    return `${c.match && (!b || b.match) ? '✅' : '⚠️'} ${t}: גיליון ${c.sheet ?? '—'} · D1 לפני ${b ? b.d1 ?? '—' : '—'} · אחרי ${c.d1 ?? '—'}` + (x ? ` · נכתבו ${x.upserted} · נמחקו ${x.deleted}` + (x.dupes ? ` · כפולים ${x.dupes}` : '') + (x.guard ? ` · ${x.guard}` : '') : ''); };
   return `🗄️ *מראת D1 · בדיקת לילה*\n${TABLES.map(line).join('\n')}` + (rep.mirror.ok ? '' : `\nהמעבר נכשל: ${rep.mirror.error || rep.mirror.skipped || ''}`);
 }
 
@@ -239,9 +241,12 @@ export async function reconcile(env, raw, deps = {}) {
   if (!deps.ignoreFlag && !(await mirrorOn(env))) return { ok: false, skipped: 'off' };
   if (!raw) return { ok: false, skipped: 'no-snapshot' };
   const copy = copyTabs(raw);
+  /* before = what the incremental path left (the real check); after = once the full pass has healed it */
+  const before = await counts(env, copy);
   const mirror = await mirrorSnapshot(env, copy, { force: true, maxWrites: deps.maxWrites || 20000 });
   const c = await counts(env, copy);
-  const rep = { ok: mirror.ok && TABLES.every(t => c[t].match), mirror, counts: c };
+  const drift = TABLES.reduce((n, t) => n + ((mirror.tabs && mirror.tabs[t]) ? mirror.tabs[t].upserted + mirror.tabs[t].deleted : 0), 0);
+  const rep = { ok: mirror.ok && TABLES.every(t => c[t].match), clean: mirror.ok && drift === 0 && TABLES.every(t => before[t].match), drift, mirror, before, counts: c };
   if (deps.slackPost && !deps.quiet) await deps.slackPost(env, reconcileText(rep), { oneoff: true }).catch(() => {});
   return rep;
 }
@@ -259,7 +264,7 @@ export async function status(env) {
 /* POST /api/d1-mirror {admin_key, action:'status'|'sync'|'reconcile'}
    status    → {ok, bound, flag, counts:{events,guests,leads}, runs:[{at,kind,upserted,deleted,ms,note}]}
    sync      → {ok, changed, tabs:{<tab>:{sheet,upserted,deleted,unchanged,dupes,capped,guard}}, ms}   (works with the flag off: a hand-run)
-   reconcile → {ok, mirror, counts:{<tab>:{sheet,d1,match}}} and the Slack line                       (works with the flag off)
+   reconcile → {ok, clean, drift, mirror, before:{<tab>:{sheet,d1,match}}, counts:{…after}} and the Slack line (clean = nothing to heal)                       (works with the flag off)
    503 not-configured when the Worker has no DB binding (production in phase 1). */
 export async function handleD1Mirror(request, env, origin, d) {
   let b = {}; try { b = await request.json(); } catch { return d.deny(400, 'bad-json', origin); }
