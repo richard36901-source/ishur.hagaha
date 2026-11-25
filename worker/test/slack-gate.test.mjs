@@ -93,7 +93,9 @@ test('sweep: open keys under a prefix that are not active any more close (one li
 });
 
 /* ── 3. slackSend is the choke point ── */
-test('slackSend with a key: first posts, repeats are silent, slackResolve posts "✅ נפתר"; oneoff always posts; no key → auto key dedupes', async () => {
+test('slackSend with a key: first posts, repeats are silent, slackResolve posts "✅ נפתר"; oneoff always posts; no key → auto key dedupes', async (t) => {
+  /* 25/11 (Richard OK'd): this test reads the real clock and failed every evening; it runs at a fixed weekday 11:00 Israel time. What it checks is unchanged. */
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-25T09:00:00Z') });
   const e = env();
   const o = { key: '131042:4499', urgent: true, sev: 'P1', action: 'להוסיף אמצעי תשלום ב-WhatsApp Manager' };
   await slackSend(e, '🚨 *בעיית תשלום בחשבון מטא (131042)* · נועה לא שולחת', o);
@@ -169,7 +171,9 @@ test('runNotify sweep: a standing key that stopped appearing closes; the brain-o
 });
 
 /* ── 5. the brain through the REAL slackSend: dedupe across reporters, CLOSE on resolve ── */
-test('brain pacer_tick: the 6-hour re-alert is silenced by the gate (one Slack line), resolution posts one "נפתר" on the shared key', async () => {
+test('brain pacer_tick: the 6-hour re-alert is silenced by the gate (one Slack line), resolution posts one "נפתר" on the shared key', async (t) => {
+  /* 25/11 (Richard OK'd): this test reads the real clock and failed every evening; it runs at a fixed weekday 11:00 Israel time. What it checks is unchanged. */
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-25T09:00:00Z') });
   const now = T0;
   const e = { ...env({ 'pacer:last': J({ at: new Date(now - 40 * MIN).toISOString() }) }), WA_TOKEN_GUESTS: 'gt', WA_TOKEN: 'ct' };
   const d = { ilDate: dt => G.ilDay(dt), guestPhoneIds: () => ['A'], clientPhoneId: () => 'N', clientWaba: () => 'CW', clientToken: () => 'ct', sendingPaused: async () => false, sendWindowState: () => ({ open: true }),
