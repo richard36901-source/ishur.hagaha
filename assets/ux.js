@@ -164,7 +164,9 @@
       var net = origFetch(url, opts).then(function (r) {
         if (r.ok) {
           return r.clone().text().then(function (t) {
-            try { if (t !== cached) { dirty = true; sessionStorage.setItem(k, t); } } catch (e) {}
+            /* 26/11 track-speed: only a page that was SHOWN an older copy is told to repaint. With no copy the page
+               got this very answer, and 'ishur:fresh' made every admin page and the client board load twice. */
+            try { if (t !== cached) { if (cached != null) dirty = true; sessionStorage.setItem(k, t); } } catch (e) {}
             return r;
           });
         }

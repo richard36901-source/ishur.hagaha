@@ -8,7 +8,9 @@
 (function () {
   'use strict';
   if (window.__ishurLite) return; window.__ishurLite = true;
-  var READS = ['status', 'leads', 'wave-audit', 'cap-status', 'call-board', 'evlog', 'ads-health', 'feedback-list', 'client-flags', 'calendar', 'send-board', 'ops-stats', 'traffic', 'campaign-stats', 'cost-log', 'shir-calls', 'template-stats', 'calls-log', 'inbox', 'board-event', 'template-text', 'msg-stats', 'brain-toggle', 'pause', 'fixedcost', 'addon-quote', 'leads-board', 'floor'];
+  var READS = ['status', 'leads', 'wave-audit', 'cap-status', 'call-board', 'evlog', 'ads-health', 'feedback-list', 'client-flags', 'calendar', 'send-board', 'ops-stats', 'traffic', 'campaign-stats', 'cost-log', 'shir-calls', 'template-stats', 'calls-log', 'inbox', 'board-event', 'template-text', 'msg-stats', 'brain-toggle', 'pause', 'fixedcost', 'addon-quote', 'leads-board', 'floor',
+    /* 26/11 track-speed: the clients page tabs (the same reads batch.js already carries) open from the last copy too */
+    'referrals', 'partner/list', 'design-list', 'staff'];
   var MUTATING_KEYS = ['action', 'mode', 'set', 'on', 'date', 'order', 'text', 'assignments', 'payload', 'blocked', 'paused', 'update', 'delete', 'send', 'template', 'to'];
   var STRIP = ['sig', 'nonce', 'stamp_ts', 'app', 'admin_key'];
   var PREFIX = 'lite:', MAX_AGE = 6 * 3600e3, MAX_BYTES = 300000;

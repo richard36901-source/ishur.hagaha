@@ -57,7 +57,8 @@ import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safe
 import { authGate, handleAuth, isSessionToken, readSession, getUser } from './auth.js';
 import { quietRead, teamActionAfter, describedPath } from './team-log.js';
 import { alertDateSet, hostessReminders, arrivalOf } from './hostess-alerts.js';
-import { SWR_ROUTES, swrServe } from './swr.js';
+import { swrHook, swrBust, OVERVIEW } from './swr.js';
+import { clientFlags } from './speed.js';   /* 26/11 track-speed: + the overview reads, swrBust on an admin change */
 import { handleCallers } from './callers.js';
 import { handleTeam, loadItem as teamLoadItem, canComment as teamCanComment } from './teamissues.js';
 import { handleTeamUpload, handleTeamFile } from './teamfiles.js';   /* 26/11 files on team items (R2 team/…) */   /* 25/11 team issues panel + roles (teamissues.js, roles.js) */
@@ -11566,6 +11567,11 @@ function opsDeps() {
     markCallResult: async (e, gid, outcome, tries) => { const res = callOutcome(outcome, tries); if (!res) return null; return { ok: await writeCallResult(e, gid, res, null), ...res }; } };
 }
 /* 25/11 future-log.js / guest-card.js: the ops deps + the wave template the sender would pick now */
+/* 26/11 track-speed: what swr.js swrHook needs from here */
+function swrDeps() { return { isAdmin, cors, isRead: (p, b) => quietRead(p, b), fetchMain: (r, e, c) => WORKER.fetchMain(r, e, c) }; }
+/* admin read routes that are not on the batch list but are polled by the pages (inbox: callers every 60 s; leads: playbook) —
+   never "a change" for the overview copies */
+const SWR_READS = new Set(['/api/callers', '/api/playbook']);
 function futureDeps() {
   return { ...opsDeps(), callsAddonTokens: e => callsAddonTokens(e),
     inviteTemplateFor: async (env, token) => {
@@ -11942,6 +11948,13 @@ const WORKER = {
       }));
       return okJson({ ok: true, results }, origin);
     }
+    /* 26/11 track-speed: changes routed before the audit tap that feed an overview board — a call round (call board),
+       a guest-card change (answers log) — drop the overview copies too (swr.js). Admin only. */
+    if (request.method === 'POST' && (url.pathname === '/api/ops/call-round' || url.pathname === '/api/guest-card')) {
+      const pk = await request.clone().json().catch(() => null);
+      const key = request.headers.get('x-admin-key') || (pk && pk.admin_key) || '';
+      if (isAdmin(env, key) && (url.pathname === '/api/ops/call-round' || !quietRead(url.pathname, pk))) await swrBust(env);
+    }
     /* 03/11 edit-in-place: the cron-driven settings also bind the ops routes and the manual send routes */
     if (url.pathname.startsWith('/api/ops/') || CFG_ROUTES.has(url.pathname)) env = await withCfg(env).catch(() => env);
     /* 03/11 ops control center (ops.js) — admin_key or an admin session stamp */
@@ -11952,6 +11965,8 @@ const WORKER = {
     if (url.pathname === '/webhooks/monday-tried-reach') return handleMondayReach(request, env, url, opsDeps(), { store: crmStoreOrNull(env) });   /* 25/11 monday button → "ניסינו להשיג" */
     if (url.pathname.startsWith('/api/crm/')) return handleCrm(request, env, origin, url, crmDeps(ctx));
     /* 25/11 Richard: the answers log - every guest's answer, how it was given, and the proof (WhatsApp lines / call recording) */
+    /* 26/11 track-speed: the answers log and the future log are routed before the shared hook below; same copy rules */
+    if (url.pathname === '/api/answers-log' || url.pathname === '/api/future-log') { const sw = await swrHook({ request, url, env, ctx, origin, deps: swrDeps() }); if (sw) return sw; }
     if (url.pathname === '/api/answers-log' && request.method === 'POST') {
       return handleAnswersLog(request, env, origin, { adminKeyOk: (e, k) => adminKeyOk(e, k), okJson, deny, normPhone, ilDate, logEvent,
         readSnapshot: e => readSnapshot(e, 'write'), auditQuery: (e, q) => audit.query(e, q), recordingLink: (e, id, days) => audit.recordingLink(e, id, days),
@@ -11995,6 +12010,8 @@ const WORKER = {
           }
           /* 01/11: the board polls hold/extra state every few seconds; a READ (no 'on') is not an action and was flooding the journal */
           const readOnlyFlag = url.pathname === '/api/event-flag' && peek && typeof peek.on !== 'boolean';
+          /* 26/11 track-speed: an admin CHANGE drops the overview copies (swr.js), so the board read after it is fresh */
+          if (peek && peek.admin_key && !readOnlyFlag && !quietRead(url.pathname, peek) && !homeReadOk(url.pathname, 'POST', peek) && !OVERVIEW[url.pathname] && !SWR_READS.has(url.pathname) && isAdmin(env, peek.admin_key)) await swrBust(env);
           if (peek && peek.admin_key && !readOnlyFlag && !quietRead(url.pathname, peek) && isAdmin(env, peek.admin_key)) {
             const ua = String(request.headers.get('User-Agent') || '');
             const who = /curl|python|node/i.test(ua) ? 'Claude' : 'דפדפן';
@@ -12446,16 +12463,7 @@ const WORKER = {
     }
     /* 16/11: the heavy admin reads answer at once from the last result and rebuild behind the response (swr.js).
        Only for a request that carries a valid admin key; anything else falls through to the route as before. */
-    if (request.method === 'POST' && SWR_ROUTES[url.pathname] && !request.headers.get('x-swr-inner') && String(env.SWR_OFF || '') !== '1') {
-      let sb = null, stext = '';
-      try { stext = await request.clone().text(); sb = JSON.parse(stext); } catch { sb = null; }
-      if (sb && isAdmin(env, sb.admin_key)) {
-        const hit = await swrServe({ pathname: url.pathname, body: sb, env, ctx, produce: async () => {
-          const r = await WORKER.fetchMain(new Request(request.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-swr-inner': '1', ...(origin ? { Origin: origin } : {}) }, body: stext }), env, ctx);
-          if (r.status !== 200) return null; const t = await r.text(); return /^\s*\{[\s\S]*"ok"\s*:\s*true/.test(t.slice(0, 400)) ? t : null; } }).catch(() => null);
-        if (hit) return new Response(hit.text, { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'x-ishur-age': String(Math.round(hit.age_ms / 1000)), ...cors(origin) } });
-      }
-    }
+    { const sw = await swrHook({ request, url, env, ctx, origin, deps: swrDeps() }); if (sw) return sw; }
     if (url.pathname === '/api/ops-stats' && request.method === 'POST') {
       return handleOpsStats(request, env, origin);
     }
@@ -14683,14 +14691,7 @@ const WORKER = {
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       const toks = (Array.isArray(b.tokens) ? b.tokens : []).map(String).filter(t => /^[0-9a-f-]{36}$/.test(t)).slice(0, 200);
-      const out = {};
-      for (const t of toks) {
-        const [inactive, addon, extra, calls, wave, vid, hold, holdtill, wpos] = await Promise.all(['inactive:' + t, 'addon:' + t, 'extrasend:' + t, 'callsaddon:' + t, 'wave:' + t + ':1', 'vidok:' + t, 'hold:' + t, 'holdtill:' + t, 'wpos:' + t + ':1'].map(k => env.RATE.get(k).catch(() => null)));
-        /* 08/11 (Richard): a hold is a pause, not a cancellation — holdtill = the day it lifts; wpos = wave 1 under way */
-        out[t] = { active: !inactive, addon: addon ? (JSON.parse(addon).n || 0) : 0, extrasend: !!extra, calls: !!calls, sent: !!wave, sending: !wave && (parseInt(wpos, 10) || 0) > 0, video: !!vid, hold: !!hold, hold_till: holdtill || '' };
-        /* 25/11 track-board: the client pressed the stop button — the team sees it and lifts it from here */
-        { const cs = await clientStopOf(env, t); if (cs) out[t].client_stop = publicStop(cs); }
-      }
+      const out = await clientFlags(env, toks, { clientStopOf, publicStop });   /* 26/11 track-speed: speed.js, the events in parallel */
       return okJson({ ok: true, flags: out }, origin);
     }
     if (url.pathname === '/api/design-flow' && request.method === 'POST') return handleDesignFlow(request, env, origin, url.hostname);
