@@ -164,7 +164,11 @@ export async function handleTeam(request, env, origin, d) {
   if (!b || typeof b !== 'object' || !d.isAdmin(env, b.admin_key)) return d.deny(403, 'bad-admin-key', origin);
   if (!env.RATE) return d.deny(503, 'kv-not-bound', origin);
   const who = normEmail(request.headers.get('x-ishur-user') || '');
-  const op = String(b.action || b.op || 'me');
+  /* reads come as {op}, writes as {action} — the sign-in gate logs a POST with `action` and the admin home batch only takes reads,
+     so a write named in `op` (or a read named in `action`) is refused rather than slipping past the action log */
+  const READS = ['me', 'list', 'get', 'events'], WRITES = ['create', 'comment', 'status', 'roles'];
+  const op = b.action !== undefined ? String(b.action) : String(b.op || 'me');
+  if (b.action !== undefined ? !WRITES.includes(op) : !READS.includes(op)) return d.deny(400, 'bad-op', origin);
   const now = d.now ? d.now() : Date.now();
   /* the shared key or an old phone-code session carries no person: the menu hides nothing, the panel stays off */
   if (!who) return op === 'me' ? d.okJson({ ok: true, me: null }, origin) : d.deny(401, 'sign-in-required', origin);

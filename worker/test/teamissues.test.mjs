@@ -201,6 +201,12 @@ test('route: roles set by an admin, refused for others; events picker carries no
   const ev = await call(env, S, { op: 'events' }, d);
   assert.deepEqual(ev.events, [{ t8: 'abcd1234', name: 'החתונה של דנה', date: '2026-12-01' }]);
   assert.equal((await call(env, S, { op: 'nope' }, d)).status, 400);
+  /* a write must say `action` (so the sign-in gate logs it); named as a read it is refused and writes nothing */
+  const before = [...env.RATE.m.keys()].sort().join('|');
+  assert.equal((await call(env, S, { op: 'roles', email: Y, roles: ['dev'] }, d)).error, 'bad-op');
+  assert.equal((await call(env, S, { op: 'create', type: 'issue', title: 'בלי לוג', assignee: R }, d)).error, 'bad-op');
+  assert.equal((await call(env, S, { action: 'list' }, d)).error, 'bad-op');
+  assert.equal([...env.RATE.m.keys()].sort().join('|'), before);
 });
 test('the notice: titled, spaced, a link footer', () => {
   const t = noticeText('status', { id: 'tiabc', title: 'באג', status: 'done', event: { name: 'דנה' } }, 'ריצארד', 'שלו', 'תוקן');
