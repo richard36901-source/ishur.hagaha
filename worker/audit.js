@@ -261,6 +261,63 @@ export async function query(env, qy = {}) {
   return (await queryEx(env, qy)).items;
 }
 
+/* ── 25/11 the KV bill: sealed hour chunks ────────────────────────────────
+   A stream record is written once and never changed. Several jobs re-read the
+   whole of today every ten minutes (the ops realtime from the notifications
+   tick, the plan's "today", the calls day, the hourly counters and mirror):
+   about 2,600 reads per query by the evening, ~1M reads a day in all.
+   Once an hour is over (+ SEAL_MS for list lag), every record of that hour is
+   read ONCE and kept in auditc:<day>:<hour> as {key name: raw value}. A query
+   then pays one read per past hour (and nothing when this isolate already
+   holds it) plus one read per record of the current hour. The values are the
+   same strings get() returns, so every caller parses exactly what it did. */
+export const CHUNK_PREFIX = 'auditc:';
+export const SEAL_MS = 10 * 60e3;
+const CHUNK_TTL = 40 * 86400;
+const CHUNK_MEMO_MAX = 26;   /* about one day of chunks per isolate (a busy hour is ~1 MB) */
+const MEMO = new WeakMap();
+const hourOf = k => Math.floor(keyTs(k) / 3600e3);
+/* the chunk holds one GROUP: the hour's records of the query's kind (or of every kind, '*'), as list() metadata says.
+   It is built only by a query that would have read exactly that set anyway, so building never costs more than before. */
+export const chunkKey = (day, hour, group = '*') => `${CHUNK_PREFIX}${day}:${hour}:${group}`;
+function memoOf(env) { let m = MEMO.get(env.RATE); if (!m) { m = new Map(); MEMO.set(env.RATE, m); } return m; }
+export function _clearChunkMemo(env) { if (env && env.RATE) MEMO.delete(env.RATE); }
+function chunkReader(env, day, keys, cand, group, inGroup, res, budget, now = Date.now()) {
+  const memo = memoOf(env);
+  const sealed = h => (h + 1) * 3600e3 + SEAL_MS <= now;
+  const count = list => { const m = new Map(); for (const k of list) { const h = hourOf(k); m.set(h, (m.get(h) || 0) + 1); } return m; };
+  let groupByHour = null; const candN = count(cand);
+  const loaded = new Map();
+  const load = async h => {
+    const ck = chunkKey(day, h, group);
+    if (memo.has(ck)) { const v = memo.get(ck); memo.delete(ck); memo.set(ck, v); return v; }
+    if ((candN.get(h) || 0) < 2 || budget - res.ops < 1) return null;   /* one record: a plain read is as cheap */
+    res.ops++;
+    let c = null; try { c = JSON.parse((await env.RATE.get(ck)) || 'null'); } catch { c = null; }
+    if (!c || typeof c !== 'object') {
+      if (!groupByHour) { groupByHour = new Map(); for (const k of keys) if (inGroup(k)) { const x = hourOf(k); if (!groupByHour.has(x)) groupByHour.set(x, []); groupByHour.get(x).push(k.name); } }
+      const names = groupByHour.get(h) || [];
+      /* build only when this query reads the whole group of the hour anyway (no phone / token / since narrowing) */
+      if (!names.length || names.length !== candN.get(h) || budget - res.ops < names.length) return null;
+      res.ops += names.length;
+      const vals = await Promise.all(names.map(n => env.RATE.get(n).catch(() => undefined)));
+      if (vals.some(v => v === undefined)) return null;   /* a failed read: keep nothing; the records are read one by one below */
+      c = {}; names.forEach((n, j) => { c[n] = vals[j]; });
+      await env.RATE.put(ck, JSON.stringify(c), { expirationTtl: CHUNK_TTL }).catch(() => {});
+    }
+    memo.set(ck, c); while (memo.size > CHUNK_MEMO_MAX) memo.delete(memo.keys().next().value);
+    return c;
+  };
+  return {
+    /* raw values for these keys, undefined where no sealed chunk has the key */
+    async values(batch) {
+      const hours = [...new Set(batch.map(hourOf).filter(sealed))];
+      for (const h of hours) if (!loaded.has(h)) loaded.set(h, await load(h));
+      return batch.map(k => { const c = loaded.get(hourOf(k)); return c && Object.prototype.hasOwnProperty.call(c, k.name) ? c[k.name] : undefined; });
+    },
+  };
+}
+
 export async function queryEx(env, qy = {}) {
   const res = { items: [], truncated: false, ops: 0, oldest_ts: null, failed: 0 };
   if (!env.RATE) return res;
@@ -301,12 +358,24 @@ export async function queryEx(env, qy = {}) {
     } while (cursor && pages < 100);
     if (cursor) res.truncated = true;
     const cand = keys.filter(k => (!since || keyTs(k) > since) && !metaSkip(k.metadata)).sort((a, b) => keyTs(b) - keyTs(a));
+    /* 25/11 the KV bill: a past hour's records come from one sealed chunk (chunkReader above), not one read each */
+    const group = qy.kind ? String(qy.kind) : '*';
+    const inGroup = k => !(qy.kind && k.metadata && typeof k.metadata === 'object' && k.metadata.k && k.metadata.k !== qy.kind);
+    const chunks = chunkReader(env, day, keys, cand, group, inGroup, res, budget);
     for (let i = 0; i < cand.length && out.length < limit; i += 50) {
+      if (budget - res.ops <= 0) { res.truncated = true; break; }
+      const full = cand.slice(i, i + 50);
+      const got = await chunks.values(full);   /* undefined = not in a chunk */
+      const missing = []; full.forEach((k, j) => { if (got[j] === undefined) missing.push(j); });
       const room = budget - res.ops;
-      if (room <= 0) { res.truncated = true; break; }
-      const batch = cand.slice(i, i + Math.min(50, room));
-      res.ops += batch.length;
-      const vals = await Promise.all(batch.map(k => env.RATE.get(k.name).catch(() => undefined)));
+      /* a cut drops the oldest: stop the batch at the first record the budget cannot pay for */
+      const cutAt = missing.length > room ? missing[Math.max(0, room)] : full.length;
+      const batch = full.slice(0, cutAt);
+      const fetchIdx = missing.filter(j => j < cutAt);
+      res.ops += fetchIdx.length;
+      const fetched = await Promise.all(fetchIdx.map(j => env.RATE.get(full[j].name).catch(() => undefined)));
+      const vals = batch.map((_, j) => got[j]); fetchIdx.forEach((j, x) => { vals[j] = fetched[x]; });
+      if (cutAt < full.length) res.truncated = true;
       for (let j = 0; j < vals.length; j++) {
         res.oldest_ts = keyTs(batch[j]);
         if (vals[j] === undefined) { res.failed++; res.truncated = true; continue; }
@@ -320,7 +389,7 @@ export async function queryEx(env, qy = {}) {
         if (needle && (JSON.stringify(r).toLowerCase().indexOf(needle) < 0)) continue;
         out.push(r);
       }
-      if (batch.length < 50 && i + batch.length < cand.length) { res.truncated = true; break; }
+      if (cutAt < full.length) break;
     }
     if (out.length >= limit || res.truncated) break;
   }
