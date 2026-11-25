@@ -3,9 +3,10 @@
    second staging demo client. Needs the same STAGING_SECRETS and PLAYWRIGHT_PATH as test/app-check.mjs.
    Output: store/screenshots/ios-6.9/*.png */
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path'; import { fileURLToPath } from 'node:url';
-const HERE = path.dirname(fileURLToPath(import.meta.url)), WWW = path.join(HERE, '..', 'www'), OUT = path.join(HERE, '..', 'store', 'screenshots', process.env.SHOTS === 'android' ? 'android-phone' : 'ios-6.9');
+const HERE = path.dirname(fileURLToPath(import.meta.url)), WWW = path.join(HERE, '..', 'www'), OUT = path.join(HERE, '..', 'store', 'screenshots', process.env.SHOTS === 'android' ? 'android-phone' : process.env.SHOTS === 'ios63' ? 'ios-6.3' : 'ios-6.9');
 /* 25/11 SHOTS=android: Google Play phone screenshots, 1080x1920 (9:16; Play refuses taller than 2:1) */
-const VIEW = process.env.SHOTS === 'android' ? { width: 360, height: 640 } : { width: 440, height: 956 };
+/* SHOTS=ios63: the size App Store Connect asks for first in 2026 (iPhone 6.3", 1206x2622) */
+const VIEW = process.env.SHOTS === 'android' ? { width: 360, height: 640 } : process.env.SHOTS === 'ios63' ? { width: 402, height: 874 } : { width: 440, height: 956 };
 const BASE = 'https://go-staging.ishur.io', PHONE = '0500000102', TOKEN = 'bbbbbbbb-0000-4000-8000-000000000002';
 const { chromium } = await import(process.env.PLAYWRIGHT_PATH || 'playwright');
 const key = fs.readFileSync(process.env.STAGING_SECRETS || path.join(HERE, '..', '..', 'worker', '.staging.secrets'), 'utf8').match(/^ADMIN_KEY=(.+)$/m)[1].trim();
