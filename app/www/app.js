@@ -85,6 +85,10 @@
   var BOOT = Date.now();
   function splashOut() { var sp = $('splash'); if (!sp || sp.classList.contains('out')) return; setTimeout(function () { sp.classList.add('out'); setTimeout(function () { sp.hidden = true; }, 400); }, Math.max(0, 800 - (Date.now() - BOOT))); }
   setTimeout(splashOut, 5000);
+  /* 26/11 Richard: opening the app showed two backgrounds and a jump. The phone's own launch picture now stays until our
+     opening screen has painted under it, then fades into it, so there is one hand-over and no flash of the page behind. */
+  (function () { var sp = plugin('SplashScreen'); if (!sp) return; var go = function () { try { sp.hide({ fadeOutDuration: 250 }); } catch (e) {} };
+    requestAnimationFrame(function () { requestAnimationFrame(go); }); setTimeout(go, 2500); })();
   function show(signedIn) {
     $('signin').hidden = signedIn; $('app').hidden = !signedIn; $('tabs').hidden = !signedIn; $('connect').hidden = true;
     splashOut();
@@ -533,6 +537,27 @@
     }
     bar.addEventListener('pointerup', end); bar.addEventListener('pointercancel', end);
   });
+  /* 26/11 swipe back / forward between the board's pages. History in the app is the board frame's history, so
+     history.back() and forward() move the frame. Back is from the edge a page comes in from (right in Hebrew). */
+  (function () {
+    var hint = $('navHint'), g = null;
+    Array.prototype.forEach.call(document.querySelectorAll('#v-board .edge'), function (ed) {
+      ed.addEventListener('pointerdown', function (e) { g = { go: ed.getAttribute('data-go'), x0: e.clientX, start: ed.classList.contains('start'), dx: 0 }; try { ed.setPointerCapture(e.pointerId); } catch (z) {} });
+      ed.addEventListener('pointermove', function (e) {
+        if (!g) return; var rtl = document.documentElement.getAttribute('dir') === 'rtl';
+        var inward = (e.clientX - g.x0) * ((g.start !== rtl) ? 1 : -1); g.dx = Math.max(0, Math.min(inward, 140));
+        var fromLeft = (g.start && !rtl) || (!g.start && rtl), pos = Math.min(g.dx, 90) - 44;
+        hint.style.left = fromLeft ? pos + 'px' : ''; hint.style.right = fromLeft ? '' : pos + 'px';
+        hint.querySelector('svg').style.transform = fromLeft ? 'scaleX(-1)' : '';
+        hint.style.opacity = Math.min(1, g.dx / 50); var ready = g.dx > 80; if (ready && !hint.classList.contains('ready')) haptic(); hint.classList.toggle('ready', ready);
+      });
+      function end() {
+        if (!g) return; var c = g; g = null; hint.style.transition = 'opacity .2s'; hint.style.opacity = 0; setTimeout(function () { hint.style.transition = ''; hint.classList.remove('ready'); }, 200);
+        if (c.dx > 80) { T('swipe_nav', { go: c.go }); if (c.go === 'back') history.back(); else history.forward(); }
+      }
+      ed.addEventListener('pointerup', end); ed.addEventListener('pointercancel', end);
+    });
+  })();
   window.IshurApp = { post: post, store: store, plugin: plugin, native: NATIVE, session: function () { return session; }, reload: loadEvent, openEvent: pickEvent };
   T('app_open', { signed: session ? 1 : 0 });
   if (session) start(); else { show(false); T('signin_view'); }

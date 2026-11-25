@@ -390,3 +390,11 @@ html[data-theme=dark] .tabs{box-shadow:0 10px 30px rgba(0,0,0,.5),0 0 0 .5px var
 .help.dragging{transition:none!important;animation:none!important}
 .help.drag-out{transition:transform .24s ease-out}
 .help.drag-back{transition:transform .38s cubic-bezier(.2,.9,.25,1)}
+/* 26/11 Richard: swipe from the edge to go back a page and from the other edge to go forward (the board's own pages:
+   seating, budget, schedule). Thin strips at the two edges catch the finger above the board; a round arrow follows it. */
+.edge{position:absolute;top:0;bottom:0;width:18px;z-index:3;touch-action:none}
+.edge.start{inset-inline-start:0}.edge.end{inset-inline-end:0}
+.navhint{position:absolute;top:45%;width:44px;height:44px;margin-top:-22px;border-radius:50%;z-index:4;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;
+  background:color-mix(in srgb,var(--card) 75%,transparent);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);box-shadow:0 4px 16px rgba(0,0,0,.18),0 0 0 .5px var(--hair)}
+.navhint svg{width:20px;height:20px;fill:none;stroke:var(--green);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.navhint.ready{background:var(--green)}.navhint.ready svg{stroke:#fff}
