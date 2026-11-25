@@ -265,7 +265,7 @@ async function opsPing(env, where, what, detail, urgent) {
    600 keys, so the list hit its scan cap and older threads simply stopped
    appearing. This index is what the list reads now: it grows with people, not
    with messages. */
-export async function touchConversation(env, phone, { ts, dir, text, ch }) {
+export async function touchConversation(env, phone, { ts, dir, text, ch, line, pid }) {
   if (!env.RATE || !phone) return;
   const key = 'conv:' + phone;
   let c = null;
@@ -276,7 +276,12 @@ export async function touchConversation(env, phone, { ts, dir, text, ch }) {
   if (!c.first_ts) c.first_ts = ts;
   /* 02/11: the last INBOUND survives an echo/outbound that comes after it —
      the lead chase asks "did they ever write to us", not "who spoke last" */
-  if (dir === 'in' && !(ts < (c.last_in_ts || 0))) c.last_in_ts = ts;
+  if (dir === 'in' && !(ts < (c.last_in_ts || 0))) {
+    c.last_in_ts = ts;
+    /* 25/11 inbox composer: the line the person actually wrote to (a guest
+       answering a 4499 send lands on Noa's line while ch says 'guests') */
+    if (line) { c.last_in_line = line; c.last_in_kind = ch || line; if (pid) c.last_in_pid = String(pid); }
+  }
   if (!(ts < (c.last_ts || 0))) {
     c.last_ts = ts;
     c.last_dir = dir;
@@ -303,6 +308,12 @@ export async function touchConversation(env, phone, { ts, dir, text, ch }) {
    (index.js ~3069, ~3164) — categorized here by verified real usage. */
 const GUEST_ONLY_TEMPLATE_RE = /^hazmana_|^ishur_hazmana|^ishur_yom_lifnei|^ishur_shulchan|^ishur_toda_orach|^ishur_toda_matana|^ishur_matana|^ishur_yom_haerua_matana|^ishur_bitul\b|^ishur_dchiya\b/i;
 const CLIENT_ONLY_TEMPLATE_RE = /^noa_tried_reach\b|^ishur_lo_siyem|^ishur_kod\b|^ishur_heshbonit\b|^ishur_tashlum\b|^ishur_shidrug|^ishur_doch\b|^ishur_syum\b|^ishur_tzikoret_kovetz\b/i;
+/* 25/11 inbox template picker: the same rule post() enforces, asked before offering a template */
+export function templateAllowedOn(name, channel) {
+  const n = String(name || '');
+  if (channel === 'guests') return !CLIENT_ONLY_TEMPLATE_RE.test(n) || n === 'ishur_kod';
+  return !GUEST_ONLY_TEMPLATE_RE.test(n);
+}
 
 /* 27/09 (Richard: "show the actual message, not the template name"). The
    template body comes from Meta once per name per week and is cached in KV;
@@ -440,6 +451,9 @@ async function post(env, body, channel, ctx) {
       const summary =
         body.type === 'text' ? String((body.text || {}).body || '') :
         body.type === 'image' ? '🖼 ' + String((body.image || {}).caption || 'תמונה') :
+        body.type === 'video' ? '🎬 ' + String((body.video || {}).caption || 'סרטון') :
+        body.type === 'audio' ? '🎵 ' + String((ctx && ctx.media_name) || 'הקלטה') :
+        body.type === 'document' ? '📎 ' + String((body.document || {}).caption || (body.document || {}).filename || 'קובץ') :
         body.type === 'template' ? (rendered || 'תבנית ' + String((body.template || {}).name || '')) :
         body.type === 'interactive' ? String(((body.interactive || {}).body || {}).text || '') : body.type;
       /* ctx (template/occasion/wave/token) makes per-message performance
@@ -458,7 +472,11 @@ async function post(env, body, channel, ctx) {
           ok: res.ok, error: res.error || '', ch, id: res.id || '', status: res.ok ? 'sent' : 'failed',
           ...(tr ? { footer: tr.footer || '', media: tr.media || null, buttons: tr.buttons || [] } : {}),
           ...(body.type === 'template' ? { params: (((body.template || {}).components || []).find(c => c.type === 'body') || { parameters: [] }).parameters.map(x => String(x.text ?? '')), lang: ((body.template || {}).language || {}).code || 'he' } : {}),
-          ...(body.type === 'image' ? { media: { kind: 'image', url: (body.image || {}).link || '' } } : {}),
+          ...(body.type === 'image' && (body.image || {}).link ? { media: { kind: 'image', url: (body.image || {}).link || '' } } : {}),
+          /* 25/11 inbox composer: a file sent by media id — the thread loads it through /api/media-dl like an inbound one */
+          ...(/^(image|video|audio|document)$/.test(body.type) && (body[body.type] || {}).id ? { media: { kind: body.type, id: String(body[body.type].id), mime: String((ctx && ctx.media_mime) || ''), name: String((ctx && ctx.media_name) || (body[body.type] || {}).filename || '') } } : {}),
+          ...(/^(image|video|document)$/.test(body.type) && (body[body.type] || {}).id && (body[body.type] || {}).caption ? { caption: String(body[body.type].caption).slice(0, 1024) } : {}),
+          ...(ctx && ctx.who ? { who: String(ctx.who).slice(0, 60) } : {}),
           ...(body.type === 'interactive' && (body.interactive || {}).type === 'cta_url' ? { buttons: [{ type: 'URL', text: body.interactive.action.parameters.display_text, url: body.interactive.action.parameters.url }] } : {}),
           tmpl: body.type === 'template' ? String((body.template || {}).name || '') : '',
           ...(ctx && typeof ctx === 'object' ? {
@@ -591,6 +609,17 @@ export function sendList(env, to, text, button, rows, channel, ctx) {
 export function sendCtaUrl(env, to, text, label, url, channel, ctx) {
   return post(env, { to: normPhone(to), type: 'interactive',
     interactive: { type: 'cta_url', body: { text: String(text) }, action: { name: 'cta_url', parameters: { display_text: String(label).slice(0, 20), url: String(url) } } } }, channel, ctx);
+}
+
+/* 25/11 inbox composer: a file already uploaded to Meta (POST /<phone-id>/media), sent by its id.
+   kind: image | video | audio | document. Captions on image/video/document only; filename on a document. */
+export function sendMedia(env, to, kind, { id, caption = '', filename = '' } = {}, channel, ctx) {
+  const k = String(kind || '');
+  if (!/^(image|video|audio|document)$/.test(k) || !id) return Promise.resolve({ ok: false, error: 'bad-media' });
+  const obj = { id: String(id) };
+  if (caption && k !== 'audio') obj.caption = String(caption).slice(0, 1024);
+  if (k === 'document' && filename) obj.filename = String(filename).slice(0, 240);
+  return post(env, { to: normPhone(to), type: k, [k]: obj }, channel, ctx);
 }
 
 export function sendText(env, to, text, channel, ctx) {

@@ -19,7 +19,7 @@ import { logAction } from './auth.js';
 
 /* ── §1 reads ─────────────────────────────────────────────────────────────── */
 const READ_ACTIONS = new Set(['', 'proof', 'read', 'list', 'live', 'plan', 'calls', 'get']);
-const QUIET = new Set(['/api/stream', '/api/answers-log', '/api/future-log', '/api/guest-card', '/api/calls-log', '/api/delivery-report', '/api/audit', '/api/call-get', '/api/board-event', '/api/send-board', '/api/evlog', '/api/wave-audit']);
+const QUIET = new Set(['/api/stream', '/api/answers-log', '/api/future-log', '/api/guest-card', '/api/calls-log', '/api/delivery-report', '/api/audit', '/api/call-get', '/api/board-event', '/api/send-board', '/api/evlog', '/api/wave-audit', '/api/inbox/state', '/api/inbox/templates']);
 export function quietRead(path, body) {
   const p = String(path || '').split('?')[0];
   if (!QUIET.has(p)) return false;
@@ -28,6 +28,7 @@ export function quietRead(path, body) {
   if (p === '/api/answers-log' && a === 'set') return false;
   if (p === '/api/guest-card' && !READ_ACTIONS.has(a)) return false;
   if (p === '/api/future-log' && !READ_ACTIONS.has(a)) return false;
+  if (p === '/api/inbox/state' || p === '/api/inbox/templates') return true;
   if (p === '/api/audit' || p === '/api/stream' || p === '/api/calls-log' || p === '/api/delivery-report' || p === '/api/call-get' || p === '/api/evlog' || p === '/api/wave-audit') return true;
   return READ_ACTIONS.has(a);
 }
@@ -40,7 +41,7 @@ const SKIP_HE = { 1: 'הזמנה (גל 1)', 2: 'תזכורת (גל 2)', 3: 'של
 const RSVP_HE = { 'מגיע': 'מגיע', 'לא מגיע': 'לא מגיע', 'מתלבט': 'מתלבט' };
 
 /* the routes describe() has words for — the ONLY ones whose request/response are cloned and read after the handler */
-const DESCRIBED = new Set(['/api/answers-log', '/api/guest-rsvp', '/api/guest-edit', '/api/guest-add', '/api/send-date', '/api/event-flag', '/api/skip', '/api/block-phone', '/api/guest-card']);
+const DESCRIBED = new Set(['/api/answers-log', '/api/guest-rsvp', '/api/guest-edit', '/api/guest-add', '/api/send-date', '/api/event-flag', '/api/skip', '/api/block-phone', '/api/guest-card', '/api/inbox/send']);
 export function describedPath(path, changeRoutes = {}) { const p = String(path || '').split('?')[0]; return DESCRIBED.has(p) || Object.prototype.hasOwnProperty.call(changeRoutes, p); }
 /* names = { event: 'החתונה של …', guest(idOrPhone) → 'דנה כהן' } */
 export function describe(path, b = {}, j = {}, names = {}, changeRoutes = {}) {
@@ -69,6 +70,12 @@ export function describe(path, b = {}, j = {}, names = {}, changeRoutes = {}) {
       if (typeof b.blocked !== 'boolean') return '';
       return b.blocked ? `חסימת מספר לכל השליחות והשיחות (${gname})` : `החזרת מספר לשליחה (${gname})`;
     case '/api/guest-card': return String(j.done_he || '') ? `${j.done_he}${ev}` : '';
+    case '/api/inbox/send': {
+      /* 25/11 inbox composer: a hand-sent WhatsApp, number masked */
+      const ph = String(b.phone || '').replace(/\D/g, '').replace(/(\d{3})\d+(\d{3})$/, '$1****$2');
+      const what = b.kind === 'template' ? `תבנית ${String((b.template || {}).name || '')}` : b.kind === 'media' ? 'קובץ' : 'הודעה';
+      return `שליחת ${what} מהאינבוקס ל-${ph}${j.quiet_confirmed ? ' (בשעות שקט, באישור)' : ''}`;
+    }
     default: break;
   }
   const spec = changeRoutes[p];

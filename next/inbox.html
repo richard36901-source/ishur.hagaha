@@ -144,24 +144,49 @@
   .btns .btn.reply::before{content:"↩ ";opacity:.6}
   .empty{margin:auto;color:var(--ink3);font-size:.9rem;text-align:center;padding:2rem}
 
-  .composer{display:flex;gap:.5rem;padding:.7rem 1rem;border-top:1px solid var(--line);background:var(--card);flex-shrink:0}
-  .composer textarea{flex:1;font:inherit;font-size:.85rem;border:1px solid var(--line);border-radius:12px;padding:.5rem .8rem;resize:none;height:2.6rem;background:var(--bg);color:var(--ink)}
-  .composer button{font:inherit;font-size:.85rem;font-weight:600;border:none;border-radius:12px;padding:0 1.1rem;cursor:pointer}
+  /* 25/11 composer: line + 24h window strip, attach with preview, live template picker, quiet-hours confirm */
+  .cbar{display:flex;flex-wrap:wrap;gap:.35rem .8rem;align-items:center;padding:.45rem 1rem;border-top:1px solid var(--line);background:var(--card);font-size:.72rem;color:var(--ink2)}
+  .cbar b{font-weight:600;color:var(--ink)}
+  .cbar .pill{border-radius:6px;padding:.1rem .45rem;background:rgba(15,76,53,.1);color:var(--ok);font-weight:600}
+  .cbar .pill.closed{background:rgba(168,64,47,.12);color:var(--warn)}
+  .cbar .pill.quiet{background:rgba(168,133,60,.16);color:var(--gold)}
+  .att{display:flex;gap:.7rem;align-items:center;padding:.55rem 1rem;border-top:1px solid var(--line);background:var(--card)}
+  .att .pv{flex-shrink:0;max-width:120px;max-height:90px;border-radius:6px;border:1px solid var(--line);background:var(--bg);object-fit:cover}
+  .att audio.pv{max-width:220px;height:36px;border:none;background:none}
+  .att .doc{display:flex;align-items:center;justify-content:center;width:56px;height:68px;border-radius:6px;border:1px solid var(--line);background:var(--bg);font-size:.66rem;font-weight:700;color:var(--ink2);text-transform:uppercase}
+  .att .info{flex:1;min-width:0;font-size:.76rem}
+  .att .info b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .att .info small{color:var(--ink3)}
+  .att .info .err{color:var(--warn);font-weight:600}
+  .att .x{background:none;border:1px solid var(--line);border-radius:8px;color:var(--ink2);font:inherit;font-size:.74rem;padding:.25rem .6rem;cursor:pointer}
+  .composer{display:flex;gap:.45rem;align-items:flex-end;padding:.6rem 1rem;border-top:1px solid var(--line);background:var(--card);flex-shrink:0}
+  .composer textarea{flex:1;font:inherit;font-size:.86rem;border:1px solid var(--line);border-radius:8px;padding:.5rem .7rem;resize:none;min-height:2.6rem;max-height:9rem;background:var(--bg);color:var(--ink)}
+  .composer textarea:disabled{opacity:.7}
+  .composer button{font:inherit;font-size:.85rem;font-weight:600;border:none;border-radius:8px;min-height:2.6rem;padding:0 1rem;cursor:pointer}
+  .composer button:disabled{opacity:.5;cursor:default}
   .composer button:focus-visible,.composer textarea:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  #attBtn{background:none;border:1px solid var(--line);color:var(--ink2);padding:0 .65rem;display:inline-flex;align-items:center}
+  #attBtn svg{width:1.1rem;height:1.1rem}
   #send{background:var(--ok);color:var(--on-ok)}
   #tmplBtn{background:none;border:1px solid var(--line);color:var(--ink2)}
-  .note24{font-size:.66rem;color:var(--ink3);padding:0 1rem .5rem;background:var(--card)}
+  #tmplBtn.prime{background:var(--ok);border-color:var(--ok);color:var(--on-ok)}
 
-  /* template popup */
+  /* popups */
   .pop-bg{position:fixed;inset:0;background:rgba(15,46,34,.4);display:none;z-index:30}
   .pop-bg.on{display:block}
-  .pop{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(420px,92vw);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1rem;z-index:31;display:none}
+  .pop{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(460px,94vw);max-height:88vh;overflow-y:auto;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:1rem;z-index:31;display:none}
   .pop.on{display:block}
   .pop h3{font-size:.95rem;margin-bottom:.6rem}
-  .pop select,.pop input{width:100%;font:inherit;font-size:.8rem;border:1px solid var(--line);border-radius:9px;padding:.4rem .6rem;margin-bottom:.45rem;background:var(--bg);color:var(--ink)}
-  .pop-btns{display:flex;gap:.5rem;justify-content:flex-end;margin-top:.4rem}
-  .pop-btns button{font:inherit;font-size:.8rem;border-radius:9px;padding:.4rem .9rem;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+  .pop p{font-size:.82rem;color:var(--ink2);line-height:1.55;margin-bottom:.5rem}
+  .pop label{display:block;font-size:.72rem;color:var(--ink3);margin:.35rem 0 .15rem}
+  .pop select,.pop input{width:100%;font:inherit;font-size:.82rem;border:1px solid var(--line);border-radius:8px;padding:.42rem .6rem;margin-bottom:.3rem;background:var(--bg);color:var(--ink)}
+  .tpv{white-space:pre-wrap;font-size:.82rem;line-height:1.5;background:var(--me);border-radius:8px;padding:.55rem .7rem;margin:.4rem 0 .5rem;color:var(--ink)}
+  .tpv i{font-style:normal;color:var(--warn)}
+  .pop .msgline{font-size:.76rem;min-height:1.1rem;color:var(--warn)}
+  .pop-btns{display:flex;gap:.5rem;justify-content:flex-end;margin-top:.5rem}
+  .pop-btns button{font:inherit;font-size:.82rem;border-radius:8px;padding:.45rem .95rem;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink)}
   .pop-btns .go{background:var(--ok);color:var(--on-ok);border-color:var(--ok)}
+  .pop-btns .go:disabled{opacity:.5}
 
   .gate{max-width:340px;margin:4rem auto;text-align:center;padding:0 1rem}
   .gate input{width:100%;border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem;font:inherit;margin:.8rem 0 .5rem;text-align:center;direction:ltr;background:var(--card);color:var(--ink)}
@@ -244,23 +269,47 @@
       </div>
     </div>
     <div class="thread" id="thread"><div class="empty">בוחרים שיחה מהרשימה ורואים כאן את כל ההיסטוריה</div></div>
-    <p class="note24" id="note24" hidden>מענה חופשי עובר רק בתוך 24 שעות מההודעה האחרונה של הצד השני. מעבר לזה, שולחים תבנית.</p>
+    <div class="cbar" id="cbar" hidden aria-live="polite">
+      <span>נשלח מ: <b id="cbLine">·</b></span>
+      <span class="pill" id="cbWin"></span>
+      <span class="pill quiet" id="cbQuiet" hidden></span>
+    </div>
+    <div class="att" id="att" hidden>
+      <span id="attPv"></span>
+      <div class="info"><b id="attName" dir="auto"></b><small id="attMeta"></small></div>
+      <button type="button" class="x" id="attX">הסרה</button>
+    </div>
     <div class="composer" id="composer" hidden>
-      <textarea id="txt" placeholder="כתבו תשובה…"></textarea>
-      <button id="tmplBtn" title="שליחת תבנית">תבנית</button>
-      <button id="send">שליחה</button>
+      <button type="button" id="attBtn" title="צירוף קובץ" aria-label="צירוף קובץ: תמונה, סרטון, שמע או מסמך"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.4 11.1l-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2l-8.5 8.5a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8"/></svg></button>
+      <input type="file" id="attIn" hidden accept="image/jpeg,image/png,image/webp,video/mp4,video/3gpp,audio/aac,audio/amr,audio/mpeg,audio/mp4,audio/ogg,.m4a,.mp3,.ogg,.aac,.amr,application/pdf,text/plain,.doc,.docx,.xls,.xlsx,.ppt,.pptx">
+      <textarea id="txt" placeholder="כתבו תשובה…" aria-label="הודעה"></textarea>
+      <button type="button" id="tmplBtn" title="שליחת תבנית מאושרת">תבנית</button>
+      <button type="button" id="send">שליחה</button>
     </div>
   </div>
 </div>
 
 <div class="pop-bg" id="popBg"></div>
-<div class="pop" id="pop">
-  <h3>שליחת תבנית</h3>
-  <select id="tmplSel"></select>
+<div class="pop" id="pop" role="dialog" aria-modal="true" aria-labelledby="popH">
+  <h3 id="popH">שליחת תבנית</h3>
+  <p id="tmplWhy" hidden>עברו יותר מ-24 שעות מההודעה האחרונה שלהם, אז וואטסאפ מאפשרת רק תבנית מאושרת.</p>
+  <label for="tmplSel">תבנית</label>
+  <select id="tmplSel"><option value="">טוען תבניות…</option></select>
+  <div class="tpv" id="tmplPv" hidden></div>
   <div id="tmplParams"></div>
+  <div class="msgline" id="tmplMsg"></div>
   <div class="pop-btns">
-    <button id="popCancel">ביטול</button>
-    <button class="go" id="popSend">שליחה</button>
+    <button type="button" id="popCancel">ביטול</button>
+    <button type="button" class="go" id="popSend">שליחה</button>
+  </div>
+</div>
+
+<div class="pop" id="qpop" role="alertdialog" aria-modal="true" aria-labelledby="qH">
+  <h3 id="qH">שעות שקט</h3>
+  <p id="qTxt"></p>
+  <div class="pop-btns">
+    <button type="button" id="qNo">ביטול</button>
+    <button type="button" class="go" id="qYes">שלח בכל זאת</button>
   </div>
 </div>
 
@@ -536,7 +585,8 @@
     document.body.classList.add('open');
     $('paneH').hidden = false;
     $('composer').hidden = false;
-    $('note24').hidden = false;
+    clearAtt(); $('txt').value = '';
+    loadState();
     paintHeader(c);
     loadThread();
     loadConvs();
@@ -603,6 +653,7 @@
           media = '<div class="media"><span>📎 ' + KIND[m.type] + ' <small>לא זמין להורדה, נשלח לפני שהאינבוקס שמר קבצים</small></span></div>';
         }
         if (media && (!m.text || m.text === m.type)) text = '';
+        if (m.dir === 'out' && m.media && m.media.id) text = m.caption || '';   /* 25/11 a file we sent: its caption, not the log summary */
         if (m.caption && (!text || text === m.type)) text = String(m.caption);
         var extra = '';
         if (m.loc && isFinite(m.loc.lat) && isFinite(m.loc.lng)) { extra += '<a class="card" target="_blank" rel="noopener" href="https://www.google.com/maps?q=' + Number(m.loc.lat) + ',' + Number(m.loc.lng) + '">📍 ' + esc(m.loc.name || 'מיקום') + (m.loc.address ? '<small>' + esc(m.loc.address) + '</small>' : '') + '<small>פתיחה במפות ›</small></a>'; if (text === 'location') text = ''; }
@@ -621,7 +672,7 @@
           (!m.media ? media : '') +   /* a message with media shows it once, above the text */
           (m.footer ? '<span class="foot">' + esc(m.footer) + '</span>' : '') +
           (m.status === 'failed' || m.ok === false ? '<span class="fail">ⓘ ' + esc(explainErr(m.error)) + '</span>' + (canResend(m) ? '<button type="button" class="resend" data-ts="' + m.ts + '">↻ שלח שוב</button>' : '') : '') +
-          (m.who && !/ריצ|נשלח שוב/.test(m.who) ? '<small class="who">' + esc(m.who) + '</small>' : '') +
+          (m.who && m.dir === 'out' ? '<small class="who">' + esc(m.who) + '</small>' : '') +
           '<span class="meta"><time>' + esc(hhmm(new Date(m.ts))) + '</time>' + tick + '</span>' + (rx ? '<span class="rx" title="תגובה">' + esc(rx) + '</span>' : '');
         if (rx) el.classList.add('has-rx');
         el.querySelectorAll('.resend').forEach(function (b) { b.addEventListener('click', function () { resend(m, b); }); });
@@ -762,91 +813,274 @@
     return 'לא נמסרה. ' + (ERR[code] || (s ? s : 'סיבה לא ידועה.'));
   }
   function canResend(m) { return m.dir === 'out' && (m.type === 'text' ? !!m.text : m.type === 'template' ? !!(m.tmpl && m.params) : false); }
+
+  /* ══ 25/11 composer: every send goes through /api/inbox/send, which picks the line the person wrote to,
+     holds the 24h window and quiet hours, and records who sent it. ══ */
+  function inboxApi(sub) { return CFG.endpoint('inbox') + '/' + sub; }
+  function postJson(sub, body) {
+    body.admin_key = adminKey;
+    return fetch(inboxApi(sub), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { if (r.status === 403) return { ok: false, error: 'auth' }; return r.json().catch(function () { return { ok: false, error: 'bad-response' }; }); })
+      .catch(function () { return { ok: false, error: 'offline' }; });
+  }
+  var ST = null;            /* /api/inbox/state for the open conversation */
+  var stTimer = null;
+  function toast(t) { if (window.IshurUX && IshurUX.toast) IshurUX.toast(t); else $('live').textContent = t; }
+  function loadState() {
+    if (!current) return;
+    var want = current; ST = null; paintBar();
+    postJson('state', { phone: want }).then(function (d) {
+      if (current !== want) return;
+      if (d && d.ok) { ST = d; paintBar(); }
+      else { $('cbar').hidden = false; $('cbLine').textContent = 'לא נטען'; }
+    });
+  }
+  function hoursLeft(ms) { var h = Math.floor(ms / 3600e3), m = Math.floor((ms % 3600e3) / 60000); return h ? h + ':' + (m < 10 ? '0' : '') + m + ' שעות' : m + ' דקות'; }
+  function winOpen() { return !!(ST && ST.window && ST.window.open && ST.window.closes_at > Date.now()); }
+  function paintBar() {
+    var bar = $('cbar');
+    if (!ST) { bar.hidden = false; $('cbLine').textContent = '·'; $('cbWin').textContent = ''; $('cbQuiet').hidden = true; $('send').disabled = true; return; }
+    bar.hidden = false;
+    $('cbLine').textContent = ST.line && ST.line.label ? ST.line.label : (ST.line && ST.line.error ? 'המספר לא מחובר' : '·');
+    var open = winOpen();
+    $('cbWin').className = 'pill' + (open ? '' : ' closed');
+    $('cbWin').textContent = open ? 'חלון 24 שעות פתוח עוד ' + hoursLeft(ST.window.closes_at - Date.now())
+      : (ST.window && ST.window.last_in_ts ? 'עברו 24 שעות מההודעה האחרונה שלהם: רק תבנית' : 'לא כתבו לנו מהמספר הזה: רק תבנית');
+    var q = ST.quiet || {};
+    $('cbQuiet').hidden = !q.quiet;
+    $('cbQuiet').textContent = q.quiet ? 'שעות שקט עד ' + q.until + (q.rule === 'guests' ? ' (אורחים)' : '') : '';
+    $('txt').disabled = !open; $('attBtn').disabled = !open;
+    $('txt').placeholder = open ? (ATT ? 'כיתוב לקובץ (לא חובה)…' : 'כתבו תשובה…') : 'עברו 24 שעות. וואטסאפ מאפשרת רק תבנית מאושרת';
+    $('tmplBtn').classList.toggle('prime', !open);
+    $('send').disabled = !open || !!(ST.line && ST.line.error);
+    if (!open && ATT) clearAtt();
+    clearTimeout(stTimer); if (open) stTimer = setTimeout(paintBar, 60000);
+  }
+
+  /* quiet hours: the server says needs-confirm; the person says "שלח בכל זאת" or not */
+  var qResolve = null;
+  function askQuiet(q) {
+    $('qTxt').textContent = (q && q.rule === 'guests'
+      ? 'עכשיו שעות שקט לאורחים (19:00–09:00).'
+      : 'עכשיו שעות שקט ללקוחות ולידים (21:00–09:00).') + ' אם הם כתבו עכשיו ומחכים לתשובה, אפשר לשלוח. לשלוח בכל זאת?';
+    $('popBg').classList.add('on'); $('qpop').classList.add('on'); $('qYes').focus();
+    return new Promise(function (res) { qResolve = res; });
+  }
+  function closeQuiet(v) { $('qpop').classList.remove('on'); if (!$('pop').classList.contains('on')) $('popBg').classList.remove('on'); if (qResolve) { var r = qResolve; qResolve = null; r(v); } }
+  $('qYes').addEventListener('click', function () { closeQuiet(true); });
+  $('qNo').addEventListener('click', function () { closeQuiet(false); });
+
+  /* one send, with the quiet-hours confirm and the window answer handled the same way for every kind */
+  function sendVia(body) {
+    var to = current;
+    body.phone = to;
+    return postJson('send', body).then(function (d) {
+      if (d && d.error === 'needs-confirm') {
+        return askQuiet(d.quiet).then(function (yes) { if (!yes) return { ok: false, error: 'cancelled' }; body.confirm_quiet = true; return postJson('send', body); });
+      }
+      return d;
+    }).then(function (d) {
+      if (d && d.error === 'window-closed') { if (ST) { ST.window = d.window || { open: false }; ST.window.open = false; } paintBar(); }
+      if (d && d.ok) claimIfMine();
+      return d;
+    });
+  }
+  var SEND_ERR = {
+    'window-closed': 'עברו 24 שעות מההודעה האחרונה שלהם. שולחים תבנית.',
+    'guests-number-not-connected': 'מספר האורחים לא מחובר כרגע.',
+    'media-line-mismatch': 'הקובץ הועלה למספר אחר. מצרפים אותו שוב.',
+    'wrong-channel': 'התבנית הזאת לא יוצאת מהמספר הזה.',
+    'staging-blocked': 'בסביבת הבדיקות שולחים רק למספרים המאושרים.',
+    'auth': 'צריך להתחבר מחדש.',
+    'offline': 'אין חיבור. ההודעה לא נשלחה.'
+  };
+  function sendErr(d) { var e = d && d.error || ''; return SEND_ERR[e] || explainErr(e); }
+
   function resend(m, btn) {
     if (!current) return;
     btn.disabled = true; btn.textContent = 'שולח…';
-    var payload = { admin_key: adminKey, to: current, channel: m.ch || 'client' };
-    if (m.type === 'template') { payload.mode = 'template'; payload.template = m.tmpl; payload.params = m.params || []; if (m.media && m.media.url && m.media.kind !== 'text') payload.image_url = m.media.url; if (m.lang) payload.lang = m.lang; }
-    else { payload.mode = 'text'; payload.text = m.text; }
-    fetch(CFG.endpoint('wasend'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-      .then(function (r) { return r.status === 200 ? r.json() : null; })
-      .then(function (d) {
-        if (d && d.ok) {
-          claimIfMine();
-          pendingOut.push({ dir: 'out', type: m.type, text: m.text, tmpl: m.tmpl, params: m.params, media: m.media, buttons: m.buttons, footer: m.footer, ts: Date.now(), ok: true, status: 'sent', id: d.id || ('local-' + Date.now()), who: 'נשלח שוב', to: current, ch: m.ch });
-          loadThread();
-        } else { btn.disabled = false; btn.textContent = '↻ שלח שוב'; window.IshurUX && IshurUX.toast ? IshurUX.toast('השליחה נכשלה' + (d && d.error ? ': ' + d.error : '')) : null; }
-      }).catch(function () { btn.disabled = false; btn.textContent = '↻ שלח שוב'; });
+    var body = m.type === 'template' ? { kind: 'template', template: { name: m.tmpl, params: m.params || [], lang: m.lang || 'he' } } : { kind: 'text', text: m.text };
+    sendVia(body).then(function (d) {
+      if (d && d.ok) {
+        pendingOut.push({ dir: 'out', type: m.type, text: m.text, tmpl: m.tmpl, params: m.params, media: m.media, buttons: m.buttons, footer: m.footer, ts: Date.now(), ok: true, status: 'sent', id: d.id || ('local-' + Date.now()), who: d.who, to: current, ch: d.channel });
+        loadThread();
+      } else { btn.disabled = false; btn.textContent = '↻ שלח שוב'; if (!d || d.error !== 'cancelled') toast(sendErr(d)); }
+    });
   }
   var pendingOut = [];
+
+  /* ── attach: preview first, upload to WhatsApp on send ── */
+  var ATT = null;   /* {file, kind, url, err} */
+  var KIND_HE = { image: 'תמונה', video: 'סרטון', audio: 'קובץ שמע', document: 'מסמך' };
+  function fmtSize(n) { return n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB'; }
+  function localCheck(f) {
+    /* the same rules the server holds (limits come from /api/inbox/state); the server checks again */
+    var lim = ST && ST.limits && ST.limits.media; if (!lim) return { kind: 'document' };
+    var t = String(f.type || '').toLowerCase().split(';')[0], ext = (String(f.name).toLowerCase().match(/\.([a-z0-9]+)$/) || [])[1] || '';
+    var alias = { 'image/jpg': 'image/jpeg', 'audio/mp3': 'audio/mpeg', 'audio/x-m4a': 'audio/mp4', 'audio/m4a': 'audio/mp4' }; t = alias[t] || t;
+    var byExt = { m4a: 'audio/mp4', mp3: 'audio/mpeg', ogg: 'audio/ogg', opus: 'audio/ogg', aac: 'audio/aac', amr: 'audio/amr', doc: 'application/msword', xls: 'application/vnd.ms-excel', ppt: 'application/vnd.ms-powerpoint', pdf: 'application/pdf', txt: 'text/plain' };
+    if ((!t || t === 'application/octet-stream') && byExt[ext]) t = byExt[ext];
+    var kind = ''; Object.keys(lim).forEach(function (k) { if (lim[k].mimes.indexOf(t) >= 0) kind = k; });
+    if (!kind) return { err: t === 'audio/webm' ? 'הקלטה מהדפדפן (webm) לא נתמכת. שולחים mp3, m4a או ogg.' : t === 'video/quicktime' ? 'סרטון mov לא נתמך. צריך mp4.' : t === 'image/heic' ? 'HEIC לא נתמך. צריך jpg או png.' : 'סוג הקובץ לא נתמך בוואטסאפ.' };
+    if (f.size > lim[kind].max) return { kind: kind, err: KIND_HE[kind] + ' עד ' + Math.round(lim[kind].max / 1048576) + 'MB.' };
+    return { kind: kind };
+  }
+  function clearAtt() { if (ATT && ATT.url) URL.revokeObjectURL(ATT.url); ATT = null; $('att').hidden = true; $('attPv').innerHTML = ''; $('attIn').value = ''; if (ST) paintBar(); }
+  function showAtt(f) {
+    clearAtt();
+    var c = localCheck(f), url = URL.createObjectURL(f);
+    ATT = { file: f, kind: c.kind || '', url: url, err: c.err || '' };
+    var pv = '';
+    if (c.kind === 'image') pv = '<img class="pv" src="' + url + '" alt="תצוגה מקדימה">';
+    else if (c.kind === 'video') pv = '<video class="pv" src="' + url + '" muted controls preload="metadata"></video>';
+    else if (c.kind === 'audio') pv = '<audio class="pv" src="' + url + '" controls preload="metadata"></audio>';
+    else pv = '<span class="doc">' + esc((String(f.name).match(/\.([a-z0-9]+)$/i) || ['', 'קובץ'])[1]) + '</span>';
+    $('attPv').innerHTML = pv;
+    $('attName').textContent = f.name;
+    $('attMeta').innerHTML = c.err ? '<span class="err">' + esc(c.err) + '</span>' : esc((KIND_HE[c.kind] || 'קובץ') + ' · ' + fmtSize(f.size) + (c.kind === 'audio' ? ' · בלי כיתוב' : ''));
+    $('att').hidden = false;
+    paintBar();
+    $('txt').focus();
+  }
+  $('attBtn').addEventListener('click', function () { if (!$('attBtn').disabled) $('attIn').click(); });
+  $('attIn').addEventListener('change', function () { var f = this.files && this.files[0]; if (f) showAtt(f); });
+  $('attX').addEventListener('click', clearAtt);
+  /* a file dropped on the conversation or pasted into the box is attached the same way */
+  $('thread').addEventListener('dragover', function (e) { if (current && winOpen()) e.preventDefault(); });
+  $('thread').addEventListener('drop', function (e) { if (!current || !winOpen()) return; e.preventDefault(); var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) showAtt(f); });
+  $('txt').addEventListener('paste', function (e) { var it = e.clipboardData && e.clipboardData.files && e.clipboardData.files[0]; if (it && winOpen()) { e.preventDefault(); showAtt(it); } });
+
+  function uploadFile(f, to) {
+    var fd = new FormData(); fd.append('phone', to); fd.append('file', f, f.name);
+    return fetch(inboxApi('media'), { method: 'POST', headers: { 'x-admin-key': adminKey }, body: fd })
+      .then(function (r) { if (r.status === 403) return { ok: false, error: 'auth' }; return r.json().catch(function () { return { ok: false, error: 'bad-response' }; }); })
+      .catch(function () { return { ok: false, error: 'offline' }; });
+  }
+
   function doSend() {
-    var t = $('txt').value.trim();
-    if (!t || !current) return;
-    $('send').disabled = true;
-    fetch(CFG.endpoint('wasend'), {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ admin_key: adminKey, to: current, mode: 'text', text: t })
-    }).then(function (r) { return r.status === 200 ? r.json() : null; })
-      .then(function (d) {
-        $('send').disabled = false;
-        if (d && d.ok) { claimIfMine(); pendingOut.push({ dir: 'out', type: 'text', text: t, ts: Date.now(), ok: true, status: 'sent', id: d.id || ('local-' + Date.now()), who: 'ריצ׳רד', to: current }); $('txt').value = ''; loadThread(); }
-        else alert('השליחה נכשלה' + (d && d.error ? ': ' + d.error : '') + '. אם עברו 24 שעות, שלחו תבנית.');
-      }).catch(function () { $('send').disabled = false; });
+    if (!current || $('send').disabled) return;
+    var t = $('txt').value.trim(), to = current;
+    if (ATT && ATT.err) { toast(ATT.err); return; }
+    if (!ATT && !t) return;
+    $('send').disabled = true; $('send').textContent = ATT ? 'מעלה…' : 'שולח…';
+    var done = function () { $('send').textContent = 'שליחה'; paintBar(); };
+    if (!ATT) {
+      sendVia({ kind: 'text', text: t }).then(function (d) {
+        done();
+        if (d && d.ok) { pendingOut.push({ dir: 'out', type: 'text', text: t, ts: Date.now(), ok: true, status: 'sent', id: d.id || ('local-' + Date.now()), who: d.who, to: to, ch: d.channel }); if (current === to) $('txt').value = ''; loadThread(); }
+        else if (!d || d.error !== 'cancelled') toast(sendErr(d));
+      });
+      return;
+    }
+    var a = ATT;
+    uploadFile(a.file, to).then(function (u) {
+      if (!u || !u.ok) { done(); toast(u && u.he ? u.he : u && u.error === 'upload-failed' ? 'וואטסאפ לא קיבלה את הקובץ. נסו שוב או קובץ אחר.' : sendErr(u)); return; }
+      $('send').textContent = 'שולח…';
+      return sendVia({ kind: 'media', media: u.media, caption: a.kind === 'audio' ? '' : t }).then(function (d) {
+        done();
+        if (d && d.ok) {
+          pendingOut.push({ dir: 'out', type: u.media.kind, text: a.kind === 'audio' ? '' : t, caption: t, media: { kind: u.media.kind, id: u.media.id, mime: u.media.mime, name: u.media.name }, ts: Date.now(), ok: true, status: 'sent', id: d.id || ('local-' + Date.now()), who: d.who, to: to, ch: d.channel });
+          if (u.media.kind !== 'document') MEDIA[u.media.id] = a.url;   /* shown from the local copy, no download */
+          ATT = null; $('att').hidden = true; $('attPv').innerHTML = ''; $('attIn').value = '';
+          if (current === to) $('txt').value = '';
+          loadThread();
+        } else if (!d || d.error !== 'cancelled') toast(sendErr(d));
+      });
+    });
   }
   $('send').addEventListener('click', doSend);
   $('txt').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); }
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); doSend(); }
   });
 
-  /* ── template popup ── */
-  var TMPLS = {
-    'ishur_tashlum': { label: 'קישור העלאה למשלם', params: ['שם פרטי', 'קישור העלאה'] },
-    'ishur_doch': { label: 'דוח ללקוח', params: ['שם האירוע', 'אישרו', 'סועדים', 'סירבו', 'ממתינים', 'קישור דשבורד'] },
-    'hazmana_ishur': { label: 'הזמנה לאורח', params: ['שם האורח', 'סוג האירוע', 'בעלי השמחה', 'תאריך', 'שעה', 'מקום'] },
-    'ishur_shulchan': { label: 'מספר שולחן', params: ['שם האורח', 'שם האירוע', 'מספר שולחן'] },
-    'ishur_syum': { label: 'סיום אירוע', params: ['שם האירוע', 'אישרו', 'סועדים', 'סירבו', 'ללא מענה', 'קישור ביקורת', 'קישור המלצה'] },
-  };
+  /* ── template picker: the approved templates of the line this conversation is on ── */
+  var TPL = [], TPL_LINE = '', tplHeaderFile = null;
   var sel = $('tmplSel');
-  Object.keys(TMPLS).forEach(function (k) {
-    var o = document.createElement('option');
-    o.value = k; o.textContent = TMPLS[k].label + ' (' + k + ')';
-    sel.appendChild(o);
-  });
+  function curTpl() { for (var i = 0; i < TPL.length; i++) if (TPL[i].name === sel.value) return TPL[i]; return null; }
+  function paintPreview() {
+    var t = curTpl(), pv = $('tmplPv');
+    if (!t) { pv.hidden = true; return; }
+    var vals = Array.prototype.map.call($('tmplParams').querySelectorAll('input[data-i]'), function (i) { return i.value.trim(); });
+    pv.hidden = false;
+    pv.innerHTML = (t.header && t.header.format === 'TEXT' && t.header.text ? '<b>' + esc(t.header.text) + '</b>\n' : '') +
+      esc(t.body).replace(/\{\{(\d+)\}\}/g, function (_, n) { var v = vals[Number(n) - 1]; return v ? esc(v) : '<i>{{' + n + '}}</i>'; });
+  }
   function paintParams() {
-    var host = $('tmplParams'); host.innerHTML = '';
-    TMPLS[sel.value].params.forEach(function (p, i) {
-      var inp = document.createElement('input');
-      inp.placeholder = (i + 1) + ' · ' + p;
-      inp.dataset.i = i;
-      host.appendChild(inp);
-    });
+    var host = $('tmplParams'), t = curTpl(); host.innerHTML = ''; tplHeaderFile = null; $('tmplMsg').textContent = '';
+    if (!t) { paintPreview(); return; }
+    if (t.header && /^(IMAGE|VIDEO|DOCUMENT)$/.test(t.header.format)) {
+      var hk = t.header.format.toLowerCase();
+      host.insertAdjacentHTML('beforeend', '<label for="tplHdr">' + ({ image: 'תמונת כותרת', video: 'סרטון כותרת', document: 'מסמך כותרת' })[hk] + '</label>' +
+        '<input type="file" id="tplHdr" accept="' + ({ image: 'image/jpeg,image/png', video: 'video/mp4', document: 'application/pdf' })[hk] + '">');
+      $('tplHdr').addEventListener('change', function () { tplHeaderFile = this.files && this.files[0] || null; });
+    }
+    for (var i = 0; i < t.params; i++) {
+      host.insertAdjacentHTML('beforeend', '<label for="tp' + i + '">משתנה {{' + (i + 1) + '}}</label><input id="tp' + i + '" data-i="' + i + '" autocomplete="off">');
+    }
+    if (t.button_param) {
+      var b = t.buttons[t.button_param.index] || {};
+      host.insertAdjacentHTML('beforeend', '<label for="tpBtn">סוף הקישור בכפתור "' + esc(b.text || '') + '"</label><input id="tpBtn" dir="ltr" autocomplete="off" placeholder="' + esc(String(b.url || '').replace('{{1}}', '…')) + '">');
+    }
+    host.querySelectorAll('input[data-i]').forEach(function (inp) { inp.addEventListener('input', paintPreview); });
+    paintPreview();
   }
   sel.addEventListener('change', paintParams);
+  function loadTemplates() {
+    var want = current;
+    sel.innerHTML = '<option value="">טוען תבניות…</option>'; sel.disabled = true; TPL = []; paintParams();
+    postJson('templates', { phone: want }).then(function (d) {
+      if (current !== want) return;
+      sel.disabled = false;
+      if (!d || !d.ok) { sel.innerHTML = '<option value="">לא הצלחנו לטעון תבניות</option>'; $('tmplMsg').textContent = d && d.error === 'guests-number-not-connected' ? 'מספר האורחים לא מחובר.' : 'נסו שוב בעוד רגע.'; return; }
+      TPL = d.templates || []; TPL_LINE = d.channel;
+      sel.innerHTML = '<option value="">בוחרים תבנית</option>' + TPL.map(function (t) {
+        return '<option value="' + esc(t.name) + '"' + (t.supported ? '' : ' disabled') + '>' + esc(t.name) + (t.lang && t.lang !== 'he' ? ' · ' + esc(t.lang) : '') + (t.supported ? '' : ' (לא נתמך מכאן)') + '</option>';
+      }).join('');
+      paintParams();
+    });
+  }
   $('tmplBtn').addEventListener('click', function () {
     if (!current) return;
-    paintParams();
+    $('tmplWhy').hidden = winOpen();
     $('popBg').classList.add('on'); $('pop').classList.add('on');
+    loadTemplates(); sel.focus();
   });
-  function closePop() { $('popBg').classList.remove('on'); $('pop').classList.remove('on'); }
+  function closePop() { $('pop').classList.remove('on'); $('popBg').classList.remove('on'); }
   $('popCancel').addEventListener('click', closePop);
-  $('popBg').addEventListener('click', closePop);
+  $('popBg').addEventListener('click', function () { if ($('qpop').classList.contains('on')) closeQuiet(false); else closePop(); });
+  document.addEventListener('keydown', function (e) { if (e.key !== 'Escape') return; if ($('qpop').classList.contains('on')) closeQuiet(false); else if ($('pop').classList.contains('on')) closePop(); });
   $('popSend').addEventListener('click', function () {
-    var params = Array.prototype.map.call($('tmplParams').querySelectorAll('input'), function (i) { return i.value.trim(); });
-    if (params.some(function (p) { return !p; })) { alert('כל השדות נדרשים'); return; }
-    $('popSend').disabled = true;
-    fetch(CFG.endpoint('wasend'), {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ admin_key: adminKey, to: current, mode: 'template', template: sel.value, params: params })
-    }).then(function (r) { return r.status === 200 ? r.json() : null; })
-      .then(function (d) {
+    var t = curTpl(), to = current;
+    if (!t || !to) { $('tmplMsg').textContent = 'בוחרים תבנית.'; return; }
+    var params = Array.prototype.map.call($('tmplParams').querySelectorAll('input[data-i]'), function (i) { return i.value.trim(); });
+    if (params.some(function (p) { return !p; })) { $('tmplMsg').textContent = 'כל המשתנים נדרשים.'; return; }
+    var needHdr = t.header && /^(IMAGE|VIDEO|DOCUMENT)$/.test(t.header.format);
+    if (needHdr && !tplHeaderFile) { $('tmplMsg').textContent = 'התבנית צריכה קובץ בכותרת.'; return; }
+    var btnTxt = t.button_param ? ($('tpBtn').value || '').trim() : '';
+    if (t.button_param && !btnTxt) { $('tmplMsg').textContent = 'חסר סוף הקישור לכפתור.'; return; }
+    $('popSend').disabled = true; $('tmplMsg').textContent = '';
+    var go = function (hdr) {
+      var tpl = { name: t.name, lang: t.lang, params: params };
+      if (hdr) tpl.header_media = { id: hdr.id, kind: hdr.kind };
+      if (btnTxt) tpl.button_param = { index: t.button_param.index, text: btnTxt };
+      return sendVia({ kind: 'template', template: tpl }).then(function (d) {
         $('popSend').disabled = false;
-        if (d && d.ok) { closePop(); loadThread(); }
-        else alert('השליחה נכשלה' + (d && d.error ? ': ' + d.error : ''));
-      }).catch(function () { $('popSend').disabled = false; });
+        if (d && d.ok) {
+          closePop();
+          pendingOut.push({ dir: 'out', type: 'template', tmpl: t.name, params: params, lang: t.lang, text: t.body.replace(/\{\{(\d+)\}\}/g, function (_, n) { return params[Number(n) - 1] || ''; }), ts: Date.now(), ok: true, status: 'sent', id: d.id || ('local-' + Date.now()), who: d.who, to: to, ch: d.channel });
+          loadThread();
+        } else if (!d || d.error !== 'cancelled') $('tmplMsg').textContent = sendErr(d);
+      });
+    };
+    if (!needHdr) { go(null); return; }
+    uploadFile(tplHeaderFile, to).then(function (u) {
+      if (!u || !u.ok) { $('popSend').disabled = false; $('tmplMsg').textContent = u && u.he ? u.he : 'הקובץ לא עלה לוואטסאפ.'; return; }
+      go({ id: u.media.id, kind: u.media.kind });
+    });
   });
 
   /* ── refresh loop ── */
-  $('refresh').addEventListener('click', function () { loadConvs(); loadThread(); });
+  $('refresh').addEventListener('click', function () { loadConvs(); loadThread(); loadState(); });
   $('ownF').addEventListener('click', function (e) { var b = e.target.closest('button[data-of]'); if (!b) return; ownFilter = b.dataset.of; [].forEach.call($('ownF').querySelectorAll('button'), function (x) { x.setAttribute('aria-pressed', String(x === b)); }); if (LAST_LIST) paintList(LAST_LIST); });
   $('pOwn').addEventListener('change', function () { if (current) ownApi({ own: { phone: current, owner: $('pOwn').value } }); });
   function boot() {
