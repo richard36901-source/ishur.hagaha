@@ -16,6 +16,8 @@
    בסיס — messages only, no calls · פרמיום — one call attempt per guest ·
    הכל כלול — three attempts on separate days. Column 31 holds the Hebrew
    plan name; an unknown/empty value falls back to פרמיום (the site default). */
+import { rowStateHe } from './send-plan.js';   /* 25/11 track-board */
+
 export function planKeyOf(ev) {
   const s = String((ev && ev[31]) || '').trim().toLowerCase();
   if (/הכל|premium|all/.test(s)) return 'premium';
@@ -310,6 +312,8 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
          23/11 for a later round) must not push the first round's date forward. */
       const escDay = String(sent.escDate || '').slice(0, 10);
       if (/^\d{4}-\d{2}-\d{2}$/.test(escDay) && escDay < start) start = escDay;
+      /* 25/11 track-board: on a plan without calls the add-on round IS this row — a day the team / client set wins */
+      if (!planCap && /^\d{4}-\d{2}-\d{2}$/.test(String(sent.callsAddonStart || ''))) start = sent.callsAddonStart;
       /* 04/11: a guest who used up every try is not waiting any more - the
          round is over even though the sheet still flags them */
       const cap = planMaxCallTries(planKeyOf(ev)) || (sent.callsAddon ? 1 : 0);
@@ -352,13 +356,13 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
   /* 25/11 Richard (אלעד: a calls round added from the client card ran, and the board showed nothing): on a plan that
      has call rounds of its own, the add-on is one more round and gets a row. Its guests are the ones the plan's rounds
      did not close: tries above the plan's limit = this round already rang them. */
-  if (!sent.noCalls && sent.callsAddon && sent.callsAddonAt && planCap > 0 && !sent.callRound) {
-    const at = String(sent.callsAddonAt).slice(0, 10);
+  if (!sent.noCalls && sent.callsAddon && (sent.callsAddonAt || sent.callsAddonPick) && planCap > 0 && !sent.callRound) {
+    const at = String(sent.callsAddonAt || '').slice(0, 10);
     const waitA = guests.filter(g => planWaits(g) && g.tries <= planCap).length;
     const rang = guests.filter(g => g.tries > planCap);
     const ans = rang.filter(g => /^ענה($| - )/.test(g.call_ans) && (g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided'));
     const stA = at > todayIso ? 'scheduled' : (waitA && at === todayIso) ? 'running' : (rang.length || at < todayIso) ? 'sent' : 'running';
-    sends.push({ key: 'calls2', label: 'סבב שיחות נוסף (למי שלא ענה ולמתלבטים)', date: at, status: stA, auto: true, queued: stA === 'sent' ? 0 : waitA, addon: true,
+    sends.push({ key: 'calls2', label: 'סבב שיחות נוסף (למי שלא ענה ולמתלבטים)', date: at, status: at ? stA : 'scheduled', auto: true, queued: stA === 'sent' ? 0 : waitA, addon: true, ...(at ? {} : { pick: true }),
       stats: { dialed: rang.length, answered: ans.length, confirmed: ans.filter(g => g.status === 'confirmed').length, declined: ans.filter(g => g.status === 'declined').length,
         undecided: ans.filter(g => g.status === 'undecided').length, no_answer: rang.length - ans.length, waiting: stA === 'sent' ? 0 : waitA, later: 0, later_confirmed: 0, later_declined: 0, later_undecided: 0 } });
   }
@@ -457,8 +461,20 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
      row says so (moved) */
   for (const x of sends) if ((x.key === 'calls' || /^calls_r\d$/.test(x.key)) && x.status === 'sent' && x.stats) { x.stats = { ...x.stats, moved: x.stats.waiting || 0, waiting: 0 }; x.queued = 0; }
 
+  /* 25/11 track-board: every row says exactly where it stands; a round the client has to date carries pick */
+  if (sent.extraPick) for (const x of sends) if (x.key === 'extra' && !x.date && x.status !== 'sent') x.pick = true;
+  if (sent.callsAddonPick && !planCap) for (const x of sends) if (x.key === 'calls' && x.status !== 'sent') { x.pick = true; x.date = ''; x.status = 'scheduled'; }
+  const waveN = { invite: 1, reminder: 2, extra: 3 };
+  for (const x of sends) {
+    const n = waveN[x.key];
+    if (n && sent.sentAt && sent.sentAt[n]) x.sent_at = sent.sentAt[n];
+    if (n && sent.delivered && sent.delivered[n] != null) x.delivered_n = sent.delivered[n];
+    x.state_he = rowStateHe(x, { today: todayIso, stopped: !!sent.clientStop });
+  }
   return {
     ok: true,
+    stop: sent.clientStop || null,
+    pick_date: sends.filter(x => x.pick).map(x => x.key),
     event: {
       name1: c(34) || c(2), name2: '',
       occasion: c(5), occasion_label: c(5),

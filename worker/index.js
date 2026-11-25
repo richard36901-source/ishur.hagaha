@@ -109,6 +109,8 @@ import { runBrain } from './brain.js';   /* 03/11 ops brain: checks + playbooks 
 import { withCfg, paceSends, paceSendsMax, dailyCallCap } from './cfg.js';   /* 03/11 edit-in-place settings (cfg:<key>) */
 import { JOB_TO_ID, AUTOMATIONS } from './automations-registry.js';
 import { readSnapshot, snapInfo, snapWhy, sheetWrite, drainSheetQueue, noteSheetWrite, noteHookWrite, markSnapDirty, makeStatus } from './snapshot.js';   /* 04/11 Make burn */
+import { handleClientStop, handleClientStopLift, clientStopOf, publicStop } from './client-stop.js';   /* 25/11 track-board: the client's red stop button */
+import { normAudience, audienceIncludes, parseAddon, dateGuard, ilHM, addonDialOk, addonDayReady, handleCallsAddonDate, deliveredCount, firstSentAt } from './send-plan.js';   /* 25/11 track-board: audience + day of an added round, the board's state line */
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -1632,6 +1634,9 @@ async function handleEventFlag(request, env, origin) {
     await logEvent(env, { area: 'אירוע', action: 'אושרה הודעת דחייה לאורחים', ok: true, token, detail: d }).catch(() => {});
     return okJson({ ok: true, flag, on: true, date: d }, origin);
   }
+  /* 25/11 track-board: the client pressed stop — releasing hold: alone would leave calls stopped and the board saying
+     "stopped". The team lifts it with /api/client-stop-lift, which clears every key. */
+  if (flag === 'hold' && !body.on && await clientStopOf(env, token)) return deny(409, 'client-stopped', origin);
   if (body.on) await env.RATE.put(key, new Date().toISOString(), { expirationTtl: 200 * 86400 });
   else await env.RATE.delete(key);
   /* 09/11: a released hold must wake the pacer, or the waves wait for tomorrow's engine ("nothing-pending") */
@@ -3128,6 +3133,13 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
   let { queue } = buildCallQueue(raw, 3, await callsAddonTokens(env));
   /* 19/11 Richard (אריאל ודיקלה): an event can opt out of phone calls altogether — nocalls:<token>. Nobody of it is dialed. */
   try { const off = new Set(Object.keys(await kvPrefix(env, 'nocalls:'))); if (off.size) queue = queue.filter(g => !off.has(g.token)); } catch {}
+  /* 25/11 track-board: a client stop takes the whole event out; a calls add-on round waits for its day (or the
+     client's pick) and rings only the audience the team chose */
+  try {
+    const [stops, addons] = await Promise.all([kvPrefix(env, 'clientstop:'), kvPrefix(env, 'callsaddon:')]);
+    const today0 = ilDate();
+    queue = queue.filter(g => !stops[g.token] && addonDialOk(addons[g.token], g, today0));
+  } catch {}
   /* a closed window with people waiting is worth saying out loud: silence here
      is exactly how the queue grew unnoticed */
   if (!win.open && !force) {
@@ -3451,6 +3463,8 @@ async function runShirCallbacks(env, { max = 3, force = false } = {}) {
       guest_id: meta.guest_id || '', token: meta.token || '',
       tries: meta.tries || '0', max_tries: meta.max_tries || '3',
     };
+    /* 25/11 track-board: a guest of an event the client stopped is not rung back by Shir */
+    if (hit.caller_kind === 'guest' && target.token && await clientStopOf(env, target.token)) { await cbqClear(env, r.phone); skipped++; continue; }
     /* Separation rule: a guest is rung back by Shir from her number; a
        client, a lead or a stranger is rung back by Noa from hers. Never the
        other way round. Without Noa's line configured the entry waits. */
@@ -5488,6 +5502,8 @@ async function releaseTimedHolds(env, today) {
   const all = await kvPrefix(env, 'holdtill:');
   for (const [token, till] of Object.entries(all)) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(till)) || String(till) > today) continue;
+    /* 25/11 track-board: a stop the client pressed is lifted by the team only, never by a timer */
+    if (await clientStopOf(env, token)) { await env.RATE.delete('holdtill:' + token); continue; }
     await env.RATE.delete('hold:' + token); await env.RATE.delete('holdtill:' + token);
     await logEvent(env, { area: 'שליחה', action: `העצירה הזמנית הסתיימה (${till}) — השליחה לאירוע חוזרת`, ok: true, token }).catch(() => {});
     await slackPost(env, `▶️ העצירה הזמנית של אירוע ${token.slice(0, 8)} הסתיימה (${till}) — השליחה חוזרת אוטומטית.`, { cls: 'info', key: 'holdtill:' + token.slice(0, 8) }).catch(() => {});
@@ -5985,7 +6001,7 @@ async function checkCustomTemplates(env) {
     const token = k.slice('customtmpl:'.length);
     /* 17/11 (Richard): an event that was put on hold only to wait for its wording goes back to sending by itself the moment
        Meta approves it (relonappr:<token>). A rejection leaves the hold in place and says so. */
-    if (await env.RATE.get('relonappr:' + token).catch(() => null)) {
+    if (await env.RATE.get('relonappr:' + token).catch(() => null) && !(await clientStopOf(env, token))) {   /* 25/11: never over a client stop */
       if (st === 'APPROVED') { await env.RATE.delete('hold:' + token).catch(() => {}); await env.RATE.delete('holdtill:' + token).catch(() => {}); await env.RATE.delete('relonappr:' + token).catch(() => {});
         await env.RATE.put('pacer:pending', ilDate(), { expirationTtl: 86400 }).catch(() => {});   /* a released hold must wake the pacer, or the wave waits for tomorrow (found live 17/11: released at 12:00, pacer said nothing-pending) */
         await slackSend(env, `▶️ *הנוסח אושר, השליחות לאירוע חזרו*\n\n• אירוע ${token.slice(0, 8)}\n• תבנית ${rec.name}\n\nמה לעשות: כלום, הגל ימשיך לפי התכנון`, { important: true, oneoff: true, urgent: true, key: 'relonappr' }).catch(() => {}); }
@@ -6336,6 +6352,8 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
     /* Richard, 11/09: the reminder also goes to מתלבט — only a real answer
        (מגיע / לא מגיע) takes a guest out of wave 2 */
     if (wave.onlyUnanswered && answered && rsvp !== 'מתלבט') { skippedAnswered++; cursor = gi + 1; continue; }
+    /* 25/11 track-board: an added round the team aimed at "only who did not answer" or "only the undecided" */
+    if (wave.audience && !audienceIncludes(wave.audience, rsvp)) { skippedAnswered++; cursor = gi + 1; continue; }
     /* dry runs never touch KV state */
     if (dry) { sent++; if (budget) budget.left--; continue; }
     /* wsent: FIRST — it is one read and it is true for every guest a previous
@@ -6923,19 +6941,25 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
        day the engine picks: בסיס — the morning after the last planned send; a plan with
        calls — the first morning after its own rounds are spent (פרמיום after its one,
        הכל כלול after its three). Whoever still has no answer goes back into the queue. */
-    const hasCallsAddon = env.RATE ? !!(await env.RATE.get('callsaddon:' + token).catch(() => null)) : false;
+    const addonRaw = env.RATE ? await env.RATE.get('callsaddon:' + token).catch(() => null) : null;
+    const hasCallsAddon = !!addonRaw;
     if (hasCallsAddon) {
+      /* 25/11 track-board: a day the team (or the client) set wins over the engine's pick; "הלקוח יחליט" waits for it */
+      const addonSpec = parseAddon(addonRaw);
+      const addonAud = normAudience(addonSpec && addonSpec.scope, { calls: true });
       const planK = planKeyOf(ev), ownCap = planMaxCallTries(planK), esc2Key = `esc2:${token}`;
       const afterSends = callDateOv ? callDateOv <= today : !!(lastSend && lastSend < today);
       const escDay = ownCap && env.RATE ? await env.RATE.get(`esc:${token}`).catch(() => null) : null;
       const stillOwn = guests.some(g => String(g[21] || '').trim() === 'נדרשת שיחה' && (Number(String(g[29] || '').trim()) || 0) < ownCap);
-      const ready = ownCap ? !!(escDay && String(escDay).slice(0, 10) < today && !stillOwn) : afterSends;
+      const ready = !addonDayReady(addonRaw, today) ? false
+        : addonSpec && addonSpec.start ? !stillOwn
+        : ownCap ? !!(escDay && String(escDay).slice(0, 10) < today && !stillOwn) : afterSends;
       if (ready && !(env.RATE && await env.RATE.get(esc2Key))) {
         let queued = 0, failed = 0;
         for (const g of guests) {
           const rsvp = String(g[15] || '').trim();
           const gid = String(g[2] || '').trim();
-          if ((rsvp !== '' && rsvp !== 'מתלבט') || !gid) continue;
+          if (!audienceIncludes(addonAud, rsvp) || !gid) continue;   /* was: '' or מתלבט only = the 'unanswered' default */
           if (/לא להתקשר/.test(String(g[22] || ''))) continue;          // asked not to be called — never again
           if (!isIlMobile(normPhone(g[4] || ''))) continue;
           if (String(g[21] || '').trim() === 'נדרשת שיחה') { queued++; continue; }   // already waiting; the higher cap covers it
@@ -10148,9 +10172,12 @@ async function handleVenueCommit(request, env, origin) {
 
 /* the extra-send add-on's KV value is an ISO date (old) or {at, scope, ref}; scope 'unanswered' = no answer yet + undecided */
 export function extraSendWave(wave, stored) {
-  let scope = 'all';
-  try { const j = JSON.parse(String(stored || '')); if (j && j.scope === 'unanswered') scope = 'unanswered'; } catch {}
-  return scope === 'unanswered' ? { ...wave, onlyUnanswered: true } : wave;
+  /* 25/11 track-board: also 'noanswer' (no answer only) and 'undecided' (undecided only) — sendWave reads wave.audience */
+  const spec = parseAddon(stored);
+  const scope = spec && spec.scope ? normAudience(spec.scope) : 'all';
+  if (scope === 'unanswered') return { ...wave, onlyUnanswered: true };
+  if (scope === 'noanswer' || scope === 'undecided') return { ...wave, onlyUnanswered: true, audience: scope };
+  return wave;
 }
 
 async function handleSendDate(request, env, origin) {
@@ -10171,6 +10198,8 @@ async function handleSendDate(request, env, origin) {
     return deny(402, 'extra-not-paid', origin);
   }
 
+  /* 25/11 track-board: a stopped event takes no new dates until the team lifts the stop */
+  if (await clientStopOf(env, token)) return deny(409, 'client-stopped', origin);
   /* a wave that already went out cannot be moved */
   if (env.RATE && await env.RATE.get(`wave:${token}:${spec.n}`)) {
     return deny(409, 'already-sent', origin);
@@ -10186,7 +10215,8 @@ async function handleSendDate(request, env, origin) {
 
   const today = ilDate();
   const evDate = String(ev[6] || '').trim().slice(0, 10);
-  if (date < today) return deny(422, 'date-in-past', origin);
+  /* 25/11 track-board: never a past day, and today only before 19:00 (the guests' window closes then) */
+  { const why = dateGuard(date, { today, hm: ilHM() }); if (why) return deny(422, why, origin); }
   if (/^\d{4}-\d{2}-\d{2}$/.test(evDate) && date >= evDate) return deny(422, 'after-event', origin);
   if (new Date(date + 'T12:00:00Z').getUTCDay() === 6) return deny(422, 'shabbat', origin);
 
@@ -13027,6 +13057,20 @@ const WORKER = {
     if (url.pathname === '/api/send-date' && request.method === 'POST') {
       return handleSendDate(request, env, origin);
     }
+    /* 25/11 track-board: the client's red stop button (client-stop.js), the team's lift, and the client's pick of an
+       added calls round's day (send-plan.js) */
+    if (url.pathname === '/api/client-stop' && request.method === 'POST') {
+      return handleClientStop(request, env, origin, { okJson, deny, tokenRecord, overBudget, logEvent, slackSend,
+        notifyEvent: (e, dd, rule, cand) => import('./notify.js').then(m => m.notifyEvent(e, dd, rule, cand)),
+        eventName: async t => { const raw = await snapshotCached(env, 'guest').catch(() => null); const r = raw ? eventRowOf(raw, t) : null; return r ? String(r[34] || r[2] || '').trim() : ''; } });
+    }
+    if (url.pathname === '/api/client-stop-lift' && request.method === 'POST') {
+      return handleClientStopLift(request, env, origin, { okJson, deny, isAdmin, logEvent, slackSend });
+    }
+    if (url.pathname === '/api/calls-addon-date' && request.method === 'POST') {
+      return handleCallsAddonDate(request, env, origin, { okJson, deny, tokenRecord, overBudget, logEvent, clientStopOf, ilDate,
+        eventDate: async t => { const raw = await snapshotCached(env, 'guest').catch(() => null); const r = raw ? eventRowOf(raw, t) : null; return r ? String(r[6] || '').trim() : ''; } });
+    }
     if (url.pathname === '/api/venue-commit' && request.method === 'POST') {
       return handleVenueCommit(request, env, origin);
     }
@@ -13092,6 +13136,7 @@ const WORKER = {
       if (b.type === 'calls' || b.type === 'thanks') {
         const d = String(b.date || '').slice(0, 10);
         if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return deny(400, 'bad-date', origin);
+        { const why = dateGuard(d, { today: ilDate(), hm: ilHM() }); if (why) return deny(422, why, origin); }   /* 25/11 track-board: never a past day */
         await env.RATE.put((b.type === 'calls' ? 'calldate:' : 'todadate:') + token, d, { expirationTtl: 200 * 86400 });
         if (b.type === 'calls') await env.RATE.delete('esc:' + token).catch(() => {});   /* a moved round re-opens the escalation for its new day */
         await logEvent(env, { area: 'לוח', action: `${b.type === 'calls' ? 'סבב השיחות' : 'הודעת התודה'} הועבר/ה מהלוח → ${d}`, ok: true, token }).catch(() => {});
@@ -14280,10 +14325,25 @@ const WORKER = {
       const tok = String(b.token || '').trim();
       if (!/^[0-9a-f-]{36}$/.test(tok) || !env.RATE) return deny(400, 'bad-token', origin);
       const kind = String(b.kind || '');
+      /* 25/11 track-board: an added send / calls round says when (a day from today on, today only before 19:00, or
+         'client' = the client picks it on the board) and for whom (all / unanswered / noanswer / undecided) */
+      const when = b.when == null ? '' : String(b.when).trim();
+      if (when && when !== 'client') { const why = dateGuard(when, { today: ilDate(), hm: ilHM() }); if (why) return deny(422, why, origin); }
+      let dateRes = null;
       if (kind === 'extrasend') {
         /* 25/11: the team chooses the audience too — everybody, or only who did not answer + the undecided */
-        const scope = String(b.scope || 'all') === 'unanswered' ? 'unanswered' : 'all';
-        await env.RATE.put('extrasend:' + tok, JSON.stringify({ at: new Date().toISOString(), scope, ref: 'admin' }), { expirationTtl: 200 * 86400 });
+        const scope = normAudience(b.scope);
+        await env.RATE.put('extrasend:' + tok, JSON.stringify({ at: new Date().toISOString(), scope, ref: 'admin', ...(when === 'client' ? { client_decides: true } : {}) }), { expirationTtl: 200 * 86400 });
+        if (when && when !== 'client') {
+          const inner = new Request(request.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: tok, send: 'extra', date: when }) });
+          const r = await handleSendDate(inner, env, origin); let j = null; try { j = await r.json(); } catch {}
+          dateRes = r.ok ? { date: when, saved: true } : { date: when, saved: false, error: (j && (j.error || j.reason)) || String(r.status) };
+          if (r.ok && when === ilDate()) await env.RATE.put('pacer:pending', ilDate(), { expirationTtl: 86400 }).catch(() => {});
+        }
+      } else if (kind === 'calls' && b.when != null) {
+        const scope = normAudience(b.scope, { calls: true });
+        await env.RATE.put('callsaddon:' + tok, JSON.stringify({ at: new Date().toISOString(), ref: 'admin', scope, start: when === 'client' ? '' : when, ...(when === 'client' ? { client_decides: true } : {}) }), { expirationTtl: 200 * 86400 });
+        dateRes = when === 'client' ? null : { date: when, saved: true };
       } else if (kind === 'guests') {
         const n = Math.min(Math.max(parseInt(b.n, 10) || 0, 1), 900);
         let cur = { n: 0 }; try { cur = JSON.parse(await env.RATE.get('addon:' + tok)) || cur; } catch {}
@@ -14305,8 +14365,9 @@ const WORKER = {
         let cur = null; try { cur = JSON.parse(await env.RATE.get('hostess:' + tok) || 'null'); } catch {}
         await env.RATE.put('hostess:' + tok, JSON.stringify({ ...(cur || { date: '', city: '', travel_included: null }), n: ((cur && Number(cur.n)) || 0) + n, at: new Date().toISOString(), ref: 'admin' }), { expirationTtl: 400 * 86400 });
       } else return deny(400, 'bad-kind', origin);
-      await logEvent(env, { area: 'תשלום', action: `תוספת חינם ממנהל: ${kind}${b.n ? ' ×' + b.n : ''}`, ok: true, token: tok, detail: 'ריצ׳רד, מהעמוד לקוחות' }).catch(() => {});
-      return okJson({ ok: true, token: tok, kind }, origin);
+      const plan = (kind === 'extrasend' || kind === 'calls') && b.when != null ? { when: when || '', scope: normAudience(b.scope, { calls: kind === 'calls' }) } : null;
+      await logEvent(env, { area: 'תשלום', action: `תוספת חינם ממנהל: ${kind}${b.n ? ' ×' + b.n : ''}`, ok: true, token: tok, detail: 'ריצ׳רד, מהעמוד לקוחות' + (plan ? ` · ${plan.when === 'client' ? 'הלקוח יבחר מועד' : plan.when} · ${plan.scope}` : '') }).catch(() => {});
+      return okJson({ ok: true, token: tok, kind, ...(plan ? { when: plan.when, scope: plan.scope, date: dateRes } : {}) }, origin);
     }
     if (url.pathname === '/api/client-active' && request.method === 'POST') {
       let b = {};
@@ -14426,6 +14487,8 @@ const WORKER = {
         const [inactive, addon, extra, calls, wave, vid, hold, holdtill, wpos] = await Promise.all(['inactive:' + t, 'addon:' + t, 'extrasend:' + t, 'callsaddon:' + t, 'wave:' + t + ':1', 'vidok:' + t, 'hold:' + t, 'holdtill:' + t, 'wpos:' + t + ':1'].map(k => env.RATE.get(k).catch(() => null)));
         /* 08/11 (Richard): a hold is a pause, not a cancellation — holdtill = the day it lifts; wpos = wave 1 under way */
         out[t] = { active: !inactive, addon: addon ? (JSON.parse(addon).n || 0) : 0, extrasend: !!extra, calls: !!calls, sent: !!wave, sending: !wave && (parseInt(wpos, 10) || 0) > 0, video: !!vid, hold: !!hold, hold_till: holdtill || '' };
+        /* 25/11 track-board: the client pressed the stop button — the team sees it and lifts it from here */
+        { const cs = await clientStopOf(env, t); if (cs) out[t].client_stop = publicStop(cs); }
       }
       return okJson({ ok: true, flags: out }, origin);
     }
@@ -15417,7 +15480,11 @@ const WORKER = {
           sentWaves[n] = !!(await env.RATE.get(`wave:${token}:${n}`));
           /* 12/11 (Richard: Mor's board said "עבר" after 524 invitations): the wave flag is reopened
              whenever one guest needs a retry, so the board counts what actually went out (wsent:) */
-          try { const l = await env.RATE.list({ prefix: `wsent:${token}:${n}:`, limit: 1000 }); sentWaves.count[n] = (l.keys || []).length; } catch { sentWaves.count[n] = 0; }
+          try { const l = await env.RATE.list({ prefix: `wsent:${token}:${n}:`, limit: 1000 }); sentWaves.count[n] = (l.keys || []).length;
+            /* 25/11 track-board: the time the wave started ("נשלח ב-25/11 10:12") from the keys this listing already has */
+            sentWaves.sentAt = sentWaves.sentAt || {}; sentWaves.sentAt[n] = firstSentAt((l.keys || []).map(k => k.expiration), WSENT_TTL_S); } catch { sentWaves.count[n] = 0; }
+          /* …and how many Meta reported delivered (cached 10 min) */
+          if (sentWaves.count[n]) { sentWaves.delivered = sentWaves.delivered || {}; sentWaves.delivered[n] = await deliveredCount(env, token, n).catch(() => null); }
         }
         /* wave 3 is a paid add-on: the dashboard shows it only once Grow
            confirmed the payment (Richard 12/10) */
@@ -15427,10 +15494,15 @@ const WORKER = {
         try { sentWaves.wrong = new Set(Object.keys(await kvPrefix(env, 'wrong:' + token + ':')).map(k => k.split(':').pop())); } catch { sentWaves.wrong = new Set(); }
         sentWaves.noCalls = !!(await env.RATE.get('nocalls:' + token).catch(() => null));   /* 19/11: this event asked for no phone calls */
         sentWaves.todaDate = await env.RATE.get('todadate:' + token).catch(() => null);
-        sentWaves.extraPaid = !!(await env.RATE.get('extrasend:' + token));
+        { const xs = await env.RATE.get('extrasend:' + token); sentWaves.extraPaid = !!xs;
+          /* 25/11 track-board: "הלקוח יחליט" — the client picks the extra send's day on the board */
+          const xsp = parseAddon(xs); sentWaves.extraPick = !!(xsp && xsp.client_decides); }
         { const ca = await env.RATE.get('callsaddon:' + token); sentWaves.callsAddon = !!ca;
           /* 25/11: the day the calls add-on was given, so the board can show its round as a row of its own */
-          if (ca) { let at = ca; try { const o = JSON.parse(ca); if (o && o.at) at = o.at; } catch {} const t = Date.parse(String(at)); if (t) sentWaves.callsAddonAt = ilDate(new Date(t)); } }
+          if (ca) { let at = ca; try { const o = JSON.parse(ca); if (o && o.at) at = o.at; } catch {} const t = Date.parse(String(at)); if (t) sentWaves.callsAddonAt = ilDate(new Date(t));
+            /* 25/11 track-board: a day the team or the client set is the round's day; "הלקוח יחליט" with none yet = pick */
+            const cap0 = parseAddon(ca); if (cap0 && cap0.start) { sentWaves.callsAddonAt = cap0.start; sentWaves.callsAddonStart = cap0.start; } if (cap0 && cap0.client_decides && !cap0.start) { sentWaves.callsAddonPick = true; sentWaves.callsAddonAt = ''; } } }
+        sentWaves.clientStop = publicStop(await clientStopOf(env, token));
         /* did the event-day message go out to anybody */
         try {
           const [a, b2] = await Promise.all([env.RATE.list({ prefix: `s5d:${token}:`, limit: 1 }), env.RATE.list({ prefix: `s5t:${token}:`, limit: 1 })]);

@@ -25,6 +25,7 @@
    so the Telnyx column is an ESTIMATE from billed minutes × env.TELNYX_ILS_PER_MIN (or
    TELNYX_USD_PER_MIN × 3.7) and null when neither is set.
    ========================================================================== */
+import { isClientStopped } from './client-stop.js';   /* 25/11 track-board */
 import { rowFromAudit, dayList, paginate } from './calls-log.js';
 import { recordingLink } from './audit.js';
 import { planKeyOf, planMaxCallTries } from './dashboard.js';
@@ -283,6 +284,8 @@ export async function callRound(env, d, b = {}, now = Date.now()) {
   if (!['start', 'stop'].includes(action)) return { status: 400, body: { ok: false, error: 'bad-action', actions: ['start', 'stop'] } };
   const word = roundConfirmWord(tok);
   const before = await kjson(env, 'callstop:' + tok);
+  /* 25/11 track-board: the client stopped the event — calls come back only with the whole stop (client-stop-lift) */
+  if (action === 'start' && await isClientStopped(env, tok)) return { status: 409, body: { ok: false, error: 'client-stopped' } };
   const raw = action === 'start' && b.extra ? await d.snapshotCached(env).catch(() => null) : null;
   const ids = raw ? eligibleRoundIds(raw, tok) : [];
   const preview = { ok: true, applied: false, token: tok, action, stopped_now: !!before, confirm_required: word, extra_round_guests: b.extra ? ids.length : null,
