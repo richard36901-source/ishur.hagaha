@@ -117,6 +117,9 @@ import { runBrain } from './brain.js';   /* 03/11 ops brain: checks + playbooks 
 import { withCfg, paceSends, paceSendsMax, dailyCallCap } from './cfg.js';   /* 03/11 edit-in-place settings (cfg:<key>) */
 import { JOB_TO_ID, AUTOMATIONS } from './automations-registry.js';
 import { readSnapshot, snapInfo, snapWhy, sheetWrite, drainSheetQueue, noteSheetWrite, noteHookWrite, markSnapDirty, makeStatus } from './snapshot.js';   /* 04/11 Make burn */
+import { handleClientStop, handleClientStopLift, clientStopOf, publicStop } from './client-stop.js';
+import { actorOf, actorLabel, boardActor } from './actor.js';   /* 25/11 track-board: who did it on the client board (team vs client, PIN vs link) */   /* 25/11 track-board: the client's red stop button */
+import { normAudience, audienceIncludes, parseAddon, dateGuard, ilHM, addonDialOk, addonDayReady, handleCallsAddonDate, deliveredCount, bumpDelivered, firstSentAt } from './send-plan.js';   /* 25/11 track-board: audience + day of an added round, the board's state line */
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -1640,6 +1643,9 @@ async function handleEventFlag(request, env, origin) {
     await logEvent(env, { area: 'אירוע', action: 'אושרה הודעת דחייה לאורחים', ok: true, token, detail: d }).catch(() => {});
     return okJson({ ok: true, flag, on: true, date: d }, origin);
   }
+  /* 25/11 track-board: the client pressed stop — releasing hold: alone would leave calls stopped and the board saying
+     "stopped". The team lifts it with /api/client-stop-lift, which clears every key. */
+  if (flag === 'hold' && !body.on && await clientStopOf(env, token)) return deny(409, 'client-stopped', origin);
   if (body.on) await env.RATE.put(key, new Date().toISOString(), { expirationTtl: 200 * 86400 });
   else await env.RATE.delete(key);
   /* 09/11: a released hold must wake the pacer, or the waves wait for tomorrow's engine ("nothing-pending") */
@@ -3145,6 +3151,13 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
   let { queue } = buildCallQueue(raw, 3, await callsAddonTokens(env));
   /* 19/11 Richard (אריאל ודיקלה): an event can opt out of phone calls altogether — nocalls:<token>. Nobody of it is dialed. */
   try { const off = new Set(Object.keys(await kvPrefix(env, 'nocalls:'))); if (off.size) queue = queue.filter(g => !off.has(g.token)); } catch {}
+  /* 25/11 track-board: a client stop takes the whole event out; a calls add-on round waits for its day (or the
+     client's pick) and rings only the audience the team chose */
+  try {
+    const [stops, addons] = await Promise.all([kvPrefix(env, 'clientstop:'), kvPrefix(env, 'callsaddon:')]);
+    const today0 = ilDate();
+    queue = queue.filter(g => !stops[g.token] && addonDialOk(addons[g.token], g, today0));
+  } catch {}
   /* a closed window with people waiting is worth saying out loud: silence here
      is exactly how the queue grew unnoticed */
   if (!win.open && !force) {
@@ -3473,6 +3486,8 @@ async function runShirCallbacks(env, { max = 3, force = false } = {}) {
       guest_id: meta.guest_id || '', token: meta.token || '',
       tries: meta.tries || '0', max_tries: meta.max_tries || '3',
     };
+    /* 25/11 track-board: a guest of an event the client stopped is not rung back by Shir */
+    if (hit.caller_kind === 'guest' && target.token && await clientStopOf(env, target.token)) { await cbqClear(env, r.phone); skipped++; continue; }
     /* Separation rule: a guest is rung back by Shir from her number; a
        client, a lead or a stranger is rung back by Noa from hers. Never the
        other way round. Without Noa's line configured the entry waits. */
@@ -3845,6 +3860,8 @@ async function handleWaWebhook(request, env, url) {
                 const k2 = `wst:${m2.token}:${m2.wave || 1}:${m2.phone}`;
                 const cur2 = await env.RATE.get(k2).catch(() => null);
                 if ((rank[st.status] || 0) >= (rank[cur2] || 0)) await env.RATE.put(k2, st.status, { expirationTtl: 120 * 86400 }).catch(() => {});
+                /* 25/11 track-board: the board's "412 נמסרו" — counted once per guest, when the message first reaches delivered/read */
+                if ((st.status === 'delivered' || st.status === 'read') && cur2 !== 'delivered' && cur2 !== 'read') await bumpDelivered(env, m2.token, m2.wave || 1).catch(() => {});
               }
               const e1 = (st.errors && st.errors[0]) || {};
               stream(env, { kind: 'wa_status', area: stab === 'msg_guests' ? 'שיר' : 'נועה', action: (st.status === 'read' ? '👁 נקרא' : st.status === 'delivered' ? '✓✓ נמסר' : st.status === 'failed' ? '⛔ נכשל' : '✓ ' + st.status) + ' · ' + String(st.recipient_id || ''), ok: st.status !== 'failed', review: st.status === 'failed', phone: String(st.recipient_id || ''), token: m2 && m2.token ? m2.token : '', detail: st.status === 'failed' ? `${e1.code || ''} ${e1.title || ''} ${(e1.error_data && e1.error_data.details) || ''}`.trim() : (cat || ''), data: { wamid: st.id, status: st.status, meta_ts: st.timestamp, wave: m2 ? m2.wave : '', pricing: st.pricing || null }, cost: st.status === 'delivered' && st.pricing && st.pricing.billable !== false ? ({ utility: 0.02, marketing: 0.13, authentication: 0.05, service: 0 }[String(st.pricing.category || '').toLowerCase()] ?? 0.02) : 0 }).catch(() => {});
@@ -5533,6 +5550,8 @@ async function releaseTimedHolds(env, today) {
   const all = await kvPrefix(env, 'holdtill:');
   for (const [token, till] of Object.entries(all)) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(till)) || String(till) > today) continue;
+    /* 25/11 track-board: a stop the client pressed is lifted by the team only, never by a timer */
+    if (await clientStopOf(env, token)) { await env.RATE.delete('holdtill:' + token); continue; }
     await env.RATE.delete('hold:' + token); await env.RATE.delete('holdtill:' + token);
     await logEvent(env, { area: 'שליחה', action: `העצירה הזמנית הסתיימה (${till}) — השליחה לאירוע חוזרת`, ok: true, token }).catch(() => {});
     await slackPost(env, `▶️ העצירה הזמנית של אירוע ${token.slice(0, 8)} הסתיימה (${till}) — השליחה חוזרת אוטומטית.`, { cls: 'info', key: 'holdtill:' + token.slice(0, 8) }).catch(() => {});
@@ -6007,22 +6026,28 @@ const AUDIT_WHAT = {
   '/api/addon-pay': 'רכישת תוספת/שדרוג', '/api/guests-upload': 'העלאת רשימת מוזמנים', '/api/settings': 'שמירת הגדרות האירוע',
   '/api/cancel': 'ביטול', '/api/referral': 'הפניית חבר', '/api/design-flow': 'עיצוב הזמנה · לוח בקרה',
 };
+/* 25/11 track-board: the resolvers actor.js uses — attribution only, nothing here grants a right */
+const actorDeps = () => ({ readSession: (e, t) => readSession(e, t), adminSessionOk: (e, t) => adminSessionOk(e, t), verifySession: (e, t) => verifyAcctSession(e, t, safeEqual) });
 async function auditClient(env, request, path, body) {
   if (!env.RATE) return;
+  const actor = await actorOf(env, request, body, actorDeps()).catch(() => null);
   const token = String(body.token || '');
   const now = Date.now();
-  const clean = {}; Object.keys(body).forEach(k => { if (!/^(sig|nonce|stamp_ts|app|admin_key)$/.test(k)) clean[k] = body[k]; });
+  const clean = {}; Object.keys(body).forEach(k => { if (!/^(sig|nonce|stamp_ts|app|admin_key|board_session)$/.test(k)) clean[k] = body[k]; });   /* 25/11: the client's session token is never stored, its short id is (actor) */
   let prev = ''; try { prev = (await env.RATE.get('auditlast:' + token)) || ''; } catch {}
   const rec = {
     at: new Date(now).toISOString(), ts: now, path, what: (path === '/api/guest-add' && body.query ? 'בדיקת מכסה להוספת אורחים' : (AUDIT_WHAT[path] || path.replace('/api/', ''))) + (body.action ? ' · ' + String(body.action).slice(0, 30) : '') + (body.name ? ' · ' + String(body.name).slice(0, 40) : '') + (body.phone ? ' · ' + String(body.phone).slice(0, 16) : '') + (body.seats || body.party ? ' · ' + (body.seats || body.party) + ' מקומות' : '') + (body.date ? ' · ' + String(body.date).slice(0, 10) : '') + (body.send ? ' · ' + body.send : '') + (body.gid || body.guest_id ? ' · ' + (body.gid || body.guest_id) : ''),
     token, ip: request.headers.get('cf-connecting-ip') || '', country: request.headers.get('cf-ipcountry') || '',
     ua: String(request.headers.get('user-agent') || '').slice(0, 240), body: JSON.stringify(clean).slice(0, 4000), prev,
+    actor: actorLabel(actor), actor_kind: actor ? (actor.kind === 'staff' ? 'admin-on-client' : 'client') : 'client',
+    ...(actor && actor.kind === 'staff' ? { staff: actor.email || actor.name } : { via: actor ? actor.via : 'link', session: actor ? actor.session : '' }),
   };
   rec.hash = await sha256Hex(prev + '|' + JSON.stringify({ at: rec.at, path: rec.path, token: rec.token, ip: rec.ip, ua: rec.ua, body: rec.body }));
   const key = `audit:${token}:${now}:${Math.random().toString(36).slice(2, 6)}`;
   await env.RATE.put(key, JSON.stringify(rec), { expirationTtl: 400 * 86400 });
   await env.RATE.put('auditlast:' + token, rec.hash, { expirationTtl: 400 * 86400 });
-  stream(env, { kind: path === '/api/guest-rsvp' || path === '/api/rsvp-self' ? 'guest' : 'client', area: path === '/api/guest-rsvp' || path === '/api/rsvp-self' ? 'אורח' : 'לקוח', action: '👤 ' + rec.what, ok: true, token, phone: String(body.phone || ''), req: request, detail: rec.body.slice(0, 1500), data: { path, body: clean, chain_hash: rec.hash, posthog: String(body.ph || '').slice(0, 80) } }).catch(() => {});
+  const guestPath = path === '/api/rsvp-self' || (path === '/api/guest-rsvp' && !(actor && actor.kind === 'staff'));
+  stream(env, { kind: rec.actor_kind === 'admin-on-client' ? 'admin' : guestPath ? 'guest' : 'client'   /* audit.js keeps 12 chars of kind and the journal knows 'admin'; the detail kind is data.actor_kind */, area: rec.actor_kind === 'admin-on-client' ? 'צוות בלוח לקוח' : guestPath ? 'אורח' : 'לקוח', action: (rec.actor_kind === 'admin-on-client' ? '🛠 ' + rec.actor + ' · ' : '👤 ' + (path === '/api/rsvp-self' ? '' : rec.actor + ' · ')) + rec.what, ok: true, token, phone: String(body.phone || ''), req: request, detail: rec.body.slice(0, 1500), data: { path, body: clean, chain_hash: rec.hash, posthog: String(body.ph || '').slice(0, 80), actor: rec.actor, actor_kind: rec.actor_kind, via: rec.via || '', session: rec.session || '', staff: rec.staff || '' } }).catch(() => {});
 }
 async function auditExport(env, token, format) {
   const all = await kvPrefix(env, 'audit:' + token + ':');
@@ -6034,8 +6059,8 @@ async function auditExport(env, token, format) {
   }
   if (format === 'csv') {
     const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-    const head = ['at_utc', 'at_israel', 'token', 'action', 'path', 'ip', 'country', 'user_agent', 'body', 'hash', 'prev_hash', 'verified'];
-    const lines = [head.join(',')].concat(rows.map(r => [r.at, new Date(r.ts).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' }), r.token, r.what, r.path, r.ip, r.country, r.ua, r.body, r.hash, r.prev, r.verified ? 'yes' : 'NO'].map(esc).join(',')));
+    const head = ['at_utc', 'at_israel', 'token', 'action', 'path', 'ip', 'country', 'user_agent', 'body', 'hash', 'prev_hash', 'verified', 'actor'];
+    const lines = [head.join(',')].concat(rows.map(r => [r.at, new Date(r.ts).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' }), r.token, r.what, r.path, r.ip, r.country, r.ua, r.body, r.hash, r.prev, r.verified ? 'yes' : 'NO', r.actor || ''].map(esc).join(',')));
     return '\ufeff' + lines.join('\n');
   }
   return { ok: true, token, count: rows.length, chain_ok: broken === 0, broken, exported_at: new Date().toISOString(), rows };
@@ -6059,7 +6084,7 @@ async function checkCustomTemplates(env) {
     const token = k.slice('customtmpl:'.length);
     /* 17/11 (Richard): an event that was put on hold only to wait for its wording goes back to sending by itself the moment
        Meta approves it (relonappr:<token>). A rejection leaves the hold in place and says so. */
-    if (await env.RATE.get('relonappr:' + token).catch(() => null)) {
+    if (await env.RATE.get('relonappr:' + token).catch(() => null) && !(await clientStopOf(env, token))) {   /* 25/11: never over a client stop */
       if (st === 'APPROVED') { await env.RATE.delete('hold:' + token).catch(() => {}); await env.RATE.delete('holdtill:' + token).catch(() => {}); await env.RATE.delete('relonappr:' + token).catch(() => {});
         await env.RATE.put('pacer:pending', ilDate(), { expirationTtl: 86400 }).catch(() => {});   /* a released hold must wake the pacer, or the wave waits for tomorrow (found live 17/11: released at 12:00, pacer said nothing-pending) */
         await slackSend(env, `▶️ *הנוסח אושר, השליחות לאירוע חזרו*\n\n• אירוע ${token.slice(0, 8)}\n• תבנית ${rec.name}\n\nמה לעשות: כלום, הגל ימשיך לפי התכנון`, { important: true, oneoff: true, urgent: true, key: 'relonappr' }).catch(() => {}); }
@@ -6418,6 +6443,8 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
     /* Richard, 11/09: the reminder also goes to מתלבט — only a real answer
        (מגיע / לא מגיע) takes a guest out of wave 2 */
     if (wave.onlyUnanswered && answered && rsvp !== 'מתלבט') { skippedAnswered++; cursor = gi + 1; continue; }
+    /* 25/11 track-board: an added round the team aimed at "only who did not answer" or "only the undecided" */
+    if (wave.audience && !audienceIncludes(wave.audience, rsvp)) { skippedAnswered++; cursor = gi + 1; continue; }
     /* dry runs never touch KV state */
     if (dry) { sent++; if (budget) budget.left--; continue; }
     /* wsent: FIRST — it is one read and it is true for every guest a previous
@@ -7005,19 +7032,25 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
        day the engine picks: בסיס — the morning after the last planned send; a plan with
        calls — the first morning after its own rounds are spent (פרמיום after its one,
        הכל כלול after its three). Whoever still has no answer goes back into the queue. */
-    const hasCallsAddon = env.RATE ? !!(await env.RATE.get('callsaddon:' + token).catch(() => null)) : false;
+    const addonRaw = env.RATE ? await env.RATE.get('callsaddon:' + token).catch(() => null) : null;
+    const hasCallsAddon = !!addonRaw;
     if (hasCallsAddon) {
+      /* 25/11 track-board: a day the team (or the client) set wins over the engine's pick; "הלקוח יחליט" waits for it */
+      const addonSpec = parseAddon(addonRaw);
+      const addonAud = normAudience(addonSpec && addonSpec.scope, { calls: true });
       const planK = planKeyOf(ev), ownCap = planMaxCallTries(planK), esc2Key = `esc2:${token}`;
       const afterSends = callDateOv ? callDateOv <= today : !!(lastSend && lastSend < today);
       const escDay = ownCap && env.RATE ? await env.RATE.get(`esc:${token}`).catch(() => null) : null;
       const stillOwn = guests.some(g => String(g[21] || '').trim() === 'נדרשת שיחה' && (Number(String(g[29] || '').trim()) || 0) < ownCap);
-      const ready = ownCap ? !!(escDay && String(escDay).slice(0, 10) < today && !stillOwn) : afterSends;
+      const ready = !addonDayReady(addonRaw, today) ? false
+        : addonSpec && addonSpec.start ? !stillOwn
+        : ownCap ? !!(escDay && String(escDay).slice(0, 10) < today && !stillOwn) : afterSends;
       if (ready && !(env.RATE && await env.RATE.get(esc2Key))) {
         let queued = 0, failed = 0;
         for (const g of guests) {
           const rsvp = String(g[15] || '').trim();
           const gid = String(g[2] || '').trim();
-          if ((rsvp !== '' && rsvp !== 'מתלבט') || !gid) continue;
+          if (!audienceIncludes(addonAud, rsvp) || !gid) continue;   /* was: '' or מתלבט only = the 'unanswered' default */
           if (/לא להתקשר/.test(String(g[22] || ''))) continue;          // asked not to be called — never again
           if (!isIlMobile(normPhone(g[4] || ''))) continue;
           if (String(g[21] || '').trim() === 'נדרשת שיחה') { queued++; continue; }   // already waiting; the higher cap covers it
@@ -10236,9 +10269,12 @@ async function handleVenueCommit(request, env, origin) {
 
 /* the extra-send add-on's KV value is an ISO date (old) or {at, scope, ref}; scope 'unanswered' = no answer yet + undecided */
 export function extraSendWave(wave, stored) {
-  let scope = 'all';
-  try { const j = JSON.parse(String(stored || '')); if (j && j.scope === 'unanswered') scope = 'unanswered'; } catch {}
-  return scope === 'unanswered' ? { ...wave, onlyUnanswered: true } : wave;
+  /* 25/11 track-board: also 'noanswer' (no answer only) and 'undecided' (undecided only) — sendWave reads wave.audience */
+  const spec = parseAddon(stored);
+  const scope = spec && spec.scope ? normAudience(spec.scope) : 'all';
+  if (scope === 'unanswered') return { ...wave, onlyUnanswered: true };
+  if (scope === 'noanswer' || scope === 'undecided') return { ...wave, onlyUnanswered: true, audience: scope };
+  return wave;
 }
 
 async function handleSendDate(request, env, origin) {
@@ -10259,6 +10295,8 @@ async function handleSendDate(request, env, origin) {
     return deny(402, 'extra-not-paid', origin);
   }
 
+  /* 25/11 track-board: a stopped event takes no new dates until the team lifts the stop */
+  if (await clientStopOf(env, token)) return deny(409, 'client-stopped', origin);
   /* a wave that already went out cannot be moved */
   if (env.RATE && await env.RATE.get(`wave:${token}:${spec.n}`)) {
     return deny(409, 'already-sent', origin);
@@ -10274,7 +10312,8 @@ async function handleSendDate(request, env, origin) {
 
   const today = ilDate();
   const evDate = String(ev[6] || '').trim().slice(0, 10);
-  if (date < today) return deny(422, 'date-in-past', origin);
+  /* 25/11 track-board: never a past day, and today only before 19:00 (the guests' window closes then) */
+  { const why = dateGuard(date, { today, hm: ilHM() }); if (why) return deny(422, why, origin); }
   if (/^\d{4}-\d{2}-\d{2}$/.test(evDate) && date >= evDate) return deny(422, 'after-event', origin);
   if (new Date(date + 'T12:00:00Z').getUTCDay() === 6) return deny(422, 'shabbat', origin);
 
@@ -11892,7 +11931,10 @@ const WORKER = {
               if (botUa) ctx.waitUntil(stream(env, { kind: 'admin', area: 'אדמין', action: 'Claude · בדיקת סטטוס אירוע', ok: true, token: String(peek.token), req: request }));
               else if (!(await env.RATE.get(ipk).catch(() => null))) {
                 await env.RATE.put(ipk, '1', { expirationTtl: 60 }).catch(() => {});
-                ctx.waitUntil(stream(env, { kind: 'client', area: 'לקוח', action: '👁 צפייה בלוח הבקרה', ok: true, token: String(peek.token), req: request, data: { path: url.pathname, referer: request.headers.get('referer') || '', posthog: String(peek.ph || '').slice(0, 80), session: String(peek.ph_session || '').slice(0, 80) } }));
+                /* 25/11 track-board: which staff member viewed, or how the client got in */
+                const va = await actorOf(env, request, peek, actorDeps()).catch(() => null);
+                const vStaff = va && va.kind === 'staff';
+                ctx.waitUntil(stream(env, { kind: vStaff ? 'admin' : 'client', area: vStaff ? 'צוות בלוח לקוח' : 'לקוח', action: vStaff ? `👁 ${actorLabel(va)} צפה בלוח הבקרה` : `👁 צפייה בלוח הבקרה · ${actorLabel(va)}`, ok: true, token: String(peek.token), req: request, data: { path: url.pathname, referer: request.headers.get('referer') || '', posthog: String(peek.ph || '').slice(0, 80), session: String(peek.ph_session || '').slice(0, 80), actor: actorLabel(va), actor_kind: vStaff ? 'admin-on-client' : 'client', via: va && !vStaff ? va.via : '', board_session: va && !vStaff ? va.session : '', staff: vStaff ? (va.email || va.name) : '' } }));
               }
             } else {
               ctx.waitUntil(auditClient(env, request, url.pathname, peek).catch(() => {}));
@@ -13149,6 +13191,20 @@ const WORKER = {
     if (url.pathname === '/api/send-date' && request.method === 'POST') {
       return handleSendDate(request, env, origin);
     }
+    /* 25/11 track-board: the client's red stop button (client-stop.js), the team's lift, and the client's pick of an
+       added calls round's day (send-plan.js) */
+    if (url.pathname === '/api/client-stop' && request.method === 'POST') {
+      return handleClientStop(request, env, origin, { okJson, deny, tokenRecord, overBudget, logEvent, slackSend, who: async (rq, body) => actorLabel(await actorOf(env, rq, body, actorDeps())),
+        notifyEvent: (e, dd, rule, cand) => import('./notify.js').then(m => m.notifyEvent(e, dd, rule, cand)),
+        eventName: async t => { const raw = await snapshotCached(env, 'guest').catch(() => null); const r = raw ? eventRowOf(raw, t) : null; return r ? String(r[34] || r[2] || '').trim() : ''; } });
+    }
+    if (url.pathname === '/api/client-stop-lift' && request.method === 'POST') {
+      return handleClientStopLift(request, env, origin, { okJson, deny, isAdmin, logEvent, slackSend });
+    }
+    if (url.pathname === '/api/calls-addon-date' && request.method === 'POST') {
+      return handleCallsAddonDate(request, env, origin, { okJson, deny, tokenRecord, overBudget, logEvent, clientStopOf, ilDate,
+        eventDate: async t => { const raw = await snapshotCached(env, 'guest').catch(() => null); const r = raw ? eventRowOf(raw, t) : null; return r ? String(r[6] || '').trim() : ''; } });
+    }
     if (url.pathname === '/api/venue-commit' && request.method === 'POST') {
       return handleVenueCommit(request, env, origin);
     }
@@ -13214,6 +13270,7 @@ const WORKER = {
       if (b.type === 'calls' || b.type === 'thanks') {
         const d = String(b.date || '').slice(0, 10);
         if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return deny(400, 'bad-date', origin);
+        { const why = dateGuard(d, { today: ilDate(), hm: ilHM() }); if (why) return deny(422, why, origin); }   /* 25/11 track-board: never a past day */
         await env.RATE.put((b.type === 'calls' ? 'calldate:' : 'todadate:') + token, d, { expirationTtl: 200 * 86400 });
         if (b.type === 'calls') await env.RATE.delete('esc:' + token).catch(() => {});   /* a moved round re-opens the escalation for its new day */
         await logEvent(env, { area: 'לוח', action: `${b.type === 'calls' ? 'סבב השיחות' : 'הודעת התודה'} הועבר/ה מהלוח → ${d}`, ok: true, token }).catch(() => {});
@@ -14406,10 +14463,25 @@ const WORKER = {
       const tok = String(b.token || '').trim();
       if (!/^[0-9a-f-]{36}$/.test(tok) || !env.RATE) return deny(400, 'bad-token', origin);
       const kind = String(b.kind || '');
+      /* 25/11 track-board: an added send / calls round says when (a day from today on, today only before 19:00, or
+         'client' = the client picks it on the board) and for whom (all / unanswered / noanswer / undecided) */
+      const when = b.when == null ? '' : String(b.when).trim();
+      if (when && when !== 'client') { const why = dateGuard(when, { today: ilDate(), hm: ilHM() }); if (why) return deny(422, why, origin); }
+      let dateRes = null;
       if (kind === 'extrasend') {
         /* 25/11: the team chooses the audience too — everybody, or only who did not answer + the undecided */
-        const scope = String(b.scope || 'all') === 'unanswered' ? 'unanswered' : 'all';
-        await env.RATE.put('extrasend:' + tok, JSON.stringify({ at: new Date().toISOString(), scope, ref: 'admin' }), { expirationTtl: 200 * 86400 });
+        const scope = normAudience(b.scope);
+        await env.RATE.put('extrasend:' + tok, JSON.stringify({ at: new Date().toISOString(), scope, ref: 'admin', ...(when === 'client' ? { client_decides: true } : {}) }), { expirationTtl: 200 * 86400 });
+        if (when && when !== 'client') {
+          const inner = new Request(request.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: tok, send: 'extra', date: when }) });
+          const r = await handleSendDate(inner, env, origin); let j = null; try { j = await r.json(); } catch {}
+          dateRes = r.ok ? { date: when, saved: true } : { date: when, saved: false, error: (j && (j.error || j.reason)) || String(r.status) };
+          if (r.ok && when === ilDate()) await env.RATE.put('pacer:pending', ilDate(), { expirationTtl: 86400 }).catch(() => {});
+        }
+      } else if (kind === 'calls' && b.when != null) {
+        const scope = normAudience(b.scope, { calls: true });
+        await env.RATE.put('callsaddon:' + tok, JSON.stringify({ at: new Date().toISOString(), ref: 'admin', scope, start: when === 'client' ? '' : when, ...(when === 'client' ? { client_decides: true } : {}) }), { expirationTtl: 200 * 86400 });
+        dateRes = when === 'client' ? null : { date: when, saved: true };
       } else if (kind === 'guests') {
         const n = Math.min(Math.max(parseInt(b.n, 10) || 0, 1), 900);
         let cur = { n: 0 }; try { cur = JSON.parse(await env.RATE.get('addon:' + tok)) || cur; } catch {}
@@ -14431,8 +14503,9 @@ const WORKER = {
         let cur = null; try { cur = JSON.parse(await env.RATE.get('hostess:' + tok) || 'null'); } catch {}
         await env.RATE.put('hostess:' + tok, JSON.stringify({ ...(cur || { date: '', city: '', travel_included: null }), n: ((cur && Number(cur.n)) || 0) + n, at: new Date().toISOString(), ref: 'admin' }), { expirationTtl: 400 * 86400 });
       } else return deny(400, 'bad-kind', origin);
-      await logEvent(env, { area: 'תשלום', action: `תוספת חינם ממנהל: ${kind}${b.n ? ' ×' + b.n : ''}`, ok: true, token: tok, detail: 'ריצ׳רד, מהעמוד לקוחות' }).catch(() => {});
-      return okJson({ ok: true, token: tok, kind }, origin);
+      const plan = (kind === 'extrasend' || kind === 'calls') && b.when != null ? { when: when || '', scope: normAudience(b.scope, { calls: kind === 'calls' }) } : null;
+      await logEvent(env, { area: 'תשלום', action: `תוספת חינם ממנהל: ${kind}${b.n ? ' ×' + b.n : ''}`, ok: true, token: tok, detail: 'ריצ׳רד, מהעמוד לקוחות' + (plan ? ` · ${plan.when === 'client' ? 'הלקוח יבחר מועד' : plan.when} · ${plan.scope}` : '') }).catch(() => {});
+      return okJson({ ok: true, token: tok, kind, ...(plan ? { when: plan.when, scope: plan.scope, date: dateRes } : {}) }, origin);
     }
     if (url.pathname === '/api/client-active' && request.method === 'POST') {
       let b = {};
@@ -14552,6 +14625,8 @@ const WORKER = {
         const [inactive, addon, extra, calls, wave, vid, hold, holdtill, wpos] = await Promise.all(['inactive:' + t, 'addon:' + t, 'extrasend:' + t, 'callsaddon:' + t, 'wave:' + t + ':1', 'vidok:' + t, 'hold:' + t, 'holdtill:' + t, 'wpos:' + t + ':1'].map(k => env.RATE.get(k).catch(() => null)));
         /* 08/11 (Richard): a hold is a pause, not a cancellation — holdtill = the day it lifts; wpos = wave 1 under way */
         out[t] = { active: !inactive, addon: addon ? (JSON.parse(addon).n || 0) : 0, extrasend: !!extra, calls: !!calls, sent: !!wave, sending: !wave && (parseInt(wpos, 10) || 0) > 0, video: !!vid, hold: !!hold, hold_till: holdtill || '' };
+        /* 25/11 track-board: the client pressed the stop button — the team sees it and lifts it from here */
+        { const cs = await clientStopOf(env, t); if (cs) out[t].client_stop = publicStop(cs); }
       }
       return okJson({ ok: true, flags: out }, origin);
     }
@@ -14762,9 +14837,12 @@ const WORKER = {
       const row = ((raw && raw.guests && raw.guests.values) || []).find(r => String(r[2] || '').trim() === gid && String(r[28] || '').trim() === tok);
       if (!row) return deny(404, 'unknown-guest', origin);
       const guest = { guest_id: gid, token: tok, phone: normPhone(row[4] || ''), name: String(row[3] || '').trim(), by_client: true, answer_label: 'סומן ידנית (מארח)' };
+      /* 25/11 track-board: the team marking a guest from the client's board is the team's correction, not the host's */
+      const rsvpActor = await actorOf(env, request, b, actorDeps()).catch(() => null);
+      if (rsvpActor && rsvpActor.kind === 'staff') guest.answer_label = 'תוקן ידנית (צוות)';
       const saved = await writeGuestReply(env, guest, outcome, outcome === 'מגיע' ? party : undefined);
       if (saved && env.RATE) await env.RATE.delete('awaitparty:' + gid).catch(() => {});
-      await logEvent(env, { area: 'לוח לקוח', action: 'המארח אישר אורח ידנית', ok: saved, phone: guest.phone, token: tok, detail: `${guest.name}: ${outcome}${party ? ' · ' + party : ''}` }).catch(() => {});
+      await logEvent(env, { area: 'לוח לקוח', action: rsvpActor && rsvpActor.kind === 'staff' ? `${actorLabel(rsvpActor)} תיקן/ה תשובת אורח מלוח הלקוח` : 'המארח אישר אורח ידנית', ok: saved, phone: guest.phone, token: tok, detail: `${guest.name}: ${outcome}${party ? ' · ' + party : ''} · ${actorLabel(rsvpActor)}` }).catch(() => {});
       if (saved) await logRow(env, 'removals', { kind: 'אישור ידני מהלוח', channel: 'לוח הלקוח', phone: guest.phone, token: tok.slice(0, 8), scope: 'האירוע הזה', said: '', detail: `${outcome}${party ? ' · ' + party : ''}` }).catch(() => {});
       return okJson({ ok: saved, outcome, party }, origin);
     }
@@ -15544,7 +15622,11 @@ const WORKER = {
           sentWaves[n] = !!(await env.RATE.get(`wave:${token}:${n}`));
           /* 12/11 (Richard: Mor's board said "עבר" after 524 invitations): the wave flag is reopened
              whenever one guest needs a retry, so the board counts what actually went out (wsent:) */
-          try { const l = await env.RATE.list({ prefix: `wsent:${token}:${n}:`, limit: 1000 }); sentWaves.count[n] = (l.keys || []).length; } catch { sentWaves.count[n] = 0; }
+          try { const l = await env.RATE.list({ prefix: `wsent:${token}:${n}:`, limit: 1000 }); sentWaves.count[n] = (l.keys || []).length;
+            /* 25/11 track-board: the time the wave started ("נשלח ב-25/11 10:12") from the keys this listing already has */
+            sentWaves.sentAt = sentWaves.sentAt || {}; sentWaves.sentAt[n] = firstSentAt((l.keys || []).map(k => k.expiration), WSENT_TTL_S); } catch { sentWaves.count[n] = 0; }
+          /* …and how many Meta reported delivered (cached 10 min) */
+          if (sentWaves.count[n]) { sentWaves.delivered = sentWaves.delivered || {}; sentWaves.delivered[n] = await deliveredCount(env, token, n).catch(() => null); }   /* one key read; null → the row says "נשלחו" */
         }
         /* wave 3 is a paid add-on: the dashboard shows it only once Grow
            confirmed the payment (Richard 12/10) */
@@ -15554,10 +15636,15 @@ const WORKER = {
         try { sentWaves.wrong = new Set(Object.keys(await kvPrefix(env, 'wrong:' + token + ':')).map(k => k.split(':').pop())); } catch { sentWaves.wrong = new Set(); }
         sentWaves.noCalls = !!(await env.RATE.get('nocalls:' + token).catch(() => null));   /* 19/11: this event asked for no phone calls */
         sentWaves.todaDate = await env.RATE.get('todadate:' + token).catch(() => null);
-        sentWaves.extraPaid = !!(await env.RATE.get('extrasend:' + token));
+        { const xs = await env.RATE.get('extrasend:' + token); sentWaves.extraPaid = !!xs;
+          /* 25/11 track-board: "הלקוח יחליט" — the client picks the extra send's day on the board */
+          const xsp = parseAddon(xs); sentWaves.extraPick = !!(xsp && xsp.client_decides); }
         { const ca = await env.RATE.get('callsaddon:' + token); sentWaves.callsAddon = !!ca;
           /* 25/11: the day the calls add-on was given, so the board can show its round as a row of its own */
-          if (ca) { let at = ca; try { const o = JSON.parse(ca); if (o && o.at) at = o.at; } catch {} const t = Date.parse(String(at)); if (t) sentWaves.callsAddonAt = ilDate(new Date(t)); } }
+          if (ca) { let at = ca; try { const o = JSON.parse(ca); if (o && o.at) at = o.at; } catch {} const t = Date.parse(String(at)); if (t) sentWaves.callsAddonAt = ilDate(new Date(t));
+            /* 25/11 track-board: a day the team or the client set is the round's day; "הלקוח יחליט" with none yet = pick */
+            const cap0 = parseAddon(ca); if (cap0 && cap0.start) { sentWaves.callsAddonAt = cap0.start; sentWaves.callsAddonStart = cap0.start; } if (cap0 && cap0.client_decides && !cap0.start) { sentWaves.callsAddonPick = true; sentWaves.callsAddonAt = ''; } } }
+        sentWaves.clientStop = publicStop(await clientStopOf(env, token));
         /* did the event-day message go out to anybody */
         try {
           const [a, b2] = await Promise.all([env.RATE.list({ prefix: `s5d:${token}:`, limit: 1 }), env.RATE.list({ prefix: `s5t:${token}:`, limit: 1 })]);
@@ -15578,6 +15665,8 @@ const WORKER = {
       const snapshot = buildDashboard(token, raw, refCount, sentWaves);
       /* 12/11 security: the id the board puts in the links it hands to GUESTS (group RSVP link, table QR) */
       if (snapshot && snapshot.ok) snapshot.pub = await pubIdOf(env, token);
+      /* 25/11 track-board: opened by the team → the board shows "מצב צוות · <name>" (attribution only) */
+      if (snapshot && snapshot.ok) snapshot.viewer = boardActor(await actorOf(env, request, stampFields, actorDeps()).catch(() => null));
       if (snapshot && snapshot.ok && env.RATE) snapshot.venue = await venueFor(env, token, snapshot.totals || {});   /* 20/11 venue-commit.js */
       /* 20/11 package.js. Only the app asks for it ({app:1}): five KV reads the web board does not need on every refresh */
       if (snapshot && snapshot.ok && snapshot.event && stampFields.app) snapshot.package = await packageFor(env, token, snapshot.event);

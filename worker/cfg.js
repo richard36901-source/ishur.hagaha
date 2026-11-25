@@ -17,6 +17,7 @@
      · event_hold writes the existing hold:<token> key (the per-event freeze the
        engine, waves, calls and event-day blast already honour).
    ========================================================================== */
+import { isClientStopped } from './client-stop.js';   /* 25/11 track-board */
 import { setSendWindow } from './shir.js';
 
 export const CFG_PREFIX = 'cfg:';
@@ -114,6 +115,8 @@ export async function writeSetting(env, id, field, value, { who = 'admin', reaso
   if (s.per === 'token') {
     const k = 'hold:' + field;
     const before = !!(await env.RATE.get(k));
+    /* 25/11 track-board: a client stop is lifted only by /api/client-stop-lift (it clears calls and the board's state too) */
+    if (!value && await isClientStopped(env, field)) return { before, after: before, refused: 'client-stopped' };
     if (value) await env.RATE.put(k, new Date(now).toISOString(), { expirationTtl: 200 * 86400 }); else await env.RATE.delete(k);
     return { before, after: value };
   }

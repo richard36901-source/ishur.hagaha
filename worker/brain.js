@@ -26,6 +26,7 @@
      · Noa AI and NOA_CHASE are never touched by any playbook.
    d (deps from index.js opsDeps): see BRAIN_DEPS in docs/BRAIN-2026-11-03.md.
    ========================================================================== */
+import { isClientStopped } from './client-stop.js';   /* 25/11 track-board */
 import { withRun, listRuns } from './ops-run.js';
 import { listNotes, overdueNotes } from './teamnotes.js';
 import { recordChange, actorOf } from './changes.js';   /* 03/11 change log */
@@ -511,6 +512,7 @@ export const PLAYBOOKS = [
   { id: 'event_hold', name_he: 'עצירה / שחרור של אירוע (hold)', auto: false, messages: false, cooldown_ms: 0, async run(c, f, { dry, log }) {
     const { token, on } = f.data; const k = 'hold:' + token;
     const before = !!(await kget(c.env, k));
+    if (!on && await isClientStopped(c.env, token)) { log('הלקוח עצר את האירוע בעצמו — שחרור רק מהצוות'); return { ok: false, did: 'client-stopped' }; }   /* 25/11 track-board */
     if (dry) return { ok: true, preview: `${k}: ${before ? 'מוחזק' : 'פתוח'} → ${on ? 'מוחזק' : 'פתוח'}` };
     if (on) await kput(c.env, k, new Date(c.now).toISOString(), 200 * 86400); else await kdel(c.env, k);
     log(`${k}: ${before} → ${!!on}`); await c.slack(`⚙️ מוח · אירוע ${token.slice(0, 8)} ${on ? 'הוחזק' : 'שוחרר'} (אושר בלוח הבקרה)`, false, { oneoff: true });   /* oneoff: a single approved action */
