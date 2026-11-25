@@ -23,6 +23,19 @@
    Routes:
      POST /api/crm/leads/<m<itemId>|L<phone>>/tried-reach   {admin_key}  (handleCrm → crmDeps.triedReach)
      POST /webhooks/monday-tried-reach?k=<MONDAY_WEBHOOK_SECRET>   (a monday automation)
+
+   monday setup (Richard, by hand, on the leads board 18432553641):
+     1. add a Button column "ניסינו להשיג";
+     2. Integrate → Webhooks → "When a column changes, send a webhook", column =
+        that button column, URL = https://go.ishur.io/webhooks/monday-tried-reach?k=<MONDAY_WEBHOOK_SECRET>
+        (monday sends a challenge first; the route answers it);
+     3. optional: set MONDAY_REACH_COLUMN=<the button column id> so any other
+        column change on the board can never send.
+     If the button recipe misbehaves (monday has fired a button automation for
+     every item), use a status column instead: a label "ניסינו להשיג" →
+     "When status changes to something, send a webhook", and set
+     MONDAY_REACH_LABEL="ניסינו להשיג" (+ MONDAY_REACH_COLUMN). Either way at
+     most MONDAY_CAP presses per 10 minutes are acted on.
    ========================================================================== */
 import { clientHoursOpen, windowOpen, phoneOf, leadIdOf } from './crm.js';
 import { storedLead, readItem, itemIdOf, BOARD } from './leads-sync.js';

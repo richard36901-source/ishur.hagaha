@@ -37,11 +37,36 @@
     });
   }
 
-  /* f = { status: '' | label, owner: '' | label | '-' (nobody), q } */
-  function matchLead(l, f) {
+  /* 25/11 the source column is free text ("fb / paid", "referral:a1b2c3d4", "google / cpc"…): one coarse bucket per lead for the chips (same buckets as worker/leads.js sourceKind) */
+  var SOURCE_KINDS = ['מטא', 'גוגל', 'הפניה', 'טיקטוק', 'ישיר', 'אחר'];
+  function sourceKind(src) {
+    var s = String(src || '').trim();
+    if (!s || /^ישיר/.test(s)) return 'ישיר';
+    if (/^referral:[0-9a-f]{6,8}$/i.test(s) || /^referral:rsvp/i.test(s) || /הפניה/.test(s)) return 'הפניה';
+    if (/^referral:/i.test(s) || /\b(fb|facebook|ig|instagram|meta)\b|פייסבוק|אינסטגרם/i.test(s)) return 'מטא';
+    if (/google|gclid|גוגל/i.test(s)) return 'גוגל';
+    if (/tiktok|טיקטוק/i.test(s)) return 'טיקטוק';
+    return 'אחר';
+  }
+  function sourceCounts(list) { var c = {}; SOURCE_KINDS.forEach(function (k) { c[k] = 0; }); (list || []).forEach(function (l) { c[sourceKind(l.source)]++; }); return c; }
+  /* date chips: entered today / in the last 7 / 30 days (by created_at, Israel day) */
+  var SINCE = [{ k: '', he: 'כל הזמן' }, { k: 'today', he: 'היום' }, { k: '7', he: '7 ימים' }, { k: '30', he: '30 ימים' }];
+  function ilDay(t) { return new Date(t + 2 * 3600e3).toISOString().slice(0, 10); }
+  function inSince(l, since, now) {
+    if (!since) return true;
+    var t = Date.parse(l.created_at || ''); if (!t) return false;
+    now = now || Date.now();
+    if (since === 'today') return ilDay(t) === ilDay(now);
+    return now - t <= Number(since) * 864e5;
+  }
+
+  /* f = { status: '' | label, owner: '' | label | '-' (nobody), source: '' | kind, since: '' | 'today' | '7' | '30', q } */
+  function matchLead(l, f, now) {
     f = f || {};
     if (f.status && l.status !== f.status) return false;
     if (f.owner === '-' ? !!l.owner : f.owner && l.owner !== f.owner) return false;
+    if (f.source && sourceKind(l.source) !== f.source) return false;
+    if (f.since && !inSince(l, f.since, now)) return false;
     var q = String(f.q || '').trim().toLowerCase();
     if (q) {
       var digits = q.replace(/\D/g, '');
@@ -119,7 +144,29 @@
   function lastNoteLine(notes) { var a = String(notes || '').split('\n').map(function (s) { return s.trim(); }).filter(Boolean); return a.length ? a[a.length - 1] : ''; }
   function money(n) { return empty(n) ? '' : '₪' + Number(n).toLocaleString('en-US'); }
 
-  var api = { COLS: COLS, EDITABLE: EDITABLE, STATE_HE: STATE_HE, esc: esc, fmtPhone: fmtPhone, sortLeads: sortLeads, matchLead: matchLead, counts: counts, optimistic: optimistic, rollback: rollback, saveState: saveState, applyRemote: applyRemote, sameShown: sameShown, relTime: relTime, heDate: heDate, lastNoteLine: lastNoteLine, money: money };
+  /* the drawer: comments (notes with who + when, oldest first like a thread) and the history (everything else, newest first) */
+  var KIND_HE = { reach: 'ניסינו להשיג', wa_out: 'יצא', wa_in: 'נכנס', status: 'שינוי', payment: 'תשלום', created: 'נוצר', note: 'הערה' };
+  function thread(notes, activities) {
+    var comments = (notes || []).filter(function (n) { return n && n.text; }).map(function (n) { return { at: n.at || '', who: n.author || '', text: n.text }; })
+      .sort(function (a, b) { return String(a.at).localeCompare(String(b.at)); });
+    var hist = (activities || []).filter(function (a) { return a && a.kind !== 'note'; }).map(function (a) {
+      var m = a.meta || {}, label = KIND_HE[a.kind] || (a.dir === 'in' ? 'נכנס' : a.dir === 'out' ? 'יצא' : '');
+      return { at: a.at || '', who: m.who || '', kind: a.kind || '', state: m.state || '', text: (label ? label + ': ' : '') + (a.text || a.kind || '') };
+    }).sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); });
+    return { comments: comments, history: hist };
+  }
+  /* the answer of POST …/tried-reach → what the button says */
+  function reachLabel(j) {
+    if (!j) return { cls: 'failed', he: 'לא נשלח — נסו שוב מאוחר יותר' };
+    if (j.state === 'sent') return { cls: 'saved', he: 'נשלח' };
+    if (j.state === 'queued') return { cls: 'saving', he: j.he || 'יישלח ב-10:00' };
+    if (j.state === 'repeat') return { cls: 'saving', he: j.he || 'כבר נשלח' };
+    if (j.error === 'no-phone') return { cls: 'failed', he: 'אין לליד מספר טלפון' };
+    if (j.error === 'optout') return { cls: 'failed', he: 'הליד ביקש לא לקבל הודעות' };
+    return { cls: 'failed', he: 'לא נשלח — נסו שוב מאוחר יותר' };
+  }
+
+  var api = { SOURCE_KINDS: SOURCE_KINDS, sourceCounts: sourceCounts, SINCE: SINCE, sourceKind: sourceKind, inSince: inSince, thread: thread, reachLabel: reachLabel, COLS: COLS, EDITABLE: EDITABLE, STATE_HE: STATE_HE, esc: esc, fmtPhone: fmtPhone, sortLeads: sortLeads, matchLead: matchLead, counts: counts, optimistic: optimistic, rollback: rollback, saveState: saveState, applyRemote: applyRemote, sameShown: sameShown, relTime: relTime, heDate: heDate, lastNoteLine: lastNoteLine, money: money };
   root.IshurLeadsCRM = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

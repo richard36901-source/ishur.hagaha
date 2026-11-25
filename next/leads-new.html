@@ -19,7 +19,7 @@
 <script src="/assets/datepicker.js"></script>
 <script src="/assets/paylink-gen.js?v=7"></script>
 <script src="/assets/playbook.js?v=5"></script>
-<script src="/next/assets/leads-crm.js?v=1"></script>
+<script src="/next/assets/leads-crm.js?v=2"></script>
 <script>(function(){try{var t=localStorage.getItem('ishur_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <style>
   :root{--ink:#1B2620;--ink2:#4E5C55;--ink3:#7F8C86;--paper:#FBFAF7;--card:#fff;--line:#E1E4DE;--line2:#EEF0EB;--pine:#0F4C35;--pine-s:#E7F0EB;--gold:#B4884A;--warn:#A8402F;--warn-s:#FBEAE6;--good:#2E7D5B;--rail:#F0EFE9;--ease:cubic-bezier(.16,1,.3,1)}
@@ -139,6 +139,21 @@
   .gate input{font:inherit;width:100%;padding:.6rem;border:1px solid var(--line);border-radius:8px;margin:.5rem 0}
   .gate button{font:inherit;padding:.5rem 1.2rem;border-radius:8px;border:none;background:var(--pine);color:#fff;cursor:pointer}
   .err{color:var(--warn);font-size:.82rem;min-height:1.2em}
+  /* 25/11 "ניסינו להשיג" + the comment thread */
+  .rb{font:inherit;font-size:.74rem;padding:.18rem .5rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink2);cursor:pointer;white-space:nowrap}
+  .rb:hover:not(:disabled){border-color:var(--pine);color:var(--pine)}
+  .rb:disabled{cursor:default;opacity:.75}
+  .rb.saved{color:var(--good);border-color:var(--good)}
+  .rb.saving{color:var(--ink2);background:var(--rail)}
+  .rb.failed{color:var(--warn);border-color:var(--warn);background:var(--warn-s)}
+  .rnote{font-size:.74rem;color:var(--ink3);margin:.3rem 0 0}
+  .rnote.failed{color:var(--warn)}
+  .thr{list-style:none;margin:0 0 .5rem;padding:0;display:flex;flex-direction:column;gap:.4rem}
+  .thr li{background:var(--rail);border-radius:8px;padding:.4rem .6rem;font-size:.84rem;overflow-wrap:anywhere;white-space:pre-wrap}
+  .thr .who{display:block;font-size:.68rem;color:var(--ink3);margin-bottom:.1rem;white-space:normal}
+  .thr .who b{color:var(--ink2);font-weight:600}
+  .tl .k{font-size:.66rem;font-weight:600;color:var(--ink3);margin-inline-end:.3rem}
+  .tl li.failed{color:var(--warn)}
 </style>
 </head>
 <body>
@@ -167,6 +182,8 @@
   <div class="bar">
     <div class="chips" id="stChips" role="group" aria-label="סינון לפי סטטוס"></div>
     <div class="chips" id="owChips" role="group" aria-label="סינון לפי טיפול"></div>
+    <div class="chips" id="srcChips" role="group" aria-label="סינון לפי מקור"></div>
+    <div class="chips" id="dtChips" role="group" aria-label="סינון לפי תאריך כניסה"></div>
     <div class="row2">
       <input type="search" id="q" placeholder="חיפוש: שם, טלפון, אירוע, מקור" autocomplete="off" aria-label="חיפוש">
       <span class="shown" id="shown"></span>
@@ -175,7 +192,7 @@
   <div class="list" id="list" tabindex="-1">
     <table class="crm" id="crm">
       <thead><tr id="hd"></tr></thead>
-      <tbody id="rows"><tr class="sk"><td colspan="13"><i></i></td></tr><tr class="sk"><td colspan="13"><i></i></td></tr><tr class="sk"><td colspan="13"><i></i></td></tr></tbody>
+      <tbody id="rows"><tr class="sk"><td colspan="14"><i></i></td></tr><tr class="sk"><td colspan="14"><i></i></td></tr><tr class="sk"><td colspan="14"><i></i></td></tr></tbody>
     </table>
   </div>
   <div class="dbg" id="dbg" hidden></div>
@@ -195,7 +212,7 @@
   var ST_DARK_TEXT = { '#c4c4c4': 1, '#ffcb00': 1, '#4eccc6': 1, '#fdab3d': 1 };
   var POLL_MS = 10000;
   var leads = [], cursor = 0, held = {}, saving = {}, queued = {}, rowState = {}, stateT = {};
-  var F = { status: '', owner: '', q: '' }, sort = { k: 'created_at', dir: 'desc' }, openId = '', polling = false, lastSync = 0, mondayOk = true;
+  var F = { status: '', owner: '', source: '', since: '', q: '' }, sort = { k: 'created_at', dir: 'desc' }, openId = '', polling = false, lastSync = 0, mondayOk = true;
 
   function esc(s) { return L.esc(s); }
   function gate(err) { $('gate').hidden = false; $('main').hidden = true; $('keyErr').textContent = err || ''; }
@@ -221,6 +238,10 @@
     { id: 'm4', name: 'רות שמעוני', phone: '972524444444', event: 'ברית', guests: 60, package: '', price: null, source: 'ישיר', ad: 'AS05', status: 'לא ענה', owner: 'נועה', next: '', notes: 'לא ענתה, לנסות שוב', dial: true, created_at: '2026-11-08T08:00:00Z', touch_at: '2026-11-15T15:40:00Z', touch_text: 'נועה · 15.11 · לא ענה' }
   ];
 
+  function DEMO_TL(id) {
+    return id === 'm1' ? { notes: [{ at: '2026-11-15T07:10:00Z', author: 'שלו', text: 'דיברנו, רוצה לראות דוגמה של ההזמנה' }, { at: '2026-11-16T07:12:00Z', author: 'ריצארד', text: 'שלחתי דוגמה בוואטסאפ' }],
+      activities: [{ at: '2026-11-16T07:13:00Z', kind: 'wa_out', dir: 'out', text: 'דוגמה להזמנה' }, { at: '2026-11-15T07:11:00Z', kind: 'status', text: 'סטטוס: חדש → שיחה חוזרת', meta: { who: 'שלו' } }, { at: '2026-11-14T08:00:00Z', kind: 'created', text: 'נכנס מהטופס' }] } : { notes: [], activities: [] };
+  }
   function load() {
     if (DEMO) { $('demoTag').hidden = false; leads = DEMO_LEADS.slice(); cursor = Date.now(); lastSync = Date.now(); show(); return; }
     if (!adminKey) { gate(''); return; }
@@ -248,12 +269,15 @@
     $('hd').innerHTML = L.COLS.map(function (c) {
       var on = sort.k === c.k;
       return '<th scope="col"' + (on ? ' aria-sort="' + (sort.dir === 'asc' ? 'ascending' : 'descending') + '"' : '') + '><button type="button" data-sort="' + esc(c.k) + '">' + esc(c.he) + '<span class="ar" aria-hidden="true">' + (on ? (sort.dir === 'asc' ? '▲' : '▼') : '') + '</span></button></th>';
-    }).join('') + '<th scope="col" class="plain">הערה</th>';
+    }).join('') + '<th scope="col" class="plain">הערה</th><th scope="col" class="plain">פעולה</th>';
   }
   function paintChips() {
     var c = L.counts(leads, STATUSES, OWNERS);
     var chip = function (attr, v, label, n, on) { return '<button type="button" class="chip' + (n ? '' : ' zero') + '" data-' + attr + '="' + esc(v) + '" aria-pressed="' + on + '">' + esc(label) + ' <b>' + n + '</b></button>'; };
     $('stChips').innerHTML = '<span class="lbl">סטטוס</span>' + chip('st', '', 'הכל', c.all, F.status === '') + STATUSES.map(function (s) { return chip('st', s, s, c.status[s] || 0, F.status === s); }).join('');
+    var sc = L.sourceCounts(leads);
+    $('srcChips').innerHTML = '<span class="lbl">מקור</span>' + chip('src', '', 'הכל', c.all, F.source === '') + L.SOURCE_KINDS.filter(function (k) { return sc[k] || F.source === k; }).map(function (k) { return chip('src', k, k, sc[k] || 0, F.source === k); }).join('');
+    $('dtChips').innerHTML = '<span class="lbl">נכנס</span>' + L.SINCE.map(function (x) { var n = leads.filter(function (l) { return L.inSince(l, x.k); }).length; return chip('dt', x.k, x.he, n, F.since === x.k); }).join('');
     $('owChips').innerHTML = '<span class="lbl">טיפול</span>' + chip('ow', '', 'כולם', c.all, F.owner === '') + OWNERS.map(function (o) { return chip('ow', o, o, c.owner[o] || 0, F.owner === o); }).join('') + chip('ow', '-', 'ללא', c.owner['-'] || 0, F.owner === '-');
   }
   function stateHtml(id) { var s = rowState[id]; return s ? '<span class="ss ' + esc(s) + '" role="status">' + esc(L.STATE_HE[s] || '') + '</span>' : ''; }
@@ -278,6 +302,7 @@
       cell('נגיעה אחרונה', '<span class="dim" title="' + esc(l.touch_text || '') + '">' + esc(L.relTime(l.touch_at)) + '</span>', '', !l.touch_at) +
       cell('הצעד הבא', esc([L.heDate(l.next), l.next_text].filter(Boolean).join(' · ')), '', !l.next && !l.next_text) +
       cell('הערה', '<input class="nt" data-f="note" maxlength="600" autocomplete="off" aria-label="הערה חדשה" placeholder="' + esc(last || 'הערה חדשה') + '">', 'c-note') +
+      cell('פעולה', reachBtn(l)) +
       '</tr>';
   }
   function paint() {
@@ -285,7 +310,7 @@
     var list = visible();
     $('meta').textContent = leads.length + ' לידים';
     $('shown').textContent = list.length === leads.length ? '' : list.length + ' מוצגים';
-    if (!list.length) { $('rows').innerHTML = '<tr><td colspan="13" class="empty">' + (!leads.length && !mondayOk ? 'אין חיבור למאנדיי, הרשימה ריקה' : leads.length ? 'אין לידים לפי הסינון' : 'אין לידים') + '</td></tr>'; return; }
+    if (!list.length) { $('rows').innerHTML = '<tr><td colspan="14" class="empty">' + (!leads.length && !mondayOk ? 'אין חיבור למאנדיי, הרשימה ריקה' : leads.length ? 'אין לידים לפי הסינון' : 'אין לידים') + '</td></tr>'; return; }
     $('rows').innerHTML = list.map(rowHtml).join('');
   }
   function trOf(id) { var rows = $('rows').children; for (var i = 0; i < rows.length; i++) if (rows[i].dataset.id === id) return rows[i]; return null; }
@@ -327,7 +352,7 @@
       if (st === 'conflict') toast('השדה השתנה במאנדיי בינתיים. מוצג הערך שבמאנדיי');
       if (queued[id]) { var nextF = queued[id]; delete queued[id]; edit(id, nextF); }
     };
-    if (DEMO) { var d = {}; for (var k in op.lead) d[k] = op.lead[k]; if (fields.note) d.notes = (l.notes ? l.notes + '\n' : '') + fields.note; d.touch_at = new Date().toISOString(); setTimeout(function () { finish(200, { ok: true, lead: d }); }, 250); return; }
+    if (DEMO) { if (fields.note) { var dt = timeline[id] || DEMO_TL(id); dt.notes.push({ at: new Date().toISOString(), author: 'אני', text: fields.note }); timeline[id] = dt; } var d = {}; for (var k in op.lead) d[k] = op.lead[k]; if (fields.note) d.notes = (l.notes ? l.notes + '\n' : '') + fields.note; d.touch_at = new Date().toISOString(); setTimeout(function () { finish(200, { ok: true, lead: d }); }, 250); return; }
     postJ('crm/leads/' + encodeURIComponent(id), { fields: fields, base: op.base }).then(function (r) { finish(r.status, r.j); });
   }
   function commit(el) {
@@ -362,8 +387,11 @@
   $('hd').addEventListener('click', function (e) { var b = e.target.closest('[data-sort]'); if (!b) return; var k = b.dataset.sort; sort = sort.k === k ? { k: k, dir: sort.dir === 'asc' ? 'desc' : 'asc' } : { k: k, dir: 'asc' }; paint(); var nb = $('hd').querySelector('[data-sort="' + k + '"]'); if (nb) nb.focus(); });
   $('stChips').addEventListener('click', function (e) { var b = e.target.closest('.chip'); if (!b) return; F.status = b.dataset.st; paint(); });
   $('owChips').addEventListener('click', function (e) { var b = e.target.closest('.chip'); if (!b) return; F.owner = b.dataset.ow; paint(); });
+  $('srcChips').addEventListener('click', function (e) { var b = e.target.closest('.chip'); if (!b) return; F.source = b.dataset.src; paint(); });
+  $('dtChips').addEventListener('click', function (e) { var b = e.target.closest('.chip'); if (!b) return; F.since = b.dataset.dt; paint(); });
   $('q').addEventListener('input', function () { F.q = $('q').value; paint(); });
   $('rows').addEventListener('click', function (e) {
+    var rbtn = e.target.closest('[data-reach]'); if (rbtn) { reach(rbtn.dataset.reach); return; }
     if (e.target.closest('input,select,button,a,.stc')) return;
     var tr = e.target.closest('tr[data-id]'); if (tr) openDrawer(tr.dataset.id);
   });
@@ -385,11 +413,40 @@
   var timeline = {}, lastFocus = null;
   function heTime(iso) { var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' }) + ' ' + d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }); }
   function paintDrawerState() { var el = $('dState'); if (el) el.innerHTML = stateHtml(openId); }
+  /* history: everything that happened to the lead except the comments, newest first */
   function timelineHtml(id) {
     var t = timeline[id]; if (!t) return '<li class="dim">טוען</li>';
-    var items = (t.notes || []).map(function (n) { return { at: n.at, text: n.text, who: n.author }; }).concat((t.activities || []).map(function (a) { return { at: a.at, text: (a.dir === 'in' ? 'נכנס: ' : a.dir === 'out' ? 'יצא: ' : '') + (a.text || a.kind), who: '' }; }));
-    items.sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); });
-    return items.length ? items.slice(0, 80).map(function (x) { return '<li>' + esc(x.text) + '<time>' + esc(heTime(x.at)) + (x.who ? ' · ' + esc(x.who) : '') + '</time></li>'; }).join('') : '<li class="dim">אין פעילות רשומה</li>';
+    var h = L.thread(t.notes, t.activities).history;
+    return h.length ? h.slice(0, 80).map(function (x) { return '<li' + (x.state === 'failed' ? ' class="failed"' : '') + '>' + esc(x.text) + '<time>' + esc(heTime(x.at)) + (x.who ? ' · ' + esc(x.who) : '') + '</time></li>'; }).join('') : '<li class="dim">אין פעילות רשומה</li>';
+  }
+  /* comments: who wrote it and when, oldest first, like a thread */
+  function commentsHtml(id) {
+    var t = timeline[id]; if (!t) return '<p class="dim" style="margin:0 0 .5rem;font-size:.82rem">טוען</p>';
+    var c = L.thread(t.notes, t.activities).comments;
+    return c.length ? '<ul class="thr">' + c.map(function (x) { return '<li><span class="who"><b>' + esc(x.who || 'צוות') + '</b> · ' + esc(heTime(x.at)) + '</span>' + esc(x.text) + '</li>'; }).join('') + '</ul>' : '<p class="dim" style="margin:0 0 .5rem;font-size:.82rem">עדיין אין תגובות</p>';
+  }
+  function paintTimeline(id) { if (openId !== id) return; if ($('dTl')) $('dTl').innerHTML = timelineHtml(id); if ($('dThr')) $('dThr').innerHTML = commentsHtml(id); }
+
+  /* ── "ניסינו להשיג": one message from Noa's number (or queued to 10:00). The server decides; the button says what happened. ── */
+  var reachSt = {};
+  function reachBtn(l, big) {
+    var st = reachSt[l.id], dis = !l.phone || (st && (st.busy || st.cls === 'saved'));
+    var label = st ? (st.busy ? 'שולח' : st.he) : 'ניסינו להשיג';
+    return '<button type="button" class="' + (big ? 'btn' : 'rb') + (st && !st.busy ? ' rb ' + esc(st.cls) : '') + '" data-reach="' + esc(l.id) + '"' + (dis ? ' disabled' : '') + (l.phone ? ' title="שולח מהמספר של נועה: ניסינו להשיג אותך… (10:00–20:00, אחרת ב-10:00)"' : ' title="אין לליד מספר טלפון"') + '>' + esc(label) + '</button>';
+  }
+  function demoReach() { var h = new Date().getHours(); return h >= 10 && h < 20 ? { ok: true, state: 'sent', via: 'template' } : { ok: true, state: 'queued', he: 'יישלח ב-10:00' }; }
+  function reach(id) {
+    var l = by(id); if (!l || !l.phone || (reachSt[id] && reachSt[id].busy)) return;
+    reachSt[id] = { busy: true }; paintRow(id); if (openId === id) paintDrawer();
+    var done = function (j) {
+      var lab = L.reachLabel(j); reachSt[id] = { cls: lab.cls, he: lab.he };
+      paintRow(id); if (openId === id) { paintDrawer(); loadTimeline(id); }
+      toast(lab.he);
+      /* a failure can be pressed again; the label goes back after a while */
+      if (lab.cls === 'failed') setTimeout(function () { if (reachSt[id] && reachSt[id].cls === 'failed') { delete reachSt[id]; paintRow(id); if (openId === id) paintDrawer(); } }, 8000);
+    };
+    if (DEMO) { setTimeout(function () { done(demoReach()); }, 400); return; }
+    postJ('crm/leads/' + encodeURIComponent(id) + '/tried-reach', {}).then(function (r) { done(r.j); }, function () { done(null); });
   }
   function paintDrawer() {
     var l = by(openId), d = $('drawer'); if (!l) { closeDrawer(); return; }
@@ -401,7 +458,7 @@
     d.innerHTML = '<header><h2 id="dName">' + esc(l.name || 'ללא שם') + '</h2><span id="dState">' + stateHtml(l.id) + '</span><button type="button" class="x" id="dClose" aria-label="סגירה">סגירה</button></header>' +
       '<div class="body" data-id="' + esc(l.id) + '">' +
       '<div class="acts">' + (l.phone ? '<a class="btn" href="https://wa.me/' + esc(l.phone) + '" target="_blank" rel="noopener">וואטסאפ</a><a class="btn" href="tel:+' + esc(l.phone) + '">חיוג</a>' : '') +
-      '<button type="button" class="btn p" id="dPay">קישור לתשלום</button>' + (l.client_token ? '<a class="btn" href="/dashboard.html?t=' + esc(l.client_token) + '" target="_blank" rel="noopener">האירוע</a>' : '') + '</div>' +
+      '<button type="button" class="btn p" id="dPay">קישור לתשלום</button>' + reachBtn(l, true) + (l.client_token ? '<a class="btn" href="/dashboard.html?t=' + esc(l.client_token) + '" target="_blank" rel="noopener">האירוע</a>' : '') + '</div>' +
       '<h3>עריכה</h3><dl class="kv">' +
       '<dt><label for="dSt">סטטוס</label></dt><dd><select id="dSt" data-f="status">' + (l.status ? '' : '<option value="" selected disabled>ללא</option>') + opts(STATUSES, l.status) + '</select></dd>' +
       '<dt><label for="dOw">טיפול</label></dt><dd><select id="dOw" data-f="owner">' + opts(OWNERS, l.owner, 'ללא') + '</select></dd>' +
@@ -410,14 +467,15 @@
       '<h3>פרטים</h3><dl class="kv">' + row('טלפון', '<span class="ph">' + esc(L.fmtPhone(l.phone) || l.phone_text || '') + '</span>') + row('אירוע', esc(l.event)) + row('כמות', l.guests == null ? '' : esc(l.guests)) + row('חבילה', esc(l.package)) +
       row('מקור', esc(l.source)) + row('מודעה', esc(l.ad)) + row('קבוצה', esc(l.group)) + row('נכנס', esc(L.heDate(l.created_at))) + row('עדכונים', esc(l.touch_text)) +
       '<dt>נועה תחייג</dt><dd><span class="tick' + (l.dial ? ' on' : '') + '"><i></i>' + (l.dial ? 'מסומן' : 'לא מסומן') + '</span></dd></dl>' +
-      '<h3>הערות במאנדיי</h3>' + (l.notes ? '<pre class="mnotes">' + esc(l.notes) + '</pre>' : '<p class="dim" style="margin:0;font-size:.82rem">אין הערות</p>') +
-      '<div style="margin-top:.5rem"><textarea data-f="note" maxlength="600" aria-label="הערה חדשה" placeholder="הערה חדשה"></textarea><div class="acts" style="margin-top:.3rem"><button type="button" class="btn" id="dAdd">הוספת הערה</button></div></div>' +
-      '<h3>ציר פעילות</h3><ul class="tl" id="dTl">' + timelineHtml(l.id) + '</ul></div>';
+      '<h3>תגובות</h3><div id="dThr">' + commentsHtml(l.id) + '</div>' +
+      '<div><textarea data-f="note" maxlength="600" aria-label="תגובה חדשה" placeholder="תגובה חדשה (נשמרת גם במאנדיי)"></textarea><div class="acts" style="margin-top:.3rem"><button type="button" class="btn" id="dAdd">הוספת תגובה</button></div></div>' +
+      (l.notes ? '<h3>הערות במאנדיי</h3><pre class="mnotes">' + esc(l.notes) + '</pre>' : '') +
+      '<h3>היסטוריה</h3><ul class="tl" id="dTl">' + timelineHtml(l.id) + '</ul></div>';
     if (focusF) { var t = d.querySelector('[data-f="' + focusF + '"]'); if (t) t.focus(); }
   }
   function loadTimeline(id) {
-    if (DEMO) { timeline[id] = { notes: [], activities: [] }; if (openId === id && $('dTl')) $('dTl').innerHTML = timelineHtml(id); return; }
-    getJ('crm/leads/' + encodeURIComponent(id)).then(function (j) { if (!j || !j.ok) return; timeline[id] = { notes: j.notes || [], activities: j.activities || [] }; if (openId === id && $('dTl')) $('dTl').innerHTML = timelineHtml(id); });
+    if (DEMO) { timeline[id] = timeline[id] || DEMO_TL(id); paintTimeline(id); return; }
+    getJ('crm/leads/' + encodeURIComponent(id)).then(function (j) { if (!j || !j.ok) return; timeline[id] = { notes: j.notes || [], activities: j.activities || [] }; paintTimeline(id); });
   }
   function openDrawer(id) {
     if (!by(id)) return; var prev = openId;
@@ -434,7 +492,8 @@
   $('drawer').addEventListener('click', function (e) {
     if (e.target.closest('#dClose')) { closeDrawer(); return; }
     if (e.target.closest('#dAdd')) { var ta = $('drawer').querySelector('textarea[data-f="note"]'); if (ta) commit(ta); return; }
-    if (e.target.closest('#dPay')) { payLink(by(openId)); }
+    if (e.target.closest('#dPay')) { payLink(by(openId)); return; }
+    var rb = e.target.closest('[data-reach]'); if (rb) reach(rb.dataset.reach);
   });
   $('drawer').addEventListener('keydown', function (e) {
     if (e.key !== 'Tab') return;   /* focus stays inside the open drawer */
