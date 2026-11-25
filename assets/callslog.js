@@ -69,6 +69,24 @@
     return true;
   }
 
+  /* 25/11 the guest card (assets/guest-card.js): a guest's name opens everything about them; the card's scripts load on first use */
+  function gcName(p) {
+    var src = p.queue && p.queue.guest_id ? p.queue : (p.last || {}), label = esc(p.name || (p.kind === 'inbound' ? 'מתקשר/ת' : 'ללא שם'));
+    if (p.kind !== 'guest' || !src.guest_id || !/^[0-9a-f-]{36}$/.test(String(src.token || ''))) return '<b>' + label + '</b>';
+    return '<b data-guest-card data-token="' + esc(src.token) + '" data-guest="' + esc(src.guest_id) + '" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px" title="כרטיס אורח">' + label + '</b>';
+  }
+  if (!window.__gcLoader) {
+    window.__gcLoader = true;
+    document.addEventListener('click', function (e) {
+      var t = e.target.closest && e.target.closest('[data-guest-card]'); if (!t || window.IshurGuestCard) return;
+      e.preventDefault(); e.stopPropagation();
+      var load = function (src) { return new Promise(function (ok, no) { var s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); }); };
+      load('/assets/rec-player.js?v=1').then(function () { return load('/assets/guest-card.js?v=1'); }).then(function () {
+        window.IshurGuestCard.open({ token: t.getAttribute('data-token'), guest_id: t.getAttribute('data-guest'), name: t.textContent.trim() });
+      }).catch(function () {});
+    }, true);
+  }
+
   /* calls + queue → one row per person */
   function people(calls, queue, f) {
     var byKey = {}, list = [];
@@ -112,7 +130,7 @@
     var note = (c && c.summary) || (q && q.last_answer) || (c && c.disconnection) || '';
     var next = q ? (q.next_he || (q.next_at ? when(q.next_at) : '—')) : '—';
     return '<tr><td data-l="סוכנת">' + esc(p.agent) + ' <small style="color:var(--x-mute)">' + esc(KIND_HE[p.kind] || '') + '</small></td>' +
-      '<td data-l="שם"><b>' + esc(p.name || (p.kind === 'inbound' ? 'מתקשר/ת' : 'ללא שם')) + '</b></td>' +
+      '<td data-l="שם">' + gcName(p) + '</td>' +
       '<td data-l="טלפון"><span class="ph">' + (p.phone ? ph(p.phone) : (p.kind === 'inbound' ? 'לא נשמר' : '—')) + '</span></td>' +
       '<td data-l="אירוע/ליד">' + esc(p.event || (p.kind === 'lead' ? 'ליד' : '—')) + (p.event_date ? ' <small style="color:var(--x-mute)">' + esc(String(p.event_date).slice(8, 10) + '/' + String(p.event_date).slice(5, 7)) + '</small>' : '') + '</td>' +
       '<td data-l="מצב"><span class="st ' + (STATE_CLS[p.state] || '') + '">' + (STATE_HE[p.state] || esc(p.state)) + '</span></td>' +

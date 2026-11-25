@@ -37,6 +37,7 @@
     { href: 'calendar.html', label: 'לוח שליחות', icon: ic.calls },
     { href: 'admin.html?view=calls', label: 'מוקד שיחות', icon: ic.calls },
     { href: 'answers.html', label: 'לוג אישורים', icon: ic.calls },   /* 25/11: who answered, how, and the proof */
+    { href: 'next/future.html', label: 'מה מתוכנן · שיחות חיות', icon: ic.calls },   /* 25/11 future log + live calls */
     { href: 'floor.html', label: 'מוקד', icon: ic.calls },
     { href: 'automations.html', label: 'אוטומציות', icon: ic.flow },
     { href: 'brain.html', label: 'המוח', icon: ic.brain },

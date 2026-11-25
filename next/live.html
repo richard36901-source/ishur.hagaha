@@ -13,6 +13,8 @@
 <script src="/assets/ux.js?v=4"></script>
 <script src="/next/assets/adminbar.js?v=18" defer></script>
 <script src="/assets/guard.js?v=22"></script>
+<script src="/assets/rec-player.js?v=1"></script>
+<script src="/assets/guest-card.js?v=1"></script>
 <script>(function(){try{var t=localStorage.getItem('ishur_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <style>
   /* ── the full audit log, live (Richard 22/10): every record has an id and a
@@ -94,6 +96,7 @@
         <button class="btn" id="pause">הקפאה</button>
         <button class="btn" id="legendBtn" title="מה זה כל סוג">מקרא</button>
         <button class="btn" id="exportBtn" title="ייצוא מה שמסונן כ-CSV (עם hash לכל שורה)">ייצוא CSV</button>
+        <a class="btn" href="future.html" style="text-decoration:none">מה מתוכנן · שיחות חיות</a>
       </div></details>
     </div>
   </div>
@@ -141,6 +144,12 @@
   var KINDS = {};
 
   var items = [], byId = {}, kind = '', bad = false, pin = null, q = '', paused = false, lastTs = 0, timer = null, openIds = {}, days = 2;
+  /* 25/11: kind / pin / search are asked of the SERVER (POST /api/stream kind, token, phone, q), so "שיחה" shows every
+     call in the range, not the calls among the last 2,000 records. seq drops an answer that arrives after a newer filter. */
+  var seq = 0, cut = null, qTimer = null;
+  function serverFilter() { var f = {}; if (kind) f.kind = kind; if (q) f.q = q; if (pin) { if (pin.type === 'token') f.token = pin.v; else f.phone = pin.v; } return f; }
+  function filtered() { return !!(kind || q || pin); }
+  function reload() { seq++; items = []; byId = {}; lastTs = 0; cut = null; $('list').innerHTML = '<div class="empty">טוען…</div>'; return load(true); }
 
   function hhmm(iso) { var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
   function dayLbl(iso) { var d = new Date(iso); return d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }); }
@@ -149,7 +158,8 @@
     if (kind && it.kind !== kind) return false;
     if (bad && !(it.ok === false || it.review)) return false;
     if (pin) { if (pin.type === 'token' && String(it.token || '').slice(0, 8) !== pin.v.slice(0, 8)) return false; if (pin.type === 'phone' && phoneOf(it) !== pin.v) return false; }
-    if (q) { var hay = (it.id + ' ' + it.action + ' ' + it.detail + ' ' + phoneOf(it) + ' ' + it.token + ' ' + it.area + ' ' + (it.data ? JSON.stringify(it.data) : '')).toLowerCase(); if (hay.indexOf(q) < 0) return false; }
+    /* 25/11: the same test the server applies (the whole record), so a record the server found by guest/event name stays shown */
+    if (q) { if (!it.__hay) it.__hay = JSON.stringify(it).toLowerCase(); if (it.__hay.indexOf(q) < 0) return false; }
     return true;
   }
   function counts() {
@@ -167,7 +177,7 @@
   }
   function labelCounts(c) {
     var sel = $('kindSel'); if (!sel) return;
-    Array.prototype.forEach.call(sel.options, function (o) { var k = o.value, inf = KINDS[k] || {}; var n = k ? c[k] : c.all; o.textContent = (k ? (inf.he || k) : 'כל הסוגים') + (n != null ? ' · ' + n : ''); });
+    Array.prototype.forEach.call(sel.options, function (o) { var k = o.value, inf = KINDS[k] || {}; var n = k ? c[k] : c.all; if (filtered() && k !== kind) n = null; o.textContent = (k ? (inf.he || k) : 'כל הסוגים') + (n != null ? ' · ' + n : ''); });
   }
   function renderLegend() {
     $('legend').innerHTML = KIND_ORDER.map(function (k) { var inf = KINDS[k] || {}; return '<div><span class="k ' + k + '">' + esc(inf.he || k) + '</span> ' + esc(inf.desc || '') + '</div>'; }).join('') +
@@ -190,7 +200,7 @@
       if (d.outcome) rows.push(['תוצאה', '<span class="he">' + esc(d.outcome) + (d.duration_s != null ? ' · ' + esc(d.duration_s) + ' שנ׳' : '') + '</span>']);
       rows.push(['תמלול', '<span class="he">' + esc(it.detail || '(אין תמלול)') + '</span>']);
       /* 12/11 security: fetched with the key in a header and played from a blob — the admin key is never part of a URL */
-      if (recOk(d.recording)) rows.push(['הקלטה', recUrl[d.recording]
+      if (recOk(d.recording)) rows.push(['הקלטה', window.IshurRec ? IshurRec.html({ id: d.call_id || IshurRec.idOf(d.recording), name: d.recording_name, duration_s: d.duration_s }) : recUrl[d.recording]
         ? '<a href="' + esc(recUrl[d.recording]) + '" download="' + esc(d.recording_name || 'call.wav') + '">⬇ ' + esc(d.recording_name || 'הורדה') + '</a><audio controls src="' + esc(recUrl[d.recording]) + '"></audio>'
         : '<button type="button" class="chip" data-recload="' + esc(d.recording) + '">' + (recUrl[d.recording] === '' ? 'אין הקלטה' : '▶ ' + esc(d.recording_name || 'הקלטה')) + '</button>']);
     } else if (it.detail) rows.push(['פירוט', '<span class="he">' + esc(it.detail) + '</span>']);
@@ -201,10 +211,14 @@
     return '<div class="full">' + rows.map(function (r) { return '<b>' + r[0] + '</b><span>' + r[1] + '</span>'; }).join('') + '</div>';
   }
   function render(newIds) {
+    /* 25/11: a recording that is playing is not repainted away by the 5-second poll */
+    if (Array.prototype.some.call(document.querySelectorAll('#list .recp audio'), function (a) { return !a.paused; })) return;
     counts();
     var shown = items.filter(match).slice(0, 800);
     var costSum = 0; items.forEach(function (it) { if (match(it)) costSum += Number(it.cost) || 0; });
-    $('cnt').textContent = shown.length + ' מתוך ' + items.length + ' רשומות ב-' + (days === 2 ? '48 השעות' : days + ' הימים') + ' האחרונות' + (costSum ? ' · עלות ישירה ₪' + costSum.toFixed(2) : '') + (paused ? ' · מוקפא' : '');
+    var rng = (days === 2 ? '48 השעות' : days + ' הימים') + ' האחרונות';
+    $('cnt').textContent = (filtered() ? items.length + ' רשומות מתאימות ב-' + rng + (shown.length < items.length ? ' (מוצגות ' + shown.length + ')' : '') : shown.length + ' מתוך ' + items.length + ' רשומות ב-' + rng) +
+      (cut ? ' · החיפוש נעצר ב-' + cut + ', אפשר לצמצם טווח או סוג' : '') + (costSum ? ' · עלות ישירה ₪' + costSum.toFixed(2) : '') + (paused ? ' · מוקפא' : '');
     if (!shown.length) { $('list').innerHTML = '<div class="empty">אין מה להציג עם הסינון הזה.</div>'; return; }
     var lastDay = '';
     $('list').innerHTML = shown.map(function (it) {
@@ -214,7 +228,7 @@
       var tags = '<span class="tag id" data-copy="' + esc(it.id) + '" title="העתקת המזהה">#' + esc(String(it.id).slice(-9)) + '</span>';
       if (Number(it.cost) > 0) tags += '<span class="tag" style="direction:rtl;color:var(--amber)" title="עלות ישירה של הפעולה (מטא/שיחה)">₪' + Number(it.cost).toFixed(2) + '</span>';
       if (it.token) tags += '<span class="tag" data-pin="token" data-v="' + esc(it.token) + '" title="' + esc(it.token) + '">' + esc(it.event && it.event.event ? it.event.event : String(it.token).slice(0, 8)) + '</span>';
-      if (it.guest && it.guest.name) tags += '<span class="tag" style="direction:rtl">' + esc(it.guest.name) + '</span>';
+      if (it.guest && it.guest.name) tags += (it.guest.id && it.token ? '<span class="tag" style="direction:rtl" data-guest-card data-token="' + esc(it.token) + '" data-guest="' + esc(it.guest.id) + '" title="כרטיס אורח">' : '<span class="tag" style="direction:rtl">') + esc(it.guest.name) + '</span>';
       if (it.geo) tags += '<span class="tag" style="direction:rtl" title="מיקום לפי IP">' + esc(it.geo.split(' · ')[0]) + '</span>';
       var ph = phoneOf(it);
       if (ph) tags += '<span class="tag" data-pin="phone" data-v="' + esc(ph) + '">' + esc(ph.replace(/^972/, '0')) + '</span>';
@@ -228,8 +242,10 @@
   }
   function load(full) {
     if (paused && !full) return Promise.resolve();
-    return api('stream', full ? { days: days, limit: days > 7 ? 5000 : 2000 } : { days: 1, limit: 300, since: lastTs }).then(function (j) {
-      if (!j || !j.ok) return;
+    var my = seq;
+    return api('stream', Object.assign(full ? { days: days, limit: days > 7 ? 5000 : 2000 } : { days: 1, limit: 300, since: lastTs }, serverFilter())).then(function (j) {
+      if (!j || !j.ok || my !== seq) return;
+      if (full) cut = j.truncated ? (j.oldest_scanned ? new Date(j.oldest_scanned).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'מגבלת קריאה') : null;
       if (j.kinds) { KINDS = j.kinds; if (!$('chips').children.length) { renderChips(); renderLegend(); } }
       var fresh = {};
       (j.items || []).forEach(function (it) { if (!byId[it.id]) { byId[it.id] = it; items.push(it); if (!full) fresh[it.id] = 1; } if (it.ts > lastTs) lastTs = it.ts; });
@@ -247,10 +263,10 @@
     $('bar').querySelectorAll('.chip[data-k]').forEach(function (c) { c.classList.toggle('on', c.dataset.k === kind); });
     render();
   });
-  $('q').addEventListener('input', function () { q = $('q').value.trim().toLowerCase(); render(); });
-  $('kindSel').addEventListener('change', function () { kind = $('kindSel').value || ''; render(); });
+  $('q').addEventListener('input', function () { q = $('q').value.trim().toLowerCase(); render(); clearTimeout(qTimer); qTimer = setTimeout(reload, 450); });
+  $('kindSel').addEventListener('change', function () { kind = $('kindSel').value || ''; reload(); });
   if (/[?&]embed=1/.test(location.search)) document.documentElement.classList.add('embed');
-  $('days').addEventListener('change', function () { days = +$('days').value; items = []; byId = {}; lastTs = 0; $('list').innerHTML = '<div class="empty">טוען…</div>'; load(true); });
+  $('days').addEventListener('change', function () { days = +$('days').value; reload(); });
   $('pause').addEventListener('click', function () { paused = !paused; $('pause').classList.toggle('on', paused); $('pause').textContent = paused ? 'המשך' : 'הקפאה'; $('liveTxt').textContent = paused ? 'מוקפא' : 'מתעדכן כל 5 שנ׳'; render(); });
   $('legendBtn').addEventListener('click', function () { $('legend').classList.toggle('on'); });
   /* export: the same filter, server-side, verified, as a CSV download */
@@ -265,14 +281,15 @@
     var cp = e.target.closest('[data-copy]');
     if (cp) { try { navigator.clipboard.writeText(cp.dataset.copy); } catch (x) {} if (window.IshurUX && IshurUX.toast) IshurUX.toast('המזהה הועתק'); e.stopPropagation(); return; }
     var tg = e.target.closest('.tag');
-    if (tg) { pin = { type: tg.dataset.pin, v: tg.dataset.v }; $('pin').innerHTML = '<button class="chip x" id="unpin">✕ ' + esc(pin.type === 'phone' ? pin.v.replace(/^972/, '0') : pin.v.slice(0, 8)) + '</button>'; render(); return; }
+    if (tg && tg.dataset.pin) { pin = { type: tg.dataset.pin, v: tg.dataset.v }; $('pin').innerHTML = '<button class="chip x" id="unpin">✕ ' + esc(pin.type === 'phone' ? pin.v.replace(/^972/, '0') : pin.v.slice(0, 8)) + '</button>'; reload(); return; }
     var rl = e.target.closest('[data-recload]');
     if (rl) { rl.disabled = true; rl.textContent = 'טוען…'; recLoad(rl.dataset.recload).then(function () { render(); }); return; }
-    if (e.target.closest('audio') || e.target.closest('a')) return;
+    if (e.target.closest('audio') || e.target.closest('a') || e.target.closest('.recp')) return;
     var row = e.target.closest('.row'); if (!row) return;
     openIds[row.dataset.id] = !openIds[row.dataset.id]; render();
   });
-  $('pin').addEventListener('click', function () { pin = null; $('pin').innerHTML = ''; render(); });
+  $('pin').addEventListener('click', function () { pin = null; $('pin').innerHTML = ''; reload(); });
+  if (window.IshurRec) IshurRec.bind(document);
   $('go').addEventListener('click', function () { adminKey = $('key').value.trim(); try { localStorage.setItem('ishur_calls_key', adminKey); } catch (e) {} $('gate').hidden = true; load(true); });
   document.addEventListener('visibilitychange', function () { if (!document.hidden) load(false); });
   /* deep links: live.html?t=<token> or ?phone=972… open pinned */

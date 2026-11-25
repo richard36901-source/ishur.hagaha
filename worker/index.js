@@ -37,7 +37,7 @@ import { clientWaba, clientToken, clientOnPortfolio, clientPhoneId, isGuestPhone
 import { sendCtaUrl, sendReplyButtons, sendList, guestCapacity, guestCapScope, pinGuestPhone, guestPortfolioBudget } from './whatsapp.js';
 import { fitBatch, dynamicPace } from './budget.js';
 import * as tguard from './templateguard.js';
-import { eventDayMessageFor, edMarkKey, ED_MARK_TTL, dayBeforeAllowed, dayBeforeDropped, navTarget, COMBO_NAMES, dayBeforeMessageFor, eventDayNeeded, eventStarted, retryDayAllowed } from './eventday.js';
+import { eventDayMessageFor, edMarkKey, ED_MARK_TTL, dayBeforeAllowed, dayBeforeDropped, navTarget, COMBO_NAMES, dayBeforeMessageFor, eventDayNeeded, eventStarted, retryDayAllowed, pastEventDayCutoff, eventDayOver, eventDayRetryAllowed, EVENT_DAY_CUTOFF_MIN } from './eventday.js';
 import { giftActive, giftKey, declineGiftText, eventDayGiftSlot, eventHasSeating, giftVariantName, giftButtonComponent, giftSlug, planGiftBlast, giftPageHtml, cleanLink, giftRoute, giftCountable, giftHitKey, giftStats, GIFT_HIT_TTL, GIFT_METHODS } from './gifts.js';
 import { waveNoteDeps } from './whatsapp.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, isQuestion, touchConversation, guestsReady } from './whatsapp.js';
@@ -52,6 +52,7 @@ import { slackQuietHours, slackSend, flushSlackQueue, slackPost, slackResolve, a
 import { slackDigest } from './slack-gate.js';   /* 04/11 the 09:00 morning digest (registry: slack_digest) */
 import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex, memOver, memCount, makeWriterBody, guestNameKey } from './lib.js';
 import { authGate, handleAuth, isSessionToken, readSession, getUser } from './auth.js';
+import { quietRead, teamActionAfter, describedPath } from './team-log.js';
 import { alertDateSet, hostessReminders, arrivalOf } from './hostess-alerts.js';
 import { SWR_ROUTES, swrServe } from './swr.js';
 import { handleCallers } from './callers.js';
@@ -91,6 +92,8 @@ import { handleAccount, handleReviewClaim, sendLoginCode, adminSendPin, reviewSt
 import { sendEmail as sendPlainEmail } from './outreach.js';
 import { navLinkOk, giftLinkOk } from './links.js';
 import { isTeamNote, saveNote, listNotes, closeNote } from './teamnotes.js';
+import { handleFutureLog } from './future-log.js';   /* 25/11 what is planned + live calls */
+import { handleGuestCard } from './guest-card.js';   /* 25/11 one guest, everything */
 import { handleAnswersLog } from './answers-log.js';   /* 25/11 who answered, how, and the proof */   /* 24/11 the team's requests to Richard */
 import { cleanQuery, inboxSearch } from './inbox-search.js';   /* 23/11 inbox search box */
 import { handleSubeventCreate, handleSubeventSend, handleSubeventRemind, handleSubeventSummary, continueSubevents, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
@@ -5550,8 +5553,30 @@ async function eventDayMessage(env, ev, guest, job = null) {
   }, { job });
 }
 /* a reopened table / event-day send (status webhook) must be allowed to go again */
+/* 25/11: confirmed guests of the event who have not had their event-day message (no ed: mark, and D-1 did not carry it all) */
+async function eventDayPendingCount(env, token, gRows) {
+  if (!env.RATE) return 0;
+  const seen = new Set(); let n = 0;
+  const giftOn = giftActive(await giftLinksOf(env, token).catch(() => null)), navOn = await navOnFor(env, token).catch(() => false);
+  for (const g of gRows || []) {
+    if (String(g[28] || '').trim() !== token || String(g[15] || '').trim() !== 'מגיע') continue;
+    const p = normPhone(g[4] || ''); if (!p || seen.has(p)) continue; seen.add(p);
+    if (await env.RATE.get(edMarkKey(token, p)).catch(() => null)) continue;
+    if (!eventDayNeeded({ dbMark: await env.RATE.get(`s5d:${token}:${p}`).catch(() => null), table: String(g[30] || '').trim(), giftOn, navOn })) continue;
+    n++;
+  }
+  return n;
+}
 async function reopenEdMark(env, m) {
-  if (env.RATE && m && (m.wave === 'seating' || m.wave === 'eventday')) await env.RATE.delete(edMarkKey(m.token, m.phone)).catch(() => {});
+  if (!(env.RATE && m && (m.wave === 'seating' || m.wave === 'eventday'))) return;
+  /* 25/11 eventDayCutoff: a failed event-day send is retried only while it can still arrive 2 h before the event;
+     after that the ed: mark stays, so neither event-day path sends to this guest again */
+  let em = null; try { em = JSON.parse((await env.RATE.get('evmeta:' + m.token)) || 'null'); } catch {}
+  if (em && !eventDayRetryAllowed({ date: em.date, time: em.time }, ilDate(), ilTime())) {
+    await logEvent(env, { area: 'שליחה', action: 'הודעת יום האירוע: ניסיון חוזר בוטל (פחות משעתיים לאירוע)', ok: true, token: m.token, phone: m.phone, detail: `cutoff ${EVENT_DAY_CUTOFF_MIN} דק׳ · ${em.time || ''}` }).catch(() => {});
+    return;
+  }
+  await env.RATE.delete(edMarkKey(m.token, m.phone)).catch(() => {});
 }
 async function eventDayJobOf(env, token) {
   try { return env.RATE ? JSON.parse((await env.RATE.get('edblast:' + token)) || 'null') : null; } catch { return null; }
@@ -5762,13 +5787,17 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
     /* 02/11 audit: the job is a KV record set by hand; the event can be
        cancelled or put on hold after it was set — never blast those */
     const evRow = eventRowOf(raw, token);
-    if (!dry && evRow && eventStarted(evRow[36], ilTime())) {
-      if (!(await seenOnce(env, `edlate:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', 'שעת האירוע כבר עברה — ההודעה של היום לא נשלחה', token.slice(0, 8), { key: 'eventday_late:' + token.slice(0, 8), sev: 'P1' }).catch(() => {});
-      res.push({ token: token.slice(0, 8), skipped: 'event-started' }); continue;
-    }
     if (!dry && (!evRow || String(evRow[27] || '').trim() === 'כן' || await env.RATE.get('hold:' + token))) {
       if (!(await seenOnce(env, `edblastoff:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', 'האירוע מבוטל / מושהה / לא נמצא בגיליון — ההודעה לא יצאה', token.slice(0, 8), { key: 'eventday:' + token.slice(0, 8) });
       res.push({ token: token.slice(0, 8), skipped: 'cancelled-or-hold' }); continue;
+    }
+    /* 25/11: a cancelled / held event says so first; then the cutoff */
+    if (!dry && evRow && (eventStarted(evRow[36], ilTime()) || pastEventDayCutoff(evRow[36], ilTime()) || eventDayOver(evRow[6], today))) {
+      /* 25/11 eventDayCutoff: less than 2 h to the event (or its day is over) — the job is cancelled, never sent late */
+      if (!(await seenOnce(env, `edlate:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', `פחות מ-${EVENT_DAY_CUTOFF_MIN / 60} שעות לאירוע — ההודעה של היום בוטלה ולא תישלח`, token.slice(0, 8), { key: 'eventday_late:' + token.slice(0, 8), sev: 'P1' }).catch(() => {});
+      await env.RATE.delete('edblast:' + token).catch(() => {});
+      await logEvent(env, { area: 'שליחה', action: 'הודעת יום האירוע בוטלה (פחות משעתיים לאירוע)', ok: true, token, detail: `שעת האירוע ${String(evRow[36] || '')} · cutoff ${EVENT_DAY_CUTOFF_MIN} דק׳` }).catch(() => {});
+      res.push({ token: token.slice(0, 8), skipped: 'event-day-cutoff' }); continue;
     }
     const people = await eventDayRecipients(env, token, raw, job);
     if (dry) { res.push({ token: token.slice(0, 8), due, approved, recipients: people.length, sample: people.slice(0, 5) }); continue; }
@@ -5787,7 +5816,9 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
     let sent = 0, failed = 0, skipped = 0, heldCap = 0, combos = 0, waitTmpl = 0, toTable = 0;
     /* 02/11: the event-day blast had no budget at all — it now stops at the room Meta still gives */
     let room = (await guestCapacity(env).catch(() => ({ remaining: 0 }))).remaining;
+    let lateCut = 0;
     for (const p of people) {
+      if (pastEventDayCutoff(evRow && evRow[36], ilTime())) { lateCut = people.length - sent - failed - skipped - heldCap - waitTmpl - toTable; break; }   /* the cutoff passed mid-run */
       const mk = `s5e:${token}:${p.phone}`;
       if (await env.RATE.get(mk)) { skipped++; continue; }
       /* 03/11 R2: one event-day message per guest — the table stage (or an earlier tick) already sent it */
@@ -5821,7 +5852,8 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
     }
     if (sent) await addEvCost(env, token, sent * msgCost('ishur_yom_lifnei')).catch(() => {});
     await logEvent(env, { area: 'שליחה', action: 'הודעת יום האירוע', ok: !failed, review: !!failed, token, detail: `נשלחו ${sent}${combos ? ` (מאוחדות ${combos})` : ''} · נכשלו ${failed} · דולגו ${skipped}${toTable ? ` · להודעת השולחן ${toTable}` : ''}${waitTmpl ? ` · ממתינים לאישור התבנית ${waitTmpl}` : ''}${heldCap ? ` · held: cap ${heldCap} (בתור לפעימה הבאה)` : ''}` }).catch(() => {});
-    if (!failed && !heldCap && !waitTmpl) await env.RATE.delete('edblast:' + token).catch(() => {});
+    if ((!failed && !heldCap && !waitTmpl) || lateCut) await env.RATE.delete('edblast:' + token).catch(() => {});
+    if (lateCut) await logEvent(env, { area: 'שליחה', action: 'הודעת יום האירוע: השאר בוטלו (פחות משעתיים לאירוע)', ok: true, token, detail: `${lateCut} אורחים לא קיבלו` }).catch(() => {});
     if (sent || failed) await slackPost(env, `🎉 *הודעת יום האירוע* · ${job.what}: נשלחו ${sent}${failed ? ` · נכשלו ${failed} (ינסה שוב בפעימה הבאה)` : ''}${skipped ? ` · דולגו ${skipped}` : ''}${heldCap ? ` · ממתינים לתקרה ${heldCap}` : ''}`, { oneoff: true }).catch(() => {});   /* oneoff: a send completed */
     res.push({ token: token.slice(0, 8), sent, failed, skipped, held_cap: heldCap, combos, to_table: toTable, wait_template: waitTmpl });
   }
@@ -7189,8 +7221,13 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     if (env.RATE && await env.RATE.get('seat:' + token)) continue;
     if (env.RATE && await env.RATE.get('hold:' + token)) continue;
     /* 25/11: once the event has started nothing of "today" goes out; said once in Slack so a person can reach the hosts */
-    if (eventStarted(ev[36], ilTime())) {
-      if (!dry && env.RATE && !(await seenOnce(env, `edlate:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', 'שעת האירוע כבר עברה — ההודעה של היום לא נשלחה', `${guestEventName(ev, { article: false })} · ${String(ev[36] || '')}`, { key: 'eventday_late:' + token.slice(0, 8), sev: 'P1' }).catch(() => {});
+    if (eventStarted(ev[36], ilTime()) || pastEventDayCutoff(ev[36], ilTime())) {
+      /* the Slack line only when someone was actually still waiting for the message (counted once a day) */
+      if (!dry && env.RATE && !(await env.RATE.get(`edlate:${token}:${today}`))) {
+        const pending = await eventDayPendingCount(env, token, gRows);
+        await seenOnce(env, `edlate:${token}:${today}`);
+        if (pending) await alert(env, 'הודעת יום האירוע', `פחות מ-${EVENT_DAY_CUTOFF_MIN / 60} שעות לאירוע — ההודעה של היום בוטלה ל-${pending} אורחים ולא תישלח`, `${guestEventName(ev, { article: false })} · ${String(ev[36] || '')}`, { key: 'eventday_late:' + token.slice(0, 8), sev: 'P1' }).catch(() => {});
+      }
       continue;
     }
 
@@ -7214,6 +7251,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     for (const g of gRows) {
       if (String(g[28] || '').trim() !== token) continue;
       if (budget && budget.left <= 0) { cut = true; break; }
+      if (!dry && pastEventDayCutoff(ev[36], ilTime())) break;   /* 25/11 eventDayCutoff passed mid-run: the rest is cancelled */
       const phone = String(g[4] || '').trim();
       const table = String(g[30] || '').trim();
       const rsvp = String(g[15] || '').trim();
@@ -11449,6 +11487,16 @@ function opsDeps() {
     runShirDispatch: (e, o) => runShirDispatch(e, o), dailyCallCap: (e) => dailyCallCap(e),
     markCallResult: async (e, gid, outcome, tries) => { const res = callOutcome(outcome, tries); if (!res) return null; return { ok: await writeCallResult(e, gid, res, null), ...res }; } };
 }
+/* 25/11 future-log.js / guest-card.js: the ops deps + the wave template the sender would pick now */
+function futureDeps() {
+  return { ...opsDeps(), callsAddonTokens: e => callsAddonTokens(e),
+    inviteTemplateFor: async (env, token) => {
+      const custom = await customTemplateFor(env, token); if (custom) return custom.name;
+      const inviteTmpl = (env.RATE && await env.RATE.get('invitetmpl')) || 'hazmana_ishur';
+      const [vidT, imgT, vidOk] = env.RATE ? await Promise.all([env.RATE.get('invitetmpl_vid'), env.RATE.get('invitetmpl_img'), env.RATE.get('vidok:' + token)]) : [];
+      return styledTemplate(env, token, (vidT && vidOk) ? 'vid' : imgT ? 'img' : 'text', (vidT && vidOk) ? vidT : imgT ? imgT : inviteTmpl);
+    } };
+}
 /* 03/11 CRM: the ops deps plus what the CRM needs on top */
 function crmDeps(ctx) {
   /* route(): the client card reuses the existing admin routes in-process (same validation, same KV writes,
@@ -11749,7 +11797,12 @@ const WORKER = {
      no content-type guessing (an uploaded file is never run as a page), and no full URL (tokens live in URLs)
      handed to other sites. A header a route already set is left as it is. */
   /* 16/11 login + users (auth.js): authGate is the one place a user session is accepted (and, only when KV cfg:auth_enforce = 'on', where a bare shared key from a browser is refused). No session and switch off = the same request, untouched. */
-  async fetch(request, env, ctx) { installStagingGuard(env); env = wrapEmail(env); const g = await authGate(request, env, ctx, { isRead: homeReadOk }); if (g.response) return hardenResponse(g.response); return hardenResponse(await changeWrap(g.request, env, rq => WORKER.fetchMain(rq, env, ctx))); },
+  async fetch(request, env, ctx) { installStagingGuard(env); env = wrapEmail(env); const g = await authGate(request, env, ctx, { isRead: (p, m, b) => homeReadOk(p, m, b) || quietRead(p, b) }); if (g.response) return hardenResponse(g.response);
+    /* 25/11 team-log.js: a signed-in user's successful change → one line in words on the users page */
+    const tq = g.user && g.request.method === 'POST' && describedPath(new URL(g.request.url).pathname, CHANGE_ROUTES) ? g.request.clone() : null;
+    const res = await changeWrap(g.request, env, rq => WORKER.fetchMain(rq, env, ctx));
+    if (tq && res && res.ok) { const job = teamActionAfter(env, { path: new URL(g.request.url).pathname, reqClone: tq, resClone: res.clone(), user: g.user, changeRoutes: CHANGE_ROUTES }).catch(() => {}); if (ctx && ctx.waitUntil) ctx.waitUntil(job); }
+    return hardenResponse(res); },
   async fetchMain(request, env, ctx) {
     const origin = request.headers.get('Origin') || '';
     const url = new URL(request.url);
@@ -11815,6 +11868,9 @@ const WORKER = {
         readSnapshot: e => readSnapshot(e, 'write'), auditQuery: (e, q) => audit.query(e, q), recordingLink: (e, id, days) => audit.recordingLink(e, id, days),
         writeAnswer: (e, guest, outcome, party) => writeGuestReply(e, guest, outcome, party) });
     }
+    /* 25/11 the future log (planned sends + calls, live calls) and the guest card — read-mostly admin routes */
+    if (url.pathname === '/api/future-log' && request.method === 'POST') return handleFutureLog(request, env, origin, futureDeps());
+    if (url.pathname === '/api/guest-card' && request.method === 'POST') return handleGuestCard(request, env, origin, { ...futureDeps(), readSnapshot: e => readSnapshot(e, 'ops'), logEvent, logRow: (e, t, r) => logRow(e, t, r) });
     if (url.pathname.startsWith('/api/auth/')) return handleAuth(request, env, origin, url);   /* 16/11 Google sign-in, users, action log (auth.js) */
     /* iPad sessions: a valid sess. token becomes the real admin key before any
        handler reads the body. Grow's IPN is skipped — its body is not ours. */
@@ -11844,7 +11900,7 @@ const WORKER = {
           }
           /* 01/11: the board polls hold/extra state every few seconds; a READ (no 'on') is not an action and was flooding the journal */
           const readOnlyFlag = url.pathname === '/api/event-flag' && peek && typeof peek.on !== 'boolean';
-          if (peek && peek.admin_key && !readOnlyFlag && isAdmin(env, peek.admin_key)) {
+          if (peek && peek.admin_key && !readOnlyFlag && !quietRead(url.pathname, peek) && isAdmin(env, peek.admin_key)) {
             const ua = String(request.headers.get('User-Agent') || '');
             const who = /curl|python|node/i.test(ua) ? 'Claude' : 'דפדפן';
             const keys = Object.keys(peek).filter(k => !/admin_key|sig|nonce|stamp_ts|app/.test(k));

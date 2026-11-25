@@ -210,14 +210,17 @@ export async function destroySession(env, token) {
   if (TOK_RE.test(tok) && env.RATE) await env.RATE.delete('usess:' + tok.slice(3)).catch(() => {});
 }
 
-export async function logAction(env, { u, a, p }, now = Date.now()) {
+export async function logAction(env, { u, a, p, m, t }, now = Date.now()) {
   if (!env.RATE || !u) return '';
   const key = 'act:' + ilDay(now) + ':' + now + ':' + randHex(4);
-  await env.RATE.put(key, '1', { expirationTtl: ACTION_DAYS * 86400, metadata: { u: String(u).slice(0, 120), a: String(a || '').slice(0, 120), p: String(p || '').slice(0, 120) } });
+  /* 25/11 m:1 = a meaningful change described in words (team-log.js), t = the event's first 8 chars */
+  const meta = { u: String(u).slice(0, 120), a: String(a || '').slice(0, m ? 240 : 120), p: String(p || '').slice(0, 120) };
+  if (m) { meta.m = 1; if (t) meta.t = String(t).slice(0, 8); }
+  await env.RATE.put(key, '1', { expirationTtl: ACTION_DAYS * 86400, metadata: meta });
   return key;
 }
 /* the last `days` Israel days, newest first; `user` narrows it to one email */
-export async function queryActions(env, { days = 7, user = '', limit = 500, now = Date.now() } = {}) {
+export async function queryActions(env, { days = 7, user = '', limit = 500, now = Date.now(), meaningful = false } = {}) {
   const out = [];
   if (!env.RATE || !env.RATE.list) return out;
   const n = Math.max(1, Math.min(90, Number(days) || 7)), who = normEmail(user), max = Math.max(1, Math.min(2000, Number(limit) || 500));
@@ -230,7 +233,8 @@ export async function queryActions(env, { days = 7, user = '', limit = 500, now 
       for (const k of page.keys) {
         const m = k.metadata || {};
         if (who && m.u !== who) continue;
-        out.push({ ts: Number(k.name.split(':')[2]) || 0, day, u: m.u || '', a: m.a || '', p: m.p || '' });
+        if (meaningful && !m.m) continue;
+        out.push({ ts: Number(k.name.split(':')[2]) || 0, day, u: m.u || '', a: m.a || '', p: m.p || '', ...(m.m ? { m: 1, t: m.t || '' } : {}) });
       }
       if (page.list_complete) break;
       cursor = page.cursor;
@@ -395,7 +399,7 @@ export async function handleAuth(request, env, origin, url, d = {}) {
   }
   if (path === 'actions') {
     if (me.role !== 'owner') return deny(403, 'owner-only', origin);
-    return okJson({ ok: true, actions: await queryActions(env, { days: b.days, user: b.user, limit: b.limit }) }, origin);
+    return okJson({ ok: true, actions: await queryActions(env, { days: b.days, user: b.user, limit: b.limit, meaningful: b.meaningful === true }) }, origin);
   }
   return deny(404, 'no-route', origin);
 }
