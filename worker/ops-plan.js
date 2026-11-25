@@ -497,7 +497,16 @@ async function pastDay(env, d, fns, day, { today, events, subTpl, clientId, budg
 }
 
 /* gather every input once, for the union of the requested periods */
+/* 25/11 the KV bill: one plan build listed + read the same prefixes several times (subevent:, and every sub-event's
+   shsent:/wst:/shrsvp: through both buildCapacity and subsNow — 850 reads a tick). Within ONE build a prefix is read
+   once; the plan only reads, so the answer is the one the first read gave. */
+export function memoPrefix(kvPrefix) {
+  if (typeof kvPrefix !== 'function') return kvPrefix;
+  const seen = new Map();
+  return (env, prefix) => { if (!seen.has(prefix)) { const p = Promise.resolve().then(() => kvPrefix(env, prefix)); seen.set(prefix, p); p.catch(() => seen.delete(prefix)); } return seen.get(prefix); };
+}
 export async function gatherPlan(env, d, fns, { now = Date.now(), from, to, buildBoard = true, pastDayBudget = 31 } = {}) {
+  d = { ...d, kvPrefix: memoPrefix(d.kvPrefix) };
   const today = d.ilDate(new Date(now));
   const ms = {}, errors = [];
   const timed = (name, f) => { const t0 = Date.now(); return Promise.resolve().then(f).then(v => { ms[name] = Date.now() - t0; return v; }, e => { ms[name] = Date.now() - t0; errors.push(name + ': ' + String((e && e.message) || e).slice(0, 120)); return null; }); };
