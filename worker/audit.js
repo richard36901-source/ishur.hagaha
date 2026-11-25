@@ -299,12 +299,12 @@ function chunkReader(env, day, keys, cand, group, inGroup, res, budget, now = Da
   let groupBy = null; const candN = count(cand);
   const namesOf = b => { if (!groupBy) { groupBy = new Map(); for (const k of keys) if (inGroup(k)) { const x = bucketOf(k); if (!x) continue; if (!groupBy.has(x)) groupBy.set(x, []); groupBy.get(x).push(k.name); } } return groupBy.get(b) || []; };
   const remember = (ck, c) => { memo.set(ck, c); while (memo.size > CHUNK_MEMO_MAX) memo.delete(memo.keys().next().value); return c; };
-  const fromKv = async ck => { res.ops++; try { const c = JSON.parse((await env.RATE.get(ck)) || 'null'); return c && typeof c === 'object' ? c : null; } catch { return null; } };
+  const fromKv = async ck => { res.kv_chunk_reads = (res.kv_chunk_reads || 0) + 1; try { const c = JSON.parse((await env.RATE.get(ck)) || 'null'); return c && typeof c === 'object' ? c : null; } catch { return null; } };
   const loaded = new Map();
   const load = async b => {
     const ck = keyOf(b);
     if (memo.has(ck)) { const v = memo.get(ck); memo.delete(ck); memo.set(ck, v); return v; }
-    if ((candN.get(b) || 0) < 2 || budget - res.ops < 1) return null;   /* one record: a plain read is as cheap */
+    if ((candN.get(b) || 0) < 2) return null;   /* one record: a plain read is as cheap */
     let c = await fromKv(ck);
     if (c) return remember(ck, c);
     const names = namesOf(b);
@@ -312,7 +312,7 @@ function chunkReader(env, day, keys, cand, group, inGroup, res, budget, now = Da
     if (!names.length || names.length !== candN.get(b)) return null;
     /* an hour that just sealed: put together from its six slots when they are all kept and hold exactly its records */
     const hh = b[0] === 'h' ? Number(b.slice(1)) : -1;
-    if (hh >= 0 && (hh + 1) * 3600e3 + SEAL_MS + 2 * 3600e3 > now && budget - res.ops >= 6) {   /* slots exist only for an hour that sealed lately */
+    if (hh >= 0 && (hh + 1) * 3600e3 + SEAL_MS + 2 * 3600e3 > now) {   /* slots exist only for an hour that sealed lately */
       const h = hh, want = new Set(names), merged = {};
       let whole = true;
       for (let s = h * 6; s < h * 6 + 6 && whole; s++) {
@@ -326,8 +326,8 @@ function chunkReader(env, day, keys, cand, group, inGroup, res, budget, now = Da
         return remember(ck, merged);
       }
     }
+    /* a bucket the old read would have been cut inside is not built (the budget below still decides what is answered) */
     if (budget - res.ops < names.length) return null;
-    res.ops += names.length;
     const vals = await Promise.all(names.map(n => env.RATE.get(n).catch(() => undefined)));
     if (vals.some(v => v === undefined)) return null;   /* a failed read: keep nothing; the records are read one by one below */
     c = {}; names.forEach((n, j) => { c[n] = vals[j]; });
@@ -389,19 +389,16 @@ export async function queryEx(env, qy = {}) {
     const inGroup = k => !(qy.kind && k.metadata && typeof k.metadata === 'object' && k.metadata.k && k.metadata.k !== qy.kind);
     const chunks = chunkReader(env, day, keys, cand, group, inGroup, res, budget);
     for (let i = 0; i < cand.length && out.length < limit; i += 50) {
-      if (budget - res.ops <= 0) { res.truncated = true; break; }
-      const full = cand.slice(i, i + 50);
-      const got = await chunks.values(full);   /* undefined = not in a chunk */
-      const missing = []; full.forEach((k, j) => { if (got[j] === undefined) missing.push(j); });
       const room = budget - res.ops;
-      /* a cut drops the oldest: stop the batch at the first record the budget cannot pay for */
-      const cutAt = missing.length > room ? missing[Math.max(0, room)] : full.length;
-      const batch = full.slice(0, cutAt);
-      const fetchIdx = missing.filter(j => j < cutAt);
-      res.ops += fetchIdx.length;
-      const fetched = await Promise.all(fetchIdx.map(j => env.RATE.get(full[j].name).catch(() => undefined)));
+      if (room <= 0) { res.truncated = true; break; }
+      /* the budget counts every record processed, served from a chunk or read — exactly as before, so a caller is cut
+         at the same record as before; only the KV reads behind it are fewer */
+      const batch = cand.slice(i, i + Math.min(50, room));
+      res.ops += batch.length;
+      const got = await chunks.values(batch);   /* undefined = not in a chunk */
+      const fetchIdx = []; batch.forEach((k, j) => { if (got[j] === undefined) fetchIdx.push(j); });
+      const fetched = await Promise.all(fetchIdx.map(j => env.RATE.get(batch[j].name).catch(() => undefined)));
       const vals = batch.map((_, j) => got[j]); fetchIdx.forEach((j, x) => { vals[j] = fetched[x]; });
-      if (cutAt < full.length) res.truncated = true;
       for (let j = 0; j < vals.length; j++) {
         res.oldest_ts = keyTs(batch[j]);
         if (vals[j] === undefined) { res.failed++; res.truncated = true; continue; }
@@ -415,7 +412,7 @@ export async function queryEx(env, qy = {}) {
         if (needle && (JSON.stringify(r).toLowerCase().indexOf(needle) < 0)) continue;
         out.push(r);
       }
-      if (cutAt < full.length) break;
+      if (batch.length < 50 && i + batch.length < cand.length) { res.truncated = true; break; }
     }
     if (out.length >= limit || res.truncated) break;
   }

@@ -101,3 +101,18 @@ test('slots: inside the open hour the 10-minute slots are kept too; when the hou
   const hk = audit.chunkKey(DAY, Math.floor(Date.parse('2026-11-25T18:00:00Z') / 3600e3), 'wa_out');
   assert.equal(Object.keys(JSON.parse(RATE.m.get(hk))).length, 30);
 });
+
+test('budget: a budgeted caller (the brain asks with 2,500) is cut at exactly the same record with chunks as without', async () => {
+  for (const budget of [60, 200, 333]) for (const kind of ['', 'wa_out']) {
+    const plain = seed().RATE; const e1 = { RATE: plain }; audit._clearChunkMemo(e1);
+    /* without chunks: a store whose chunk keys can never be found or kept */
+    const get0 = plain.get, put0 = plain.put; plain.get = async k => (k.startsWith('auditc:') ? null : get0(k)); plain.put = async (k, v, o) => (k.startsWith('auditc:') ? undefined : put0(k, v, o));
+    const a = await q(e1, { ...(kind ? { kind } : {}), budget });
+    const warm = seed().RATE; const e2 = { RATE: warm }; audit._clearChunkMemo(e2);
+    await q(e2, kind ? { kind } : {});   /* chunks built by an earlier full read */
+    audit._clearChunkMemo(e2);
+    const b = await q(e2, { ...(kind ? { kind } : {}), budget });
+    assert.deepEqual(b.items.map(x => x.id), a.items.map(x => x.id), `budget ${budget} kind ${kind || '*'}`);
+    assert.equal(b.truncated, a.truncated); assert.equal(b.ops, a.ops);
+  }
+});
