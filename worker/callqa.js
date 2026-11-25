@@ -27,6 +27,7 @@ import { makeWriterBody } from './lib.js';   /* 12/11 security: no formulas into
 
 export const HANGUP_S = 9;
 export const HANGUP_LABEL = 'לא ענה (ניתק בפתיח)';
+export const NO_MIN_S = 8;   /* 25/11: a bare "לא" is an answer only in a call at least this long, after the question was asked */
 
 /* greetings and STT noise — a call with nothing beyond these is a hangup in
    the opener. Anything else the guest said ("וואלה הלאה", "אני רוצה לבדוק")
@@ -101,7 +102,9 @@ export function rulesVerdict(call) {
     r.suggested = 'מתלבט'; r.rule = 'undecided'; r.auto_fix = true;
   } else if (Number.isFinite(dur) && dur <= HANGUP_S && subst.length === 0) {
     r.suggested = HANGUP_LABEL; r.rule = 'hangup'; r.retry = true; r.auto_fix = true;
-  } else if (ans.length && ans.every(w => w === 'לא') && !askedBeforeNo(c.transcript)) {
+  } else if (ans.length && ans.every(w => w === 'לא') && (!askedBeforeNo(c.transcript) || !(Number.isFinite(dur) && dur >= NO_MIN_S))) {
+    /* second lock, 25/11: even with the question in the transcript, a call shorter than NO_MIN_S seconds is too short
+       for the guest to have heard it (the opening sentence alone takes about five seconds to say) */
     /* 25/11 Richard (אביב: קוממי שושי וקותי and טרי רן shown as "לא מגיעים"): a "לא" said before Shir got to the
        question ("Agent: היי, / User: לא", a 5-second call) is somebody who does not want the call, not a guest who
        is not coming. It is a hang-up at the opening: nothing is recorded as an answer and the guest is tried again. */

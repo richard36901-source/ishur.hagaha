@@ -62,4 +62,12 @@ test('25/11 a "לא" said before Shir asked is a hang-up to try again, never "ל
   }
   const r = rulesVerdict({ transcript: real, duration_s: 14, answer: 'שיחה ללא תוצאה ברורה' });
   assert.equal(r.rule, 'no-only'); assert.equal(r.suggested, 'לא מגיע');
+  /* the three real calls that were marked "לא מגיע" by mistake (22-24/11), word for word: none may be marked again */
+  for (const [t, d] of [['User: לא לא \nAgent: היי, מדברת שיר מאישורי הגעה בשם מור ונועם — ראינו שעוד לא סגרתם \n', 6], [early1, 5], [early2, 6]]) {
+    assert.notEqual(rulesVerdict({ transcript: t, duration_s: d, answer: 'שיחה ללא תוצאה ברורה' }).suggested, 'לא מגיע');
+  }
+  /* the question is in the transcript, but the call is too short for the guest to have heard it */
+  const short = rulesVerdict({ transcript: real, duration_s: 6, answer: 'שיחה ללא תוצאה ברורה' });
+  assert.equal(short.rule, 'no-before-question'); assert.equal(short.retry, true);
+  assert.notEqual(rulesVerdict({ transcript: real, answer: 'שיחה ללא תוצאה ברורה' }).suggested, 'לא מגיע', 'no duration = not enough to decide');
 });
