@@ -13,6 +13,8 @@
      IshurRec.html({ id: 'call_…', name: '2026-11-25_1830_….wav' })  → markup (a string)
      IshurRec.bind(rootElement)   once per page (delegated; works for markup added later)
      IshurRec.pauseAll(rootElement)
+     IshurRec.addLoader('team', function (id) { return Promise<Blob> })   26/11: another source
+       (the team panel's files): IshurRec.html({ id, name, via: 'team' }) plays what that loader returns
    The page's colour variables are used when present (--card --line --ink --ink3 and
    --ok or --pine), so light and dark follow whatever the page does.
    ========================================================================== */
@@ -33,6 +35,7 @@
   var PAUSE = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2.5h3v11h-3zM9.5 2.5h3v11h-3z"/></svg>';
   var SPEEDS = [1, 1.5, 2];
   var cache = {};   /* call id → blob: URL ('' = not available) */
+  var loaders = {};   /* via → function (id) → Promise<Blob> */
 
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function fmt(s) { s = Math.max(0, Math.floor(Number(s) || 0)); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
@@ -53,7 +56,8 @@
     var id = idOf(o && (o.id || o.src));
     if (!idOk(id)) return '<div class="recp"><span class="rp-msg">אין הקלטה</span></div>';
     var name = (o && o.name) || (id + '.wav');
-    return '<div class="recp" data-rec="' + esc(id) + '" data-name="' + esc(name) + '" data-state="idle">' +
+    var via = o && o.via && loaders[o.via] ? ' data-via="' + esc(o.via) + '"' : '';
+    return '<div class="recp" data-rec="' + esc(id) + '" data-name="' + esc(name) + '"' + via + ' data-state="idle">' +
       '<button type="button" class="rp-play" aria-label="ניגון">' + PLAY + '</button>' +
       '<input type="range" min="0" max="1000" value="0" step="1" aria-label="מיקום בהקלטה" disabled>' +
       '<span class="rp-t">0:00 / ' + (o && o.duration_s ? fmt(o.duration_s) : '--:--') + '</span>' +
@@ -65,8 +69,10 @@
     var id = box.getAttribute('data-rec');
     if (cache[id] !== undefined) return Promise.resolve(cache[id]);
     box.setAttribute('data-state', 'loading');
-    return fetch(base() + '/rec/' + encodeURIComponent(id), { headers: headers() })
-      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
+    var via = box.getAttribute('data-via');
+    return (via && loaders[via] ? Promise.resolve().then(function () { return loaders[via](id); }) :
+      fetch(base() + '/rec/' + encodeURIComponent(id), { headers: headers() })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); }))
       .then(function (b) { cache[id] = URL.createObjectURL(b); return cache[id]; })
       .catch(function () { cache[id] = ''; return ''; });
   }
@@ -113,5 +119,6 @@
     });
   }
   function pauseAll(root, except) { var a = (root || document).querySelectorAll('.recp audio'); for (var i = 0; i < a.length; i++) if (a[i] !== except) a[i].pause(); }
-  window.IshurRec = { html: html, bind: bind, pauseAll: pauseAll, idOf: idOf, _fmt: fmt };
+  function addLoader(name, fn) { if (/^[a-z]{2,12}$/.test(String(name)) && typeof fn === 'function') loaders[name] = fn; }
+  window.IshurRec = { html: html, bind: bind, pauseAll: pauseAll, idOf: idOf, addLoader: addLoader, _fmt: fmt };
 })();
