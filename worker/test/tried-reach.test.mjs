@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import worker from '../index.js';
 import { reachOpen, nextReachAt, firstName, decide, isRepeat, triedReach, drainTriedReach, TEMPLATE, PROPOSED, FAIL_HE, textFor, COOLDOWN_MS, MONDAY_CAP } from '../tried-reach.js';
 import { MCOL, BOARD } from '../leads-sync.js';
+import { createSession } from '../auth.js';
 
 /* Israel is UTC+2 in late November. 2026-11-25 is a Wednesday, 27 Friday, 28 Saturday, 29 Sunday. */
 const IL = (day, hm) => Date.parse(`2026-11-${day}T${hm}:00+02:00`);
@@ -130,7 +131,7 @@ before(() => {
     calls.push({ u, body });
     if (u === 'https://api.monday.com/v2') {
       const { query, variables } = JSON.parse(body);
-      if (/mutation/.test(query)) throw new Error('tried-reach must never write to monday');
+      if (/mutation/.test(query)) { if (!M.allowWrite) throw new Error('tried-reach must never write to monday'); return new Response(JSON.stringify({ data: { change_multiple_column_values: { id: variables.i, updated_at: '2026-11-25T10:00:01Z' } } })); }
       if (/items\(ids/.test(query)) return new Response(JSON.stringify({ data: { items: (variables.i || []).map(i => M.get(String(i))).filter(Boolean) } }));
       if (/settings_str/.test(query)) return new Response(JSON.stringify({ data: { boards: [{ columns: [] }] } }));
       if (/items_page/.test(query)) return new Response(JSON.stringify({ data: { boards: [{ items_page: { cursor: null, items: [...M.values()] } }] } }));
@@ -142,7 +143,7 @@ before(() => {
 });
 after(() => { globalThis.fetch = realFetch; Date.now = realNow; });
 beforeEach(() => { calls = []; M = new Map([['101', item(101, 'דנה לוי', '052-123-4567')], ['102', item(102, 'בלי טלפון', '')]]); Date.now = realNow; });
-const env = (init = {}, extra = {}) => ({ ADMIN_KEY: 'k', MONDAY_API_TOKEN: 'tok', MONDAY_WEBHOOK_SECRET: 'whsecret', WA_TOKEN: 'watok', WA_PHONE_ID: '4499ID', RATE: kv(init), ...extra });
+const env = (init = {}, extra = {}) => ({ ADMIN_KEY: 'k', MONDAY_API_TOKEN: 'tok', MONDAY_WEBHOOK_SECRET: 'whsecret', MONDAY_REACH_COLUMN: 'button', WA_TOKEN: 'watok', WA_PHONE_ID: '4499ID', RATE: kv(init), ...extra });
 const ctx = { waitUntil: () => {}, passThroughOnException: () => {} };
 const post = (e, path, body, key = 'k') => worker.fetch(new Request('https://go.ishur.io' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_key: key, ...body }) }), e, ctx);
 const hook = (e, body, k = 'whsecret') => worker.fetch(new Request('https://go.ishur.io/webhooks/monday-tried-reach' + (k ? '?k=' + k : ''), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }), e, ctx);
@@ -178,9 +179,12 @@ test('page route: after hours queues (no Meta call); a lead without a phone says
   assert.equal((await post(e, '/api/crm/leads/m999/tried-reach', {})).status, 404);
   assert.equal((await worker.fetch(new Request('https://go.ishur.io/api/crm/leads/m101/tried-reach', { headers: { 'X-Admin-Key': 'k' } }), e, ctx)).status, 405);
 });
-test('page route by L<phone> (a lead that lives only in our store)', async () => {
+test('page route by L<phone> (a lead that lives only in our store); a phone that is no lead → 404', async () => {
   Date.now = () => IL(25, '12:00');
   const e = env();
+  assert.equal((await post(e, '/api/crm/leads/L972541112233/tried-reach', {})).status, 404, 'not a lead: nothing is sent');
+  assert.equal(metaSends().length, 0);
+  assert.equal((await (await post(e, '/api/crm/leads', { phone: '0541112233' })).json()).ok, true);
   const j = await (await post(e, '/api/crm/leads/L972541112233/tried-reach', {})).json();
   assert.equal(j.state, 'sent');
   assert.equal(metaSends()[0].b.template.components.find(c => c.type === 'body').parameters[0].text, 'שלום', 'no name → a word Meta accepts');
@@ -200,7 +204,10 @@ test('monday webhook: closed without a secret, wrong key 403, challenge echoed, 
   assert.equal((await hook(env(), { event: {} }, 'nope')).status, 403);
   assert.equal((await hook(env(), { event: {} }, '')).status, 403);
   assert.equal((await (await hook(env(), { challenge: 'xyz' })).json()).challenge, 'xyz');
-  assert.equal((await (await hook(env(), { event: { boardId: 1, pulseId: 101 } })).json()).ignored, 'board');
+  assert.equal((await (await hook(env({}, { MONDAY_REACH_COLUMN: '' }), { event: { boardId: BOARD, pulseId: 101, columnId: 'button' } })).json()).ignored, 'not-configured', 'closed until the column is named');
+  assert.equal((await (await hook(env(), { event: { boardId: 1, pulseId: 101, columnId: 'button' } })).json()).ignored, 'board');
+  assert.equal((await (await hook(env(), { event: { type: 'create_pulse', boardId: BOARD, pulseId: 101, columnId: 'button' } })).json()).ignored, 'event');
+  assert.equal((await (await hook(env(), { event: { type: 'update_column_value', boardId: BOARD, pulseId: 101, columnId: 'status' } })).json()).ignored, 'column', 'a status edit never sends');
   const e = env();
   /* the payload carries a different phone: it is ignored, monday's own item is what counts */
   const r = await hook(e, { event: { type: 'update_column_value', boardId: Number(BOARD), pulseId: 101, columnId: 'button', value: { phone: '0500000000' } } });
@@ -208,20 +215,35 @@ test('monday webhook: closed without a secret, wrong key 403, challenge echoed, 
   assert.equal(r.status, 200); assert.deepEqual([j.ok, j.state, j.id], [true, 'sent', 'm101']);
   assert.equal(metaSends()[0].b.to, '972521234567');
   /* monday's retry of the same click is the same press */
-  const again = await (await hook(e, { event: { boardId: Number(BOARD), pulseId: 101 } })).json();
+  const again = await (await hook(e, { event: { boardId: Number(BOARD), pulseId: 101, columnId: 'button' } })).json();
   assert.equal(again.state, 'repeat'); assert.equal(metaSends().length, 1);
 });
 test('monday webhook: column / label narrowing, and a burst stops after the cap', async () => {
   Date.now = () => IL(25, '12:00');
   const e = env({}, { MONDAY_REACH_COLUMN: 'button_x' });
   assert.equal((await (await hook(e, { event: { boardId: BOARD, pulseId: 101, columnId: 'status' } })).json()).ignored, 'column');
-  const e2 = env({}, { MONDAY_REACH_LABEL: 'ניסינו להשיג' });
-  assert.equal((await (await hook(e2, { event: { boardId: BOARD, pulseId: 101, value: { label: { text: 'חדש' } } } })).json()).ignored, 'label');
-  assert.equal((await (await hook(e2, { event: { boardId: BOARD, pulseId: 101, value: { label: { text: 'ניסינו להשיג' } } } })).json()).state, 'sent');
+  const e2 = env({}, { MONDAY_REACH_COLUMN: 'status', MONDAY_REACH_LABEL: 'ניסינו להשיג' });
+  assert.equal((await (await hook(e2, { event: { boardId: BOARD, pulseId: 101, columnId: 'status', value: { label: { text: 'חדש' } } } })).json()).ignored, 'label');
+  assert.equal((await (await hook(e2, { event: { boardId: BOARD, pulseId: 101, columnId: 'status', value: { label: { text: 'ניסינו להשיג' } } } })).json()).state, 'sent');
   const e3 = env();
   for (let i = 0; i < 12; i++) M.set(String(200 + i), item(200 + i, 'ליד ' + i, '05400000' + String(10 + i)));
   const res = [];
-  for (let i = 0; i < 12; i++) res.push(await (await hook(e3, { event: { boardId: BOARD, pulseId: 200 + i } })).json());
+  for (let i = 0; i < 12; i++) res.push(await (await hook(e3, { event: { boardId: BOARD, pulseId: 200 + i, columnId: 'button' } })).json());
   assert.equal(res.filter(x => x.state === 'sent').length, MONDAY_CAP);
   assert.equal(res.filter(x => x.error === 'burst-cap').length, 12 - MONDAY_CAP);
+});
+
+test('a comment written by a signed-in person carries that person as author (x-ishur-user from the session, not the body)', async () => {
+  Date.now = () => IL(25, '12:00');
+  const e = env({ 'user:shalev@example.com': JSON.stringify({ email: 'shalev@example.com', name: 'שלו', role: 'admin', active: true }) });
+  M.allowWrite = true;
+  const tok = await createSession(e, 'shalev@example.com', IL(25, '12:00'));
+  await worker.fetch(new Request('https://go.ishur.io/api/crm/leads/board', { headers: { 'X-Admin-Key': 'k' } }), e, ctx);
+  const r = await post(e, '/api/crm/leads/m101', { fields: { note: 'דיברנו, תחזור אלינו מחר' }, who: 'מישהו אחר' }, tok);
+  assert.equal(r.status, 200, await r.clone().text());
+  const det = await (await worker.fetch(new Request('https://go.ishur.io/api/crm/leads/m101', { headers: { 'X-Admin-Key': 'k' } }), e, ctx)).json();
+  const n = (det.notes || []).find(x => x.text === 'דיברנו, תחזור אלינו מחר');
+  assert.ok(n, 'the comment is in the thread');
+  assert.equal(n.author, 'שלו');
+  assert.ok(n.at, 'with its time');
 });

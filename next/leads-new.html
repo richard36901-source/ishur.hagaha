@@ -434,7 +434,7 @@
     var label = st ? (st.busy ? 'שולח' : st.he) : 'ניסינו להשיג';
     return '<button type="button" class="' + (big ? 'btn' : 'rb') + (st && !st.busy ? ' rb ' + esc(st.cls) : '') + '" data-reach="' + esc(l.id) + '"' + (dis ? ' disabled' : '') + (l.phone ? ' title="שולח מהמספר של נועה: ניסינו להשיג אותך… (10:00–20:00, אחרת ב-10:00)"' : ' title="אין לליד מספר טלפון"') + '>' + esc(label) + '</button>';
   }
-  function demoReach() { var h = new Date().getHours(); return h >= 10 && h < 20 ? { ok: true, state: 'sent', via: 'template' } : { ok: true, state: 'queued', he: 'יישלח ב-10:00' }; }
+  function demoReach() { if (/[?&]fail=1/.test(location.search)) return { ok: false, state: 'failed', error: 'send-failed', why: '131042' }; var h = new Date().getHours(); return h >= 10 && h < 20 ? { ok: true, state: 'sent', via: 'template' } : { ok: true, state: 'queued', he: 'יישלח ב-10:00' }; }
   function reach(id) {
     var l = by(id); if (!l || !l.phone || (reachSt[id] && reachSt[id].busy)) return;
     reachSt[id] = { busy: true }; paintRow(id); if (openId === id) paintDrawer();

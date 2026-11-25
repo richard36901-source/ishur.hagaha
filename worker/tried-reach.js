@@ -29,13 +29,14 @@
      2. Integrate → Webhooks → "When a column changes, send a webhook", column =
         that button column, URL = https://go.ishur.io/webhooks/monday-tried-reach?k=<MONDAY_WEBHOOK_SECRET>
         (monday sends a challenge first; the route answers it);
-     3. optional: set MONDAY_REACH_COLUMN=<the button column id> so any other
-        column change on the board can never send.
+     3. REQUIRED: set MONDAY_REACH_COLUMN=<the button column id>. Until it is set
+        the route answers the challenge and ignores everything else.
      If the button recipe misbehaves (monday has fired a button automation for
      every item), use a status column instead: a label "ניסינו להשיג" →
      "When status changes to something, send a webhook", and set
-     MONDAY_REACH_LABEL="ניסינו להשיג" (+ MONDAY_REACH_COLUMN). Either way at
-     most MONDAY_CAP presses per 10 minutes are acted on.
+     MONDAY_REACH_LABEL="ניסינו להשיג" (+ MONDAY_REACH_COLUMN = the status column).
+     A burst is cut after about MONDAY_CAP presses per 10 minutes (a KV counter:
+     approximate when many requests land at the same instant).
    ========================================================================== */
 import { clientHoursOpen, windowOpen, phoneOf, leadIdOf } from './crm.js';
 import { storedLead, readItem, itemIdOf, BOARD } from './leads-sync.js';
@@ -194,7 +195,7 @@ export async function leadForId(env, id, { store = null, gql = mondayGql } = {})
     if (!l && env.MONDAY_API_TOKEN) { const r = await readItem(env, gql, itemId).catch(() => null); l = r && r.lead; }
     return l ? { phone: l.phone, name: l.name } : null;
   }
-  if (/^L972\d{8,9}$/.test(String(id)) && store) { const l = await store.get('leads', String(id)).catch(() => null); return { phone: String(id).slice(1), name: (l && l.name) || '' }; }
+  if (/^L972\d{8,9}$/.test(String(id)) && store) { const l = await store.get('leads', String(id)).catch(() => null); return l ? { phone: String(id).slice(1), name: l.name || '' } : null; }
   return null;
 }
 
@@ -214,13 +215,16 @@ export async function handleMondayReach(request, env, url, d, { gql = mondayGql,
   let body = null; try { body = await request.json(); } catch { return jres({ ok: false, error: 'bad-json' }, 400); }
   if (body && typeof body.challenge === 'string') return jres({ challenge: body.challenge });
   const ev = (body && body.event) || {};
+  /* closed until the button column is named: no other change on the board (a new item, a status edited from our own screen) may ever send */
+  if (!env.MONDAY_REACH_COLUMN) return jres({ ok: true, ignored: 'not-configured' });
   if (String(ev.boardId || '') !== BOARD) return jres({ ok: true, ignored: 'board' });
-  if (env.MONDAY_REACH_COLUMN && String(ev.columnId || '') !== String(env.MONDAY_REACH_COLUMN)) return jres({ ok: true, ignored: 'column' });
+  if (ev.type && !/column_value/.test(String(ev.type))) return jres({ ok: true, ignored: 'event' });
+  if (String(ev.columnId || '') !== String(env.MONDAY_REACH_COLUMN)) return jres({ ok: true, ignored: 'column' });
   if (env.MONDAY_REACH_LABEL) { const lab = ev.value && ev.value.label; const txt = typeof lab === 'string' ? lab : lab && lab.text; if (String(txt || '') !== String(env.MONDAY_REACH_LABEL)) return jres({ ok: true, ignored: 'label' }); }
   const itemId = String(ev.pulseId || ev.itemId || '').replace(/\D/g, '');
   if (!itemId) return jres({ ok: true, ignored: 'no-item' });
   if (!env.MONDAY_API_TOKEN || !env.RATE) return jres({ ok: false, error: 'no-token' });
-  /* a burst (an automation that fires for the whole board) stops after MONDAY_CAP in ten minutes */
+  /* a burst (an automation that fires for the whole board) stops after about MONDAY_CAP in ten minutes (KV counter: approximate under truly simultaneous requests) */
   const bucket = K.cap + Math.floor(now / 600e3), n = Number(await env.RATE.get(bucket).catch(() => 0)) || 0;
   if (n >= MONDAY_CAP) {
     if (n === MONDAY_CAP) { await env.RATE.put(bucket, String(n + 1), { expirationTtl: 1200 }); await logEvent(env, { area: 'לידים', action: 'ניסינו להשיג · יותר מדי לחיצות ממאנדיי, נעצר', ok: false, review: true, detail: `יותר מ-${MONDAY_CAP} בעשר דקות` }).catch(() => {}); if (d.slackSend) await d.slackSend(env, `ניסינו להשיג · יותר מ-${MONDAY_CAP} לחיצות ממאנדיי בעשר דקות, השאר לא נשלחו`, { key: 'tried_reach:burst', sev: 'P2', action: 'לבדוק את האוטומציה של הכפתור במאנדיי' }).catch(() => {}); }
