@@ -14,6 +14,7 @@
      POST /api/crm/leads/:id             patch
      POST /api/crm/leads/:id/quote       {plan, records, addons, occasion, event_date} → link + suggested text
      POST /api/crm/leads/:id/send        {text, confirm:true} → Noa free text inside 24h, else needs_template
+     POST /api/crm/leads/:id/tried-reach {}  → "ניסינו להשיג" from 4499 (tried-reach.js; :id = m<itemId> | L<phone>)
      GET  /api/crm/clients               merged events list
      GET  /api/crm/clients/:token        one event + timeline
      POST /api/crm/clients/:token        partial edit {name1,name2,phone,occasion,event_date[,override_past]} → only changed sheet cells
@@ -829,7 +830,9 @@ export async function handleCrm(request, env, origin, url, d) {
   const json = (o, status = 200) => status === 200 ? d.okJson(o, origin) : new Response(JSON.stringify(o), { status, headers: { 'Content-Type': 'application/json', ...d.cors(origin) } });
   const res = r => json(r.body, r.status);
   const isPost = request.method === 'POST';
-  const who = clean(body.who || 'admin', 40);
+  /* 25/11: the signed-in person (authGate sets x-ishur-user; a client cannot) is the author, before anything the body claims */
+  const hdrUser = String(request.headers.get('x-ishur-user') || '');
+  const who = clean((hdrUser && ((d.userName && await d.userName(env, hdrUser).catch(() => '')) || hdrUser.split('@')[0])) || body.who || 'admin', 40);
   let store; try { store = makeStore(env); } catch (e) { return json({ ok: false, error: 'no-store' }, 503); }
   const listQ = (filterKeys) => {
     const filter = {};
@@ -840,6 +843,12 @@ export async function handleCrm(request, env, origin, url, d) {
     const [a, b, c] = parts;
     switch (a) {
       case 'leads': {
+        /* 25/11 "ניסינו להשיג" (tried-reach.js): m<itemId> or L<phone> */
+        if (b && c === 'tried-reach') {
+          if (!isPost) return json({ ok: false, error: 'POST-only' }, 405);
+          if (!d.triedReach) return json({ ok: false, error: 'no-send-dep' }, 500);
+          return res(await d.triedReach(env, { id: b, who, store }));
+        }
         if (b && !c) { const ls = await leadsBoardRoute(env, { b, isPost, body, q, store, who, gql: d.mondayGql }); if (ls) return res(ls); }
         if (!b) {
           if (isPost) {
@@ -1005,7 +1014,7 @@ export async function handleCrm(request, env, origin, url, d) {
         return json({ ok: true, at: nowIso(), ...buildStats({ range: q('range') || '30d', today, leads, pay: pay.items, out: out.items, status: st.items, calls: calls.items, parsePaidDesc: d.parsePaidDesc || (() => null), group: g }),
           audit_truncated: !!(pay.truncated || out.truncated || st.truncated || calls.truncated) });
       }
-      default: return json({ ok: false, error: 'unknown-crm-route', routes: ['leads', 'leads/import', 'leads/bulk', 'leads/:id', 'leads/:id/quote', 'leads/:id/send', 'clients', 'clients/:token', 'hostesses', 'hostesses/import', 'hostesses/:id', 'assignments', 'assignments/conflicts', 'notes', 'notes/pin', 'reminders', 'reminders/:id', 'agenda', 'stats'] }, 404);
+      default: return json({ ok: false, error: 'unknown-crm-route', routes: ['leads', 'leads/import', 'leads/bulk', 'leads/:id', 'leads/:id/quote', 'leads/:id/send', 'leads/:id/tried-reach', 'clients', 'clients/:token', 'hostesses', 'hostesses/import', 'hostesses/:id', 'assignments', 'assignments/conflicts', 'notes', 'notes/pin', 'reminders', 'reminders/:id', 'agenda', 'stats'] }, 404);
     }
   } catch (e) {
     return json({ ok: false, error: 'crm-failed', why: String((e && e.message) || e).slice(0, 300) }, 500);
