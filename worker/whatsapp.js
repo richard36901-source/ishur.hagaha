@@ -293,7 +293,13 @@ export async function touchConversation(env, phone, { ts, dir, text, ch, line, p
   const chans = new Set(c.ch || []);
   if (ch) chans.add(ch);
   c.ch = [...chans];
-  await env.RATE.put(key, JSON.stringify(c)).catch(() => {});
+  await env.RATE.put(key, JSON.stringify(c), convPutOpts(c)).catch(() => {});
+}
+/* 25/11 the KV bill: the inbox list read every conv: value (4,700 reads) on each notifications tick in working hours.
+   The conversation itself rides in the key's list() metadata when it fits in 1 KB, so the list needs no read. */
+export function convPutOpts(c) {
+  const m = { v: c };
+  return new TextEncoder().encode(JSON.stringify(m)).length <= 1000 ? { metadata: m } : undefined;
 }
 
 /* Rule 6, enforced mechanically, not by habit: a guest-facing template can

@@ -41,7 +41,7 @@ import * as tguard from './templateguard.js';
 import { eventDayMessageFor, edMarkKey, ED_MARK_TTL, dayBeforeAllowed, dayBeforeDropped, navTarget, COMBO_NAMES, dayBeforeMessageFor, eventDayNeeded, eventStarted, retryDayAllowed, pastEventDayCutoff, eventDayOver, eventDayRetryAllowed, EVENT_DAY_CUTOFF_MIN } from './eventday.js';
 import { giftActive, giftKey, declineGiftText, eventDayGiftSlot, eventHasSeating, giftVariantName, giftButtonComponent, giftSlug, planGiftBlast, giftPageHtml, cleanLink, giftRoute, giftCountable, giftHitKey, giftStats, GIFT_HIT_TTL, GIFT_METHODS } from './gifts.js';
 import { waveNoteDeps } from './whatsapp.js';
-import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, isQuestion, touchConversation, guestsReady } from './whatsapp.js';
+import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, isQuestion, touchConversation, convPutOpts, guestsReady } from './whatsapp.js';
 import { isAppAutoReply, chaseStopReason, leadAlertHeader, lastInboundTs } from './inbound.js';
 import { isTableQuestion, tableFor, tableReply } from './seating.js';
 import { guestLangApi } from './guest-lang.js';
@@ -8329,6 +8329,21 @@ async function kvKeys(env, prefix, cap = 6000) {
   return names;
 }
 
+/* kvKeys with each key's list() metadata (same list calls) */
+async function kvKeysMeta(env, prefix, cap = 6000) {
+  const out = [];
+  if (!env.RATE || !env.RATE.list) return out;
+  let cursor;
+  while (out.length < cap) {
+    const page = await env.RATE.list({ prefix, cursor, limit: 1000 }).catch(() => null);
+    if (!page) break;
+    for (const k of page.keys) out.push({ name: k.name, metadata: k.metadata || null });
+    if (page.list_complete) break;
+    cursor = page.cursor;
+  }
+  return out;
+}
+
 async function handleInbox(request, env, origin) {
   let body = {};
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -8368,11 +8383,13 @@ async function inboxData(env, body = {}) {
      older threads vanished as volume grew. */
   const channel = String(body.channel || '').trim();   // '' | 'client' | 'guests'
   const list = [];
-  const convKeys = await kvKeys(env, 'conv:');
-  const convVals = await Promise.all(convKeys.map(k => env.RATE.get(k).catch(() => null)));
+  /* 25/11 the KV bill: the conversation is read from the listing's metadata (touchConversation writes it); a key
+     without it (older, or over 1 KB) is read as before */
+  const convEntries = await kvKeysMeta(env, 'conv:');
+  const convVals = await Promise.all(convEntries.map(k => (k.metadata && typeof k.metadata === 'object' && k.metadata.v && typeof k.metadata.v === 'object') ? k.metadata.v : env.RATE.get(k.name).catch(() => null)));
   for (const v of convVals) {
     try {
-      const c = JSON.parse(v);
+      const c = typeof v === 'string' ? JSON.parse(v) : v;
       if (!c || !c.phone) continue;
       if (channel && !(c.ch || []).includes(channel)) continue;
       list.push({
@@ -8480,7 +8497,7 @@ async function handleInboxReindex(request, env, origin) {
     } catch {}
     if (!c.ch.length) c.ch = ['client'];
     delete c.last_key;
-    await env.RATE.put('conv:' + c.phone, JSON.stringify(c));
+    await env.RATE.put('conv:' + c.phone, JSON.stringify(c), convPutOpts(c));
     written++;
   }
   return okJson({ ok: true, scanned: names.length, conversations: written }, origin);
