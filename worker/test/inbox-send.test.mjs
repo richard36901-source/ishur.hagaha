@@ -263,7 +263,7 @@ test('media upload: refused types / wrong key / staging non-allowlisted never re
 
 /* ── through the real Worker and the real whatsapp.js post() ── */
 let realFetch, graph = [];
-before(() => { realFetch = globalThis.fetch; globalThis.fetch = async (u, o) => { if (String(u).includes('graph.facebook.com')) { graph.push({ u: String(u), body: o && o.body }); return new Response(JSON.stringify({ messages: [{ id: 'wamid.REAL' }] })); } return new Response('{}'); }; });
+before(() => { realFetch = globalThis.fetch; globalThis.fetch = async (u, o) => { if (String(u).includes('graph.facebook.com')) { graph.push({ u: String(u), body: o && o.body }); return new Response(JSON.stringify(/\/media$/.test(String(u)) ? { id: '555000999' } : { messages: [{ id: 'wamid.REAL' }] })); } return new Response('{}'); }; });
 after(() => { globalThis.fetch = realFetch; });
 test('worker: /api/inbox/send routes, sends from the right number and writes who + ticks key on the log line', async () => {
   const e = env({ ['conv:' + P]: JSON.stringify({ phone: P, ch: ['guests'], last_in_line: 'guests', last_in_kind: 'guests', last_in_pid: 'G2', last_in_ts: Date.now() - 600e3 }) });
@@ -284,4 +284,59 @@ test('team log: the send is one meaningful line, the reads are quiet', () => {
   assert.equal(teamDescribe('/api/inbox/send', { phone: P, kind: 'text' }, { ok: false }), '');
   assert.equal(quietRead('/api/inbox/state', {}), true);
   assert.equal(quietRead('/api/inbox/templates', {}), true);
+});
+
+/* ── the real sign-in gate (authGate) in front, and the real post() for a file ── */
+import { createSession } from '../auth.js';
+const wctx = { waitUntil: () => {}, passThroughOnException: () => {} };
+function gateEnv() {
+  return env({ 'user:shalev@ishur.io': JSON.stringify({ email: 'shalev@ishur.io', name: 'שלו', role: 'admin', active: true }),
+    ['conv:' + P]: JSON.stringify({ phone: P, ch: ['client'], last_in_line: 'client', last_in_kind: 'client', last_in_pid: 'N1', last_in_ts: Date.now() - 600e3 }) });
+}
+test('worker + gate: a Google session in admin_key → the log line and the answer carry the person\'s name', async () => {
+  const e = gateEnv(); graph = [];
+  const tok = await createSession(e, 'shalev@ishur.io');
+  const r = await worker.fetch(new Request('https://go.ishur.io/api/inbox/send', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://ishur.io' }, body: JSON.stringify({ admin_key: tok, phone: P, kind: 'text', text: 'היי', confirm_quiet: true, who: 'זיוף' }) }), e, wctx);
+  const j = await r.json();
+  assert.equal(j.ok, true, JSON.stringify(j)); assert.equal(j.who, 'שלו');
+  const row = JSON.parse(await e.RATE.get(await e.RATE.get('wamid2log:wamid.REAL')));
+  assert.equal(row.who, 'שלו');
+  assert.equal(graph.find(g => /\/messages$/.test(g.u)).u, 'https://graph.facebook.com/v21.0/N1/messages');
+});
+test('worker + gate: a spoofed x-ishur-user with the raw key is dropped → generic label', async () => {
+  const e = gateEnv(); graph = [];
+  const r = await worker.fetch(new Request('https://go.ishur.io/api/inbox/send', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-ishur-user': 'shalev@ishur.io' }, body: JSON.stringify({ admin_key: 'k', phone: P, kind: 'text', text: 'x', confirm_quiet: true }) }), e, wctx);
+  assert.equal((await r.json()).who, 'מנהל');
+});
+test('worker + gate: multipart upload with the Google session in x-admin-key reaches Meta; a bad key does not', async () => {
+  const e = gateEnv(); graph = [];
+  const tok = await createSession(e, 'shalev@ishur.io');
+  const fd = () => { const f = new FormData(); f.append('phone', P); f.append('file', new File([new Uint8Array(4096)], 'חוזה.pdf', { type: 'application/pdf' })); return f; };
+  const ok = await (await worker.fetch(new Request('https://go.ishur.io/api/inbox/media', { method: 'POST', headers: { 'x-admin-key': tok }, body: fd() }), e, wctx)).json();
+  assert.equal(ok.ok, true, JSON.stringify(ok)); assert.equal(ok.media.kind, 'document'); assert.equal(ok.media.phone_id, 'N1');
+  const up = graph.find(g => /\/media$/.test(g.u));
+  assert.equal(up.u, 'https://graph.facebook.com/v21.0/N1/media');
+  assert.equal(up.body.get('type'), 'application/pdf'); assert.equal(up.body.get('file').size, 4096);
+  graph = [];
+  const bad = await worker.fetch(new Request('https://go.ishur.io/api/inbox/media', { method: 'POST', headers: { 'x-admin-key': 'us.' + '0'.repeat(64) }, body: fd() }), e, wctx);
+  assert.equal(bad.status, 403); assert.equal(graph.length, 0);
+});
+test('worker: a file goes out through the real post() — Graph body by id, caption/filename, and the log row the thread draws from', async () => {
+  const e = gateEnv(); graph = [];
+  const r = await worker.fetch(new Request('https://go.ishur.io/api/inbox/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_key: 'k', phone: P, kind: 'media', media: { id: '777000111', kind: 'document', mime: 'application/pdf', name: 'חוזה.pdf', phone_id: 'N1' }, caption: 'החוזה', confirm_quiet: true }) }), e, wctx);
+  const j = await r.json(); assert.equal(j.ok, true, JSON.stringify(j));
+  const sent = JSON.parse(graph.find(g => /\/messages$/.test(g.u)).body);
+  assert.deepEqual({ type: sent.type, doc: sent.document, to: sent.to }, { type: 'document', doc: { id: '777000111', caption: 'החוזה', filename: 'חוזה.pdf' }, to: P });
+  const row = JSON.parse(await e.RATE.get(await e.RATE.get('wamid2log:wamid.REAL')));
+  assert.deepEqual(row.media, { kind: 'document', id: '777000111', mime: 'application/pdf', name: 'חוזה.pdf' });
+  assert.equal(row.caption, 'החוזה'); assert.equal(row.type, 'document'); assert.equal(row.who, 'מנהל'); assert.equal(row.status, 'sent');
+  /* an audio file carries no caption even if one is sent */
+  graph = [];
+  await worker.fetch(new Request('https://go.ishur.io/api/inbox/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_key: 'k', phone: P, kind: 'media', media: { id: '777000222', kind: 'audio', mime: 'audio/mpeg', name: 'a.mp3' }, caption: 'x', confirm_quiet: true }) }), e, wctx);
+  assert.deepEqual(JSON.parse(graph.find(g => /\/messages$/.test(g.u)).body).audio, { id: '777000222' });
+});
+test('worker + gate: an admin-device sess. token is accepted (label depends on the gate)', async () => {
+  const e = gateEnv();
+  const r = await worker.fetch(new Request('https://go.ishur.io/api/inbox/state', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_key: 'sess.' + 'f'.repeat(48), phone: P }) }), e, wctx);
+  assert.equal(r.status, 403, 'an unknown sess. token is refused');
 });

@@ -353,7 +353,8 @@ async function handleUpload(request, env, origin, d) {
   const up = new FormData();
   up.append('messaging_product', 'whatsapp');
   up.append('type', v.mime);
-  up.append('file', new Blob([await file.arrayBuffer()], { type: v.mime }), name);
+  /* a re-typed view of the same bytes, not a second copy (the isolate has 128MB) */
+  up.append('file', file.slice(0, file.size, v.mime), name);
   const f = d.fetch || fetch;
   const r = await f(`${GRAPH}/${line.phone_id}/media`, { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: up }).catch(() => null);
   const j = r ? await r.json().catch(() => ({})) : {};
