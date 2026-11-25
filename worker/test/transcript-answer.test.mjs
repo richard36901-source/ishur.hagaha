@@ -63,3 +63,13 @@ test('25/11 the post-call summary cannot write an answer the guest never said (�
   assert.equal(retellToCallResult(mk('Agent: מגיעים לחתונה?\nUser: לא, לא נגיע\nAgent: תודה\n', 'לא מגיע', 0, 20000)).result.rsvp, 'לא מגיע');
   assert.deepEqual(analysisSupported('', 'מגיע', 9000), { ok: true, checked: false });
 });
+
+test('25/11 "לא… יודע" that Shir recorded as a refusal is corrected to undecided at the end of the call', async () => {
+  const { rulesVerdict } = await import('../callqa.js');
+  const t = 'Agent: היי ריצארד, מדברת שיר, מאישורי הגעה בשם שוהם ושי — מגיעים לחתונה ב-2 בדצמבר?\nUser: לא \nUser: יודע. \nAgent: חבל, תודה שעדכנתם! יום \nAgent: טוב\n';
+  const r = rulesVerdict({ transcript: t, duration_s: 14, outcome: 'לא מגיע', answer: 'ענה' });
+  assert.equal(r.suggested, 'מתלבט'); assert.equal(r.verdict, 'mismatch'); assert.equal(r.auto_fix, true);
+  const src = fs.readFileSync(new URL('../index.js', import.meta.url), 'utf8');
+  assert.ok(src.includes("String((action.result && action.result.rsvp) || '1')"), 'the mark keeps what the tool wrote');
+  assert.ok(src.includes("if (toolSaid === 'מגיע' && review && review.auto_fix) { review.auto_fix = false; review.verdict = 'review'; }"), 'a recorded "מגיע" is never flipped by a rule');
+});

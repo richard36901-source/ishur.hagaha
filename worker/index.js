@@ -2939,7 +2939,8 @@ async function processRetellEvent(env, body) {
     /* remember the outcome was recorded, so the end-of-call report for this
        call does not overwrite it with "no clear outcome" */
     if (action.call_id && env.RATE) {
-      await env.RATE.put('shirtool:' + action.call_id, '1', { expirationTtl: 3 * 86400 });
+      /* 25/11: the mark carries WHAT the tool wrote, so the end-of-call review can check it against the guest's words */
+      await env.RATE.put('shirtool:' + action.call_id, String((action.result && action.result.rsvp) || '1'), { expirationTtl: 3 * 86400 });
     }
     await writeCallResult(env, action.guest_id, action.result, await guardCallParty(env, body, action.guest_id, action.party_size, 'נרשם בשיחה'));
     return okJsonPlain({ response: action.reply });
@@ -3011,8 +3012,15 @@ async function processRetellEvent(env, body) {
     if ((String(env.CALL_QA || 'on') !== 'off' && (meta0.kind === 'guest' || !meta0.kind) || String(env.NOA_CHASE || '') === 'on' && meta0.kind === 'lead') && !String(c0.direction || '').includes('inbound') && action.kind !== 'skip') {   /* 24/11: a call that never connected is not reviewed */
       try {
         const qa = callFromRetell(c0, action, { event: evName0 });
-        qa.tool_recorded = netWrote || !!(action.call_id && env.RATE && await env.RATE.get('shirtool:' + action.call_id));
+        const toolSaid = action.call_id && env.RATE ? String(await env.RATE.get('shirtool:' + action.call_id) || '') : '';
+        qa.tool_recorded = netWrote || !!toolSaid;
+        /* 25/11 Richard's rehearsal: he said "לא… יודע" and Shir answered "חבל, תודה שעדכנתם" - she took the first word as
+           a refusal. An answer the tool wrote mid-call is now compared with everything the guest said: "לא יודע / עוד
+           לא" recorded as "לא מגיע" becomes "מתלבט", and a "לא" from before the question is a hang-up to retry.
+           A recorded "מגיע" is never changed automatically; a doubt about it goes to a person. */
+        if (!netWrote && (toolSaid === 'מגיע' || toolSaid === 'לא מגיע')) { qa.outcome = toolSaid; qa.answer = 'ענה'; qa.tool_recorded = false; }
         const review = await reviewCall(env, qa);
+        if (toolSaid === 'מגיע' && review && review.auto_fix) { review.auto_fix = false; review.verdict = 'review'; }
         const qout = await applyReview(env, qa, review, { writeCallResult: async (gid, res, party) => writeCallResult(env, gid, res, await guardCallParty(env, c0, gid, party, 'בקרת השיחות')) });
         /* 08/11 (Richard): the daily / weekly QA digest counts what the reviewer did */
         if (meta0.kind !== 'lead') await bumpQaStat(env, { reviewed: 1, fixed: qout && qout.applied ? 1 : 0,
