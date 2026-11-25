@@ -50,7 +50,7 @@ import { recordHit, recordPurchase, trafficReport } from './traffic.js';
 import { slackQuietHours, slackSend, flushSlackQueue, slackPost, slackResolve, alert, URGENT_ALERT_RE, SLACK_FOOTERS, slackFormat } from './slack.js';
 import { slackDigest } from './slack-gate.js';   /* 04/11 the 09:00 morning digest (registry: slack_digest) */
 import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex, memOver, memCount, makeWriterBody, guestNameKey } from './lib.js';
-import { authGate, handleAuth, isSessionToken, readSession } from './auth.js';
+import { authGate, handleAuth, isSessionToken, readSession, getUser } from './auth.js';
 import { alertDateSet, hostessReminders, arrivalOf } from './hostess-alerts.js';
 import { SWR_ROUTES, swrServe } from './swr.js';
 import { handleCallers } from './callers.js';
@@ -105,7 +105,10 @@ import { cleanItems, itemsToKeep } from './seatplan-items.js';   /* 22/11 the ha
 import { precomputePlans } from './ops-plan.js';   /* 04/11 the סקירה plan, precomputed every tick into plan:<period> */
 import { handleRaffle } from './raffle.js';
 import { handleMondayWebhook, reconcileLeads } from './leads-sync.js';   /* 16/11 leads screen ⇄ monday */
+import { triedReach, leadForId, drainTriedReach, handleMondayReach } from './tried-reach.js';   /* 25/11 "ניסינו להשיג" button (screen + monday) */
+import { makeStore as makeCrmStore } from './store.js';
 import { handleCrm, crmOnPaid, crmTouch } from './crm.js';   /* 03/11 CRM (docs/CRM-API-2026-11-03.md) */
+const crmStoreOrNull = env => { try { return (env && (env.RATE || env.OPS_DB)) ? makeCrmStore(env) : null; } catch { return null; } };
 import { runBrain } from './brain.js';   /* 03/11 ops brain: checks + playbooks every 10 min */
 import { withCfg, paceSends, paceSendsMax, dailyCallCap } from './cfg.js';   /* 03/11 edit-in-place settings (cfg:<key>) */
 import { JOB_TO_ID, AUTOMATIONS } from './automations-registry.js';
@@ -11410,7 +11413,14 @@ function crmDeps(ctx) {
     const j = await r.json().catch(() => ({}));
     return { status: r.status, ...j, ok: r.ok && j.ok !== false };
   };
-  return { ...opsDeps(), fetchSnapshot: e => readSnapshot(e, 'write'), route, sheetBatchWrite: (e, data) => sheetBatchWrite(e, data), slackPost: (e, t, o) => slackPost(e, t, o), makePayLink: (e, b) => makePayLinkV2(e, b), pullMetaFormLeads: (e, o) => pullMetaFormLeads(e, o), SUBEVENT_KINDS, mondayGql: (e, q, v) => mondayGql(e, q, v) };
+  /* 25/11 tried-reach: the lead behind the id, then one press (who = the signed-in person) */
+  const triedReachDep = async (env, { id, who, store }) => {
+    const lead = await leadForId(env, id, { store, gql: mondayGql });
+    if (!lead) return { status: 404, body: { ok: false, error: 'not-found', he: 'הליד לא נמצא' } };
+    return triedReach(env, opsDeps(), { lead, who, source: 'screen' }, { store });
+  };
+  const userName = async (env, email) => { const u = await getUser(env, email).catch(() => null); return (u && u.name) || ''; };
+  return { ...opsDeps(), triedReach: triedReachDep, userName, fetchSnapshot: e => readSnapshot(e, 'write'), route, sheetBatchWrite: (e, data) => sheetBatchWrite(e, data), slackPost: (e, t, o) => slackPost(e, t, o), makePayLink: (e, b) => makePayLinkV2(e, b), pullMetaFormLeads: (e, o) => pullMetaFormLeads(e, o), SUBEVENT_KINDS, mondayGql: (e, q, v) => mondayGql(e, q, v) };
 }
 /* brain playbook gift_blast_resume → the real /api/gift-blast handler (same refusals, same caps) */
 async function brainGiftBlast(env, token, { dry = true, max = 50 } = {}) {
@@ -11599,7 +11609,8 @@ const WORKER = {
       ctx.waitUntil(appMorningRun(env, { readSnapshot, eventsForPhone, buildDashboard }).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'adsHealthWatch', () => adsHealthWatch(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'drainLeadPings', () => drainLeadPings(env)).catch(() => {}));
-      ctx.waitUntil(reconcileLeads(env).catch(() => {}));   /* 16/11 the monday leads board against its mirror: a missed webhook heals here (read-only) */
+      ctx.waitUntil(reconcileLeads(env).catch(() => {}));
+      ctx.waitUntil(drainTriedReach(env, opsDeps(), { store: crmStoreOrNull(env) }).catch(() => {}));   /* 25/11 "ניסינו להשיג" pressed after hours → sent at 10:00 */   /* 16/11 the monday leads board against its mirror: a missed webhook heals here (read-only) */
       ctx.waitUntil(opsJob(env, 'pullMetaFormLeads', () => pullMetaFormLeads(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'drainPartyNudges', () => drainPartyNudges(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'runEventDayBlasts', () => runEventDayBlasts(env)).catch(() => {}));
@@ -11750,6 +11761,7 @@ const WORKER = {
     /* 03/11 review raffle (raffle.js): public config/enter/claim-google */
     if (url.pathname.startsWith('/api/raffle/')) return handleRaffle(request, env, origin, url, { okJson, deny, normPhone, overBudget, fetchSnapshot: e => readSnapshot(e, 'dashboard'), getBrain: e => getBrain(e), slackSend: (e, t, o) => slackSend(e, t, o), sendText: (e, to, text, ch, c) => sendText(e, to, text, ch, c) });
     if (url.pathname === '/webhooks/monday-leads') return handleMondayWebhook(request, env, url);
+    if (url.pathname === '/webhooks/monday-tried-reach') return handleMondayReach(request, env, url, opsDeps(), { store: crmStoreOrNull(env) });   /* 25/11 monday button → "ניסינו להשיג" */
     if (url.pathname.startsWith('/api/crm/')) return handleCrm(request, env, origin, url, crmDeps(ctx));
     /* 25/11 Richard: the answers log - every guest's answer, how it was given, and the proof (WhatsApp lines / call recording) */
     if (url.pathname === '/api/answers-log' && request.method === 'POST') {

@@ -204,7 +204,7 @@ async function loadBoard(env, now = Date.now()) {
   }
   return { items, snap, revs };
 }
-async function storedLead(env, itemId) {
+export async function storedLead(env, itemId) {
   const o = await kvJson(env, K.item + itemId);
   if (o && o.lead) return o.lead;
   const snap = await kvJson(env, K.snap);
@@ -236,7 +236,7 @@ async function readBoard(env, gql) {
   }
   return { labels, items, complete };
 }
-async function readItem(env, gql, itemId) {
+export async function readItem(env, gql, itemId) {
   const r = await gql(env, `query($i:[ID!]){ items(ids:$i){ ${ITEM_FIELDS} } }`, { i: [String(itemId)] });
   const it = r && r.items && r.items[0];
   if (!it) return { gone: true };
