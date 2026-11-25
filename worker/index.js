@@ -3100,6 +3100,28 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
   const dialed = [];
   const introCache = new Map();
   let blocked = 0;
+  /* 25/11 Richard (אביב: "קוממי שושי וקותי" on the board as לא מגיעים, and still in the call round): a guest who gave a
+     final answer is never dialled, even when the call flag was left on (a no-answer result landing after a WhatsApp
+     answer writes it back). The flag is cleared so the board and the queue agree. The one exception is a call the
+     team asked for by name (callforce:<guest id>, set by the callone job). */
+  {
+    const finals = queue.filter(g => g.rsvp === 'מגיע' || g.rsvp === 'לא מגיע');
+    if (finals.length) {
+      const forced = new Set();
+      for (const g of finals) if (await env.RATE.get('callforce:' + g.guest_id).catch(() => null)) forced.add(g.guest_id);
+      const stale = finals.filter(g => !forced.has(g.guest_id));
+      if (stale.length) {
+        const gone = new Set(stale.map(g => g.guest_id));
+        queue = queue.filter(g => !gone.has(g.guest_id));
+        const gR = (raw && raw.guests && raw.guests.values) || [];
+        const data = stale.filter(g => g.row && String((gR[g.row - 2] || [])[2] || '').trim() === g.guest_id).slice(0, 200).map(g => ({ range: `אורחים!V${g.row}`, values: [['']] }));
+        if (data.length && !(await seenOnce(env, 'staleflag:' + ilDate() + ':' + new Date().toISOString().slice(11, 15)))) {
+          const okS = await sheetBatchWrite(env, data).catch(() => false);
+          await logEvent(env, { area: 'שיחות', action: 'סימון "נדרשת שיחה" הוסר ממי שכבר ענה', ok: !!okS, review: !okS, detail: `${data.length} אורחים · ${stale.slice(0, 5).map(g => g.name).join(', ')}` }).catch(() => {});
+        }
+      }
+    }
+  }
   for (const g of queue) {
     if (dialed.length >= cap) break;
     if (!shouldDial(g, day)) continue;
@@ -5948,7 +5970,7 @@ async function drainCallRounds(env, { dry = false, only = '' } = {}) {
       if (i < 0 || !capO || !isIlMobile(normPhone(gR[i][4] || ''))) { if (!dry) { await env.RATE.delete('callone:' + gid).catch(() => {}); await logEvent(env, { area: 'שיחות', action: 'שיחה יזומה לאורח לא נפתחה', ok: false, review: true, token: one.token, detail: `${gid} · ${i < 0 ? 'האורח לא נמצא' : !capO ? 'החבילה בלי שיחות' : 'מספר לא ישראלי'}` }).catch(() => {}); } res.push({ one: gid, ok: false }); continue; }
       if (dry) { res.push({ one: gid, due: dueOne, would_flag: 1, at: one.at }); continue; }
       const okO = await sheetBatchWrite(env, [{ range: `אורחים!V${i + 2}`, values: [['נדרשת שיחה']] }, { range: `אורחים!AD${i + 2}`, values: [[String(capO - 1)]] }]);
-      if (okO) { await env.RATE.delete('callone:' + gid).catch(() => {}); await env.RATE.delete('snapcache').catch(() => {}); }
+      if (okO) { await env.RATE.put('callforce:' + gid, today, { expirationTtl: 3 * 86400 }).catch(() => {}); await env.RATE.delete('callone:' + gid).catch(() => {}); await env.RATE.delete('snapcache').catch(() => {}); }
       await logEvent(env, { area: 'שיחות', action: 'שיחה יזומה לאורח אחד נפתחה', ok: !!okO, review: !okO, token: one.token, detail: `${String(gR[i][3] || '').trim()} · ${one.note || ''}` }).catch(() => {});
       res.push({ one: gid, flagged: okO ? 1 : 0, ok: !!okO });
     }

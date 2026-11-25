@@ -22,3 +22,17 @@ test('the job opens on its day, from 09:00, writes the flag and the tries, and i
   assert.ok(b.includes("env.RATE.delete('callone:' + gid)"));
   assert.ok(!/אורחים!P\$|rsvp/.test(b), 'the answer on the board is not touched');
 });
+
+test('25/11 a guest with a final answer is never dialled, unless the team asked for that call by name', () => {
+  const at = src.indexOf("const finals = queue.filter(g => g.rsvp === 'מגיע' || g.rsvp === 'לא מגיע');"), b = src.slice(at, at + 1900);
+  assert.ok(at > 0);
+  assert.ok(src.indexOf('for (const g of queue) {\n    if (dialed.length >= cap) break;') > at, 'the filter runs before any dial');
+  assert.ok(b.includes("env.RATE.get('callforce:' + g.guest_id)") && b.includes('queue = queue.filter(g => !gone.has(g.guest_id))'));
+  assert.ok(b.includes("range: `אורחים!V${g.row}`, values: [['']]"));
+  assert.ok(b.includes("String((gR[g.row - 2] || [])[2] || '').trim() === g.guest_id"), 'the row is checked against the guest id before it is written');
+  assert.ok(src.includes("env.RATE.put('callforce:' + gid, today"), 'the by-name call sets the exception');
+  const ev = Array(45).fill(''); ev[1] = 'TOK'; ev[31] = 'הכל כלול'; ev[6] = '2099-01-01';
+  const mk = (id, rsvp) => { const g = Array(35).fill(''); g[2] = id; g[4] = '972501234567'; g[15] = rsvp; g[21] = 'נדרשת שיחה'; g[28] = 'TOK'; return g; };
+  const q = buildCallQueue({ events: { values: [ev] }, guests: { values: [mk('G-1', ''), mk('G-2', 'לא מגיע')] } }, 3, null).queue;
+  assert.deepEqual(q.map(g => [g.guest_id, g.row, g.rsvp]), [['G-1', 2, ''], ['G-2', 3, 'לא מגיע']]);
+});

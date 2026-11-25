@@ -49,7 +49,8 @@ export function buildCallQueue(raw, maxTries = 3, addons = null) {
     if (t) events[t] = r;
   }
   const queue = [];
-  for (const r of gRows) {
+  for (let ri = 0; ri < gRows.length; ri++) {
+    const r = gRows[ri];
     const g = i => String(r[i] ?? '').trim();
     if (g(21) !== 'נדרשת שיחה') continue;
     if (!g(2) || !g(4)) continue; // a row without a guest id or phone is noise
@@ -68,6 +69,7 @@ export function buildCallQueue(raw, maxTries = 3, addons = null) {
     const cap = Math.min(maxTries + (hasAddon ? 1 : 0), planCap);
     if (!planCap) continue;                  // בסיס without a calls add-on — calls are not included
     queue.push({
+      row: ri + 2,   /* 24→25/11: the sheet row, so a stale call flag can be cleared */
       guest_id: g(2),
       name: g(3),
       phone: g(4),
