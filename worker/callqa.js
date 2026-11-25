@@ -97,7 +97,11 @@ export function transcriptAnswer(transcript, durationS) {
   const all = users.flatMap(u => tok(u.text));
   const first = tok(users[0].text);
   /* a bare "לא", after the question, in a call long enough to have heard it */
-  if (answerTokens(all).length && answerTokens(all).every(w => w === 'לא')) {
+  /* every word the guest said counts here, short ones too: "לא עוד לא" is "not yet", not a refusal (25/11: the first
+     version dropped "עוד" as noise and read it as "לא מגיע") */
+  const plain = all.filter(w => !GREETING.has(w) && !CLOSING.has(w));
+  if (plain.includes('לא')) {
+    if (!plain.every(w => w === 'לא')) return null;
     return (askedBeforeNo(transcript) && Number.isFinite(Number(durationS)) && Number(durationS) >= NO_MIN_S) ? { rsvp: 'לא מגיע' } : null;
   }
   if (!first.some(w => YES.has(w)) || all.some(w => NOT_SURE.has(w))) return null;

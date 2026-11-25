@@ -40,3 +40,11 @@ test('the net runs for callbacks too, before the end-of-call write, and marks th
   assert.ok(b.includes("env.RATE.put('shirtool:' + action.call_id, 'net'"));
   assert.ok(b.includes("guardCallParty(env, body, meta0.guest_id, ta.party"));
 });
+
+test('25/11 "לא עוד לא" is "not yet": never a refusal (the real call that the first version misread)', () => {
+  const t = 'User: הלו\nAgent: היי, מדברת שיר מאישורי הגעה בשם מור ונועם — ראינו שעוד לא סגרתם לגבי החתונה ב-30 בנובמבר. כבר יודעים אם מגיעים?\nUser: לא עוד לא\nAgent: אין לחץ, אפשר לעדכן בוואטסאפ כשתדעו. יום טוב!\n';
+  assert.equal(transcriptAnswer(t, 20), null);
+  for (const u of ['לא עדיין', 'לא יודע', 'לא עכשיו', 'לא נוח לי', 'לא שמעתי', 'מי זה לא', 'לא אני בנסיעה'])
+    assert.equal(transcriptAnswer('Agent: מגיעים לחתונה?\nUser: ' + u + '\n', 20), null, u);
+  assert.deepEqual(transcriptAnswer('Agent: מגיעים לחתונה?\nUser: לא לא תודה\n', 20), { rsvp: 'לא מגיע' });
+});
