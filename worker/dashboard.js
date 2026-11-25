@@ -330,7 +330,8 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
          on a plan with several rounds, round 1 waits only for guests who were never dialled, and a round whose day
          has passed and that did dial is done - whoever it did not reach belongs to the next round. */
       const queued1 = ownRounds > 1 ? guests.filter(g => planWaits(g) && g.tries < 1).length : queued;
-      const status1 = (ownRounds > 1 && !over && start <= todayIso) ? ((start < todayIso && called) ? 'sent' : queued1 ? 'running' : called ? 'sent' : 'scheduled') : status;
+      const status1 = (ownRounds > 1 && !over && start <= todayIso) ? ((start < todayIso && called) ? 'sent' : queued1 ? 'running' : called ? 'sent' : 'scheduled')
+        : (!over && start < todayIso && called && status === 'running') ? 'sent' : status;   /* 25/11: a single-round plan follows the same rule */
       sends.push({ key: 'calls', label: 'שיחה טלפונית למי שלא ענה' + (ownRounds > 1 ? ' · סבב 1' : ''), date: start, status: status1, auto: true, queued: queued1 });
       let prev = start;
       for (let k = 2; k <= ownRounds; k++) {
@@ -340,7 +341,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
         const reached = guests.filter(g => planTries(g) >= k).length;
         const waitingK = guests.filter(g => planWaits(g) && g.tries < k).length;
         let stK = dk > todayIso && !reached ? 'scheduled' : over ? (reached ? 'sent' : 'passed') : waitingK ? (reached || dk <= todayIso ? 'running' : 'scheduled') : (reached || status === 'sent') ? 'sent' : 'scheduled';
-        if (!over && k < ownRounds && dk < todayIso && reached) stK = 'sent';   /* 24/11: yesterday's round is done; the last round stays open while anybody still waits for it */
+        if (!over && dk < todayIso && reached) stK = 'sent';   /* 24/11: yesterday's round is done. 25/11 Richard ("שלושה ימים של תהליך?"): the last round too - a round is its day, whoever is still owed a call is simply called */
         /* a round that already dialled cannot carry a day that has not come yet (the first round's day was moved by hand
            after it started: שילת 23/11, rounds 2 and 3 were shown as done on 24/11 and 25/11) */
         const shownDay = reached && dk > todayIso ? todayIso : dk;
@@ -355,7 +356,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
   const sameDay = sent.callRound && sends.some(r => r.key === 'calls' && r.date === String(sent.callRound.at).slice(0, 10));
   if (sent.callRound && sent.callRound.at && !sameDay) {
     const cr = sent.callRound;
-    const st = cr.done ? (queued2(guests) ? 'running' : 'sent') : (cr.at <= todayIso ? 'running' : 'scheduled');
+    const st = cr.done ? ((queued2(guests) && !(String(cr.at).slice(0, 10) < todayIso)) ? 'running' : 'sent') : (cr.at <= todayIso ? 'running' : 'scheduled');   /* 25/11: an extra round of a past day is done */
     sends.push({ key: 'calls2', label: 'סבב שיחות נוסף (למי שלא ענה ולמתלבטים)', date: cr.at, status: st, auto: true, queued: cr.n });
   }
   /* the event-day message: 'sent' once the engine stamped it (s5t markers),

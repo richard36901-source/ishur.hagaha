@@ -56,12 +56,13 @@ test('23/11 הכל כלול: three call rows, a day apart, each with its own sta
      בוצע"); G1, whom it did not dial, is shown as moved on to the next round instead of "עוד לא חויגו". Was: running, queued 1. */
   assert.equal(rows[1].status, 'sent'); assert.equal(rows[1].dialed_n, 2); assert.equal(rows[1].queued, 0); assert.equal(rows[1].stats.moved, 1);
   assert.equal(rows[0].status, 'sent'); assert.equal(rows[0].stats.moved, 0);
-  assert.equal(rows[2].status, 'running'); assert.equal(rows[2].dialed_n, 1); assert.equal(rows[2].queued, 2);
+  /* 25/11 Richard ("למה זה מסומן עדיין בתהליך? שלושה ימים של תהליך?"): the last round is done once its day has passed too. Was: running, queued 2. */
+  assert.equal(rows[2].status, 'sent'); assert.equal(rows[2].dialed_n, 1); assert.equal(rows[2].queued, 0); assert.equal(rows[2].stats.moved, 2);
   /* 23/11 (later the same evening, Richard): every round carries its own result. tries = the round of the guest's last call. */
   const pick = t => ({ dialed: t.dialed, answered: t.answered, no_answer: t.no_answer, waiting: t.waiting, later: t.later });
   assert.deepEqual(pick(rows[0].stats), { dialed: 4, answered: 0, no_answer: 3, waiting: 0, later: 1 });   /* G4 answered later in WhatsApp */
   assert.deepEqual(pick(rows[1].stats), { dialed: 2, answered: 0, no_answer: 2, waiting: 0, later: 0 });   /* 24/11: was waiting 1, now moved 1 (above) */
-  assert.deepEqual(pick(rows[2].stats), { dialed: 1, answered: 0, no_answer: 1, waiting: 2, later: 0 });
+  assert.deepEqual(pick(rows[2].stats), { dialed: 1, answered: 0, no_answer: 1, waiting: 0, later: 0 });   /* 25/11: was waiting 2 */
   /* a guest who picked up on the second call: silent in round 1, the answer belongs to round 2 */
   const g5 = G('G5', 2, '', 'לא מגיע'); g5[22] = 'ענה';
   const d5 = buildDashboard('TOK3', { events: { values: [Array(45).fill('h'), evRow] }, guests: { values: [Array(35).fill('h'), ...guests, g5] } }, 0, {});
