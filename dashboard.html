@@ -651,6 +651,34 @@
   /* the page never scrolls sideways on a phone */
   html,body{overflow-x:hidden;max-width:100%}
   .buy.danger{background:#A8402F}
+  /* 25/11 track-board: every section folds from its header arrow (remembered per device) */
+  .sec-tog{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;margin-inline-end:.35rem;padding:0;vertical-align:middle;
+    background:none;border:1px solid transparent;border-radius:6px;color:var(--ink3);cursor:pointer;flex-shrink:0}
+  .sec-tog:hover,.sec-tog:focus-visible{border-color:var(--bdr);color:var(--green2)}
+  .sec-tog svg{transition:transform .2s var(--ease)}
+  .card.sec-closed>:not(.card-h){display:none!important}
+  .card.sec-closed>.card-h{border-bottom:none}
+  .card.sec-closed .sec-tog svg{transform:rotate(90deg)}
+  /* the date the client still has to pick: a gentle pulse until it is set */
+  @keyframes pickPulse{0%,100%{box-shadow:0 0 0 0 rgba(15,76,53,.35)}50%{box-shadow:0 0 0 6px rgba(15,76,53,0)}}
+  .send-edit.pick{border-color:var(--green);color:var(--green2);font-weight:600}
+  .send-edit.pulse{animation:pickPulse 1.8s ease-in-out infinite}
+  .pick-pop .dpop-ok{background:var(--green)}
+  /* the stop button and its two steps */
+  .stop-row{display:flex;gap:.8rem;align-items:center;flex-wrap:wrap}
+  .stop-row p{flex:1;min-width:12rem;margin:0;font-size:.86rem;color:var(--ink2);line-height:1.55}
+  .stop-btn{font:inherit;font-size:.86rem;font-weight:600;background:#A8402F;color:#fff;border:0;border-radius:8px;padding:.6rem 1rem;cursor:pointer}
+  html[data-theme=dark] .stop-btn{background:#C05A48}
+  .stop-done{font-size:.88rem;color:var(--ink2);line-height:1.6}
+  .stop-done b{color:var(--ink)}
+  .stop-banner{padding:.8rem 1rem;font-size:.9rem;color:var(--ink);background:var(--err-bg);border-color:var(--err)!important;line-height:1.55}
+  .dpop select,.dpop textarea,.dpop input[type=text]{width:100%;padding:.6rem .7rem;border:1.5px solid var(--bdr);border-radius:8px;font:inherit;font-size:16px;background:var(--bg2);color:var(--ink);margin-bottom:.55rem}
+  .dpop textarea{min-height:5.5rem;resize:vertical}
+  .dpop label{display:block;font-size:.8rem;color:var(--ink2);margin:.2rem 0 .3rem}
+  .dpop .cnt{font-size:.74rem;color:var(--ink3);margin:-.3rem 0 .4rem}
+  .dpop .stop-ok{background:#A8402F;color:#fff;border:none}
+  .dpop .stop-ok:disabled,.dpop-ok:disabled{opacity:.5;cursor:default}
+  .dpop-err a,.stop-banner a,.stop-done a{color:inherit;text-decoration:underline;font-weight:600}
 </style>
 <link rel="stylesheet" href="assets/lux.css?v=19">
 <link rel="stylesheet" href="assets/picker.css?v=20">
@@ -979,6 +1007,12 @@
   <section class="card" id="invoiceCard" hidden>
     <div class="card-h">חשבונית</div>
     <div class="card-b" id="invoiceBody"></div>
+  </section>
+
+  <!-- 25/11 track-board: the client's red stop button (POST /api/client-stop). Only the team lifts it. -->
+  <section class="card" id="stopCard" hidden>
+    <div class="card-h">עצירת השליחות</div>
+    <div class="card-b" id="stopBody"></div>
   </section>
 
   <p class="foot">
@@ -1661,6 +1695,9 @@
     renderSends();
     renderAddons();
     renderInvoice();
+    renderStop();
+    decorateSections();
+    pickPrompt();
     gaLoad();
     if (window.__paintShare) window.__paintShare();
     renderAfterParty();
@@ -2170,7 +2207,10 @@
     'bad-date': 'התאריך לא תקין, בחרו תאריך מהלוח',
     'unknown-token': 'הקישור הזה כבר לא פעיל, רעננו את העמוד',
     'bad-token': 'הקישור הזה כבר לא פעיל, רעננו את העמוד',
-    'slow-down': 'יותר מדי נסיונות, נסו בעוד רגע'
+    'slow-down': 'יותר מדי נסיונות, נסו בעוד רגע',
+    'too-late-today': 'להיום כבר מאוחר, בחרו מחר או יום אחר',
+    'client-stopped': 'השליחות עצורות כרגע. כדי לחדש, דברו איתנו',
+    'already-started': 'הסבב כבר התחיל, אי אפשר לשנות את היום'
   };
   var SEND_ERR_ANY = 'לא הצלחנו לעדכן, נסו שוב בעוד רגע';
   function sendError(code) { return SEND_ERR[code] || SEND_ERR_ANY; }
@@ -2225,9 +2265,14 @@
       var sent = s.status === 'sent';
       var passed = s.status === 'passed';
       var running = s.status === 'running';
-      var open = !sent && !passed && !running && !s.auto && s.editable === true && movable;
+      var stopped = !!data.stop;
+      var open = !sent && !passed && !running && !s.auto && s.editable === true && movable && !stopped;
+      /* 25/11 track-board: a round the team added with "הלקוח יחליט" — the client picks its day here */
+      var pick = !!s.pick && !sent && movable && !stopped;
       var act;
-      if (sent) act = '<span class="send-tag done">בוצע ✓</span>';
+      if (pick) act = '<button type="button" class="send-edit pick' + (pickPulse() ? ' pulse' : '') + '" data-i="' + i + '">בחירת תאריך</button>';
+      else if (stopped && !sent && !passed) act = '<span class="send-tag">נעצר</span>';
+      else if (sent) act = '<span class="send-tag done">בוצע ✓</span>';
       else if (running) act = '<span class="send-tag run">בתהליך</span>';
       else if (passed) act = '<span class="send-tag">עבר</span>';
       else if (open) act = '<button type="button" class="send-edit" data-i="' + i + '">שינוי תאריך</button>';
@@ -2235,10 +2280,11 @@
       else act = '<span class="send-tag">' + (s.auto ? 'אוטומטי' : 'נעול') + '</span>';
       var info = sendInfo(s);
       var shown = info && openInfo[s.key];
-      return '<div class="send' + (sent ? ' sent' : '') + (open ? '' : ' locked') + '">' +
+      return '<div class="send' + (sent ? ' sent' : '') + (open || pick ? '' : ' locked') + '"' + (pick ? ' data-pick="' + esc(s.key) + '"' : '') + '>' +
              '<span class="send-d"></span>' +
              '<span class="send-b"><span class="send-t">' + esc(s.label) + '</span>' +
-             '<span class="send-w">' + esc(IshurDate.pretty(s.date) || s.date || 'עוד לא נקבע תאריך') + '</span></span>' +
+             /* 25/11 track-board: the exact state from the worker ("נשלח ב-25/11 10:12 · 412 נמסרו", "מתוזמן ל-26/11 · מ-09:00") */
+             '<span class="send-w">' + esc(s.state_he || IshurDate.pretty(s.date) || s.date || 'עוד לא נקבע תאריך') + '</span></span>' +
              (info ? '<button type="button" class="send-i" data-info="' + esc(s.key) + '" aria-expanded="' + (shown ? 'true' : 'false') + '" aria-label="תוצאות הסבב">i</button>' : '') +
              '<span class="send-a">' + act + '</span>' +
              (shown ? '<div class="send-x">' + esc(info) + '</div>' : '') + '</div>';
@@ -2261,7 +2307,7 @@
 
   function editSend(i) {
     var s = (data.sends || [])[i];
-    if (!s || !canMoveSends()) return;
+    if (!s || !canMoveSends() || data.stop) return;
     closeDpop(false);
     dpopIdx = i;
 
@@ -2279,7 +2325,7 @@
     box.setAttribute('aria-modal', 'true');
     box.setAttribute('aria-labelledby', 'dpopT');
     box.innerHTML =
-      '<h3 id="dpopT">מועד חדש ל' + esc(s.label) + '</h3>' +
+      '<h3 id="dpopT">' + (s.pick ? 'מתי לשלוח את ' : 'מועד חדש ל') + esc(s.label) + '</h3>' +
       '<p class="cur">כרגע ' + esc(IshurDate.pretty(s.date) || s.date || 'עוד לא נקבע') + '</p>' +
       '<input type="date" id="dpopIn" value="' + esc(start) + '" min="' + esc(min) + '"' +
         (max ? ' max="' + esc(max) + '"' : '') + ' aria-labelledby="dpopT">' +
@@ -2382,6 +2428,7 @@
     if (new Date(date + 'T12:00:00Z').getUTCDay() === 6) { err.textContent = SEND_ERR.shabbat; inp.focus(); return; }
 
     err.textContent = '';
+    if (isCallKey(s.key)) { saveSendDate(i, date, false); return; }
     ctWarnIfSoon(date, function (safe) { inp.value = safe; }, function (acked) { saveSendDate(i, date, acked); });
   }
   /* a consent record for "send before approval", kept server-side with a timestamp */
@@ -2402,16 +2449,16 @@
     /* the demo has no server behind it, so it settles on its own */
     if (demo) {
       setTimeout(function () {
-        s.date = date; s.status = 'scheduled';
+        s.date = date; s.status = 'scheduled'; s.pick = false; s.state_he = '';
         renderSends(); closeDpop(true);
         $('live').textContent = 'התאריך עודכן';
       }, 300);
       return;
     }
 
-    var payload = { token: token, send: s.key, date: date };
+    var payload = isCallKey(s.key) ? { token: token, date: date } : { token: token, send: s.key, date: date };
     if (acked) { var ct0 = data.custom_template || {}; payload.ack_pending = true; payload.template_id = ct0.id || ''; payload.shown = CT_WARN; }
-    fetch(CFG.endpoint('senddate'), {
+    fetch(CFG.endpoint(isCallKey(s.key) ? 'calls-addon-date' : 'senddate'), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload)
     }).then(function (r) {
@@ -2421,7 +2468,7 @@
       /* nothing but ok:true from the server counts as saved */
       if (res.status === 200 && res.body && res.body.ok === true) {
         s.date = isoDay(res.body.date) || date;
-        s.status = 'scheduled';
+        s.status = 'scheduled'; s.pick = false; s.state_he = '';
         renderSends();
         closeDpop(true);
         $('live').textContent = 'התאריך עודכן';
@@ -2628,6 +2675,194 @@
         }).catch(function () { b.disabled = false; msg.textContent = 'לא הצלחנו להחליף, נסו שוב'; });
     });
   })();
+
+  /* ══ 25/11 track-board ═══════════════════════════════════════════════════════
+     (1) the red stop button, (2) every section folds from its header arrow,
+     (4) "צריך לבחור מתי לשלוח" for a round the team added with "הלקוח יחליט".
+     Everything goes through the worker (POST /api/client-stop, /api/send-date,
+     /api/calls-addon-date) so the app can do the same. */
+  var LS = {
+    get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  };
+  function isCallKey(k) { return k === 'calls' || k === 'calls2' || /^calls_r\d$/.test(String(k || '')); }
+  function postJson(name, payload) {
+    return fetch(CFG.endpoint(name), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload) })
+      .then(function (r) { return r.json()['catch'](function () { return null; }).then(function (j) { return { status: r.status, body: j }; }); });
+  }
+
+  /* (2) folding sections */
+  var SEC_KEY = 'ishur_board_closed';
+  function closedList() { try { var a = JSON.parse(LS.get(SEC_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function setClosed(id, on) { var a = closedList().filter(function (x) { return x !== id; }); if (on) a.push(id); LS.set(SEC_KEY, JSON.stringify(a)); }
+  function paintTog(sec, closed) {
+    var tb = sec.querySelector('.sec-tog'); if (!tb) return;
+    var host = tb.parentNode;   /* the title span (or the header itself), never the header's buttons */
+    tb.setAttribute('aria-expanded', closed ? 'false' : 'true');
+    tb.setAttribute('aria-label', (closed ? 'פתיחת ' : 'קיפול ') + String(host ? host.textContent : '').replace(/\s+/g, ' ').trim().slice(0, 30));
+  }
+  function decorateSections() {
+    var closed = closedList();
+    Array.prototype.forEach.call(document.querySelectorAll('#main > section.card[id]'), function (sec) {
+      if (sec.id === 'addonsCard') return;   /* it folds already */
+      var h = null; for (var c = sec.firstElementChild; c; c = c.nextElementSibling) if (c.classList.contains('card-h')) { h = c; break; }
+      if (!h) return;
+      if (!h.querySelector('.sec-tog')) {
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'sec-tog'; b.setAttribute('aria-controls', sec.id);
+        b.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        var first = h.firstElementChild;
+        var host = first && first.tagName === 'SPAN' && !first.querySelector('button,a,input') ? first : h;
+        host.insertBefore(b, host.firstChild);
+      }
+      var on = closed.indexOf(sec.id) >= 0;
+      sec.classList.toggle('sec-closed', on); paintTog(sec, on);
+    });
+  }
+  function openSection(el) {
+    var sec = el && el.closest ? el.closest('section.card') : null;
+    if (!sec || !sec.classList.contains('sec-closed')) return;
+    sec.classList.remove('sec-closed'); paintTog(sec, false); setClosed(sec.id, false);
+  }
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest) return;
+    var b = e.target.closest('.sec-tog');
+    if (b) {
+      e.preventDefault(); e.stopPropagation();
+      var sec = b.closest('section.card'); var on = !sec.classList.contains('sec-closed');
+      sec.classList.toggle('sec-closed', on); paintTog(sec, on); setClosed(sec.id, on);
+      return;
+    }
+    /* a link to a section (the side list) opens it first */
+    var a = e.target.closest('a[href^="#"]');
+    if (a && a.getAttribute('href').length > 1) { var t = document.getElementById(a.getAttribute('href').slice(1)); if (t) openSection(t); }
+  }, true);
+
+  /* (4) a date the client has to pick */
+  function pickKey() { return 'ishur_pick:' + (token || 'demo') + ':' + (data.pick_date || []).join(','); }
+  function pickPulse() { return !!LS.get(pickKey() + ':pulse'); }
+  function pickPrompt() {
+    var p = data.pick_date || [];
+    if (!p.length || data.stop || eventIsOver() || !canMoveSends()) return;
+    if (LS.get(pickKey())) return;   /* once per device */
+    LS.set(pickKey(), '1');
+    var row = (data.sends || []).filter(function (s) { return s.pick; })[0] || {};
+    var bg = document.createElement('div'); bg.className = 'dpop-bg'; bg.id = 'pickBg';
+    var box = document.createElement('div'); box.className = 'dpop pick-pop'; box.id = 'pickPop';
+    box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'pickT');
+    box.innerHTML = '<h3 id="pickT">צריך לבחור מתי לשלוח</h3>' +
+      '<p class="cur">הוספנו לכם ' + esc(row.label || 'סבב נוסף') + '. בחרו באיזה יום הוא יוצא, ואנחנו נדאג לשאר.</p>' +
+      '<div class="dpop-row"><button type="button" class="dpop-ok" data-go>להגדיר</button><button type="button" class="dpop-x" data-later>לא עכשיו</button></div>';
+    function close() { bg.remove(); box.remove(); document.removeEventListener('keydown', onKey, true); }
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    bg.addEventListener('click', close);
+    box.querySelector('[data-later]').addEventListener('click', close);
+    box.querySelector('[data-go]').addEventListener('click', function () {
+      close(); LS.set(pickKey() + ':pulse', '1');
+      openSection($('sendsCard')); renderSends();
+      var btn = $('sends').querySelector('.send-edit.pick');
+      var target = btn || $('sendsCard');
+      target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      if (btn) setTimeout(function () { btn.focus({ preventScroll: true }); }, 400);
+    });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(bg); document.body.appendChild(box);
+    box.querySelector('[data-go]').focus();
+  }
+
+  /* (1) the stop button */
+  var STOP_REASONS = [['unhappy', 'לא מרוצה מהשירות'], ['cancelled', 'האירוע בוטל'], ['postponed', 'האירוע נדחה'], ['wrong_details', 'טעות בפרטים'], ['other', 'אחר']];
+  var STOP_WORDS = { 'עצירה': 'stop', 'ביטול': 'cancel' };
+  function noteLen(v) { return String(v || '').replace(/\s+/g, ' ').trim().length; }
+  function stopWhen(at) {
+    var d = at ? new Date(at) : null; if (!d || isNaN(d)) return '';
+    try { return new Intl.DateTimeFormat('he-IL', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(d); } catch (e) { return ''; }
+  }
+  function renderStop() {
+    var c = $('stopCard'); if (!c) return;
+    var st = data.stop || null;
+    c.hidden = (!token && !demo) || (eventIsOver() && !st);
+    var bn = $('stopBanner');
+    if (!bn) { bn = document.createElement('div'); bn.id = 'stopBanner'; bn.className = 'card stop-banner'; bn.setAttribute('role', 'status'); $('statusCard').parentNode.insertBefore(bn, $('statusCard')); }
+    bn.hidden = !st;
+    var wa = CFG.waLink('היי, עצרתי את השליחות לאירוע ורוצה לדבר על זה');
+    if (st) {
+      var when = stopWhen(st.at);
+      var head = st.mode === 'cancel' ? 'קיבלנו את בקשת הביטול.' : 'כל השליחות והשיחות עצורות.';
+      bn.innerHTML = '<b>' + head + '</b> שום הודעה ושום שיחה לא יוצאות לאורחים' + (when ? ' (מ-' + esc(when) + ')' : '') + '. רוצים לחדש? <a href="' + wa + '" target="_blank" rel="noopener">דברו איתנו</a>';
+      $('stopBody').innerHTML = '<div class="stop-done"><b>' + head + '</b><br>' +
+        'עצרנו את ההזמנות, התזכורות, השליחות הנוספות, ההודעות של יום לפני ויום האירוע, ואת השיחות. ' +
+        (st.mode === 'cancel' ? 'נחזור אליכם כדי לסגור יחד מה נאמר לאורחים. ' : 'הצוות שלנו קיבל את הבקשה ויחזור אליכם. ') +
+        'כדי לחדש את השליחות <a href="' + wa + '" target="_blank" rel="noopener">כתבו לנו בוואטסאפ</a> ונחזיר הכל לפי התכנון.</div>';
+      return;
+    }
+    $('stopBody').innerHTML = '<div class="stop-row"><p>משהו השתנה? אפשר לעצור מכאן מיד את כל ההודעות והשיחות לאורחים. רק הצוות שלנו יכול לחדש אותן.</p>' +
+      '<button type="button" class="stop-btn" id="stopOpen">עצירת כל השליחות</button></div>';
+    $('stopOpen').addEventListener('click', openStop);
+  }
+  function openStop() {
+    var reason = '', note = '';
+    var bg = document.createElement('div'); bg.className = 'dpop-bg'; bg.id = 'stopBg';
+    var box = document.createElement('div'); box.className = 'dpop'; box.id = 'stopPop';
+    box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'stopT');
+    function close() { bg.remove(); box.remove(); document.removeEventListener('keydown', onKey, true); var o = $('stopOpen'); if (o) o.focus(); }
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    function step1() {
+      box.innerHTML = '<h3 id="stopT">עצירת כל השליחות</h3>' +
+        '<p class="cur">ספרו לנו מה קרה, כדי שנוכל לחזור אליכם עם הדבר הנכון.</p>' +
+        '<label for="stopWhy">הסיבה</label><select id="stopWhy"><option value="">בחרו סיבה</option>' +
+        STOP_REASONS.map(function (r) { return '<option value="' + r[0] + '"' + (r[0] === reason ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select>' +
+        '<label for="stopNote">הסבר קצר (לפחות 20 תווים)</label><textarea id="stopNote" maxlength="1000">' + esc(note) + '</textarea>' +
+        '<p class="cnt" id="stopCnt" aria-live="polite"></p>' +
+        '<div class="dpop-row"><button type="button" class="dpop-ok" id="stopNext" disabled>המשך</button><button type="button" class="dpop-x" data-x>חזרה</button></div>';
+      var sel = box.querySelector('#stopWhy'), ta = box.querySelector('#stopNote'), nx = box.querySelector('#stopNext'), cnt = box.querySelector('#stopCnt');
+      function check() {
+        reason = sel.value; note = ta.value; var n = noteLen(note);
+        cnt.textContent = n < 20 ? 'עוד ' + (20 - n) + ' תווים' : '';
+        nx.disabled = !reason || n < 20;
+      }
+      sel.addEventListener('change', check); ta.addEventListener('input', check); check();
+      nx.addEventListener('click', function () { if (!nx.disabled) step2(); });
+      box.querySelector('[data-x]').addEventListener('click', close);
+      sel.focus();
+    }
+    function step2() {
+      box.innerHTML = '<h3 id="stopT">לאשר את העצירה?</h3>' +
+        '<p class="cur">כדי לעצור את כל ההודעות והשיחות הקלידו <b>עצירה</b>.<br>כדי לבקש לבטל את האירוע הקלידו <b>ביטול</b>.<br>אחרי האישור רק הצוות שלנו יכול לחדש.</p>' +
+        '<input type="text" id="stopWord" autocomplete="off" aria-label="מילת האישור" placeholder="עצירה או ביטול">' +
+        '<p class="dpop-err" id="stopErr" role="alert"></p>' +
+        '<div class="dpop-row"><button type="button" class="stop-ok" id="stopGo" disabled>אישור</button><button type="button" class="dpop-x" data-back>חזרה</button></div>';
+      var w = box.querySelector('#stopWord'), go = box.querySelector('#stopGo'), er = box.querySelector('#stopErr');
+      w.addEventListener('input', function () { go.disabled = !STOP_WORDS[w.value.trim()]; go.textContent = STOP_WORDS[w.value.trim()] === 'cancel' ? 'אישור ביטול' : 'אישור עצירה'; });
+      box.querySelector('[data-back]').addEventListener('click', step1);
+      go.addEventListener('click', function () {
+        var word = w.value.trim(); if (!STOP_WORDS[word]) return;
+        go.disabled = true; go.textContent = 'עוצרים…'; er.textContent = '';
+        if (demo) { setTimeout(function () { stopped({ mode: STOP_WORDS[word], at: new Date().toISOString(), reason: reason }); }, 300); return; }
+        postJson('client-stop', { token: token, reason: reason, note: note, confirm: word }).then(function (res) {
+          if (res.status === 200 && res.body && res.body.ok && res.body.stop) { stopped(res.body.stop); reloadData(); return; }
+          throw new Error('x');
+        })['catch'](function () {
+          go.disabled = false; go.textContent = 'אישור';
+          er.innerHTML = 'לא הצלחנו לעצור מכאן ברגע זה. <a href="' + CFG.waLink('היי, אני רוצה לעצור את כל השליחות לאירוע שלי') + '" target="_blank" rel="noopener">כתבו לנו בוואטסאפ</a> ונעצור מיד.';
+        });
+      });
+      w.focus();
+    }
+    /* the stop is saved: repaint only what it changes (a full render could trip on something unrelated and
+       tell the client it failed when it did not) */
+    function stopped(st) {
+      data.stop = st; close();
+      try { renderStop(); } catch (e) {}
+      try { renderSends(); } catch (e) {}
+      $('live').textContent = 'השליחות נעצרו';
+      var bn = $('stopBanner'); if (bn) bn.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+    bg.addEventListener('click', close);
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(bg); document.body.appendChild(box);
+    step1();
+  }
 
   function renderInvoice() {
     var c = $('invoiceCard'); if (!c) return;
