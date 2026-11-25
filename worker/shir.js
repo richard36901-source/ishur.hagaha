@@ -371,6 +371,14 @@ export function inboundMetadata(hit, opts = {}) {
                  opts.override_agent_id to point at the inbound agent.
      lead      — the sales call. Wired, deliberately never dialled: see
                  runShirLeadDial in index.js for what is still missing. */
+export const FOLLOWUP_KEYS = ['followup_questions', 'ask_shuttle', 'shuttle_details', 'ask_food', 'food_options', 'custom_question'];
+export function followupVars(f) {
+  const x = f || {}, out = {};
+  for (const k of FOLLOWUP_KEYS) out[k] = hostExtra(x[k] == null ? '' : x[k]);
+  /* the combined line may be longer than hostExtra's 140: it is rebuilt from its parts by the caller, so keep it whole */
+  if (x.followup_questions) out.followup_questions = String(x.followup_questions).replace(/[{}<>\n\r]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 600);
+  return out;
+}
 export function buildCallPayload(guest, fromNumber, opts = {}) {
   const kind = String(guest.kind || 'guest');
   const payload = {
@@ -411,6 +419,9 @@ export function buildCallPayload(guest, fromNumber, opts = {}) {
             guest_state: String(guest.rsvp || '') === 'מתלבט' ? 'מתלבט' : 'לא ענה',
             /* always sent, empty when the event has none: the script reads {{host_details}} and must never say braces */
             host_details: hostExtra(guest.host_extra),
+            /* 25/11 הגדרות מתקדמות: the event's questions after a "yes" (event-settings.js shirFollowupVars). Always
+               sent, empty when off, so the script never reads braces. */
+            ...followupVars(guest.followups),
           },
   };
   /* one number, several scripts: the agent is chosen per call, not per number */

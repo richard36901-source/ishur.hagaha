@@ -30,6 +30,7 @@ import { withRun, listRuns } from './ops-run.js';
 import { listNotes, overdueNotes } from './teamnotes.js';
 import { recordChange, actorOf } from './changes.js';   /* 03/11 change log */
 import { shouldDial } from './shir.js';
+import { getSettings as getEvSettings, eventCallWindowOpen } from './event-settings.js';   /* 25/11 per-event call hours */
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 export const GUEST_WABA = '1378764257421712';
@@ -342,6 +343,8 @@ export const CHECKS = [
       if (!dialable.length) continue;   /* everyone queued was already tried today — nothing to dial */
       const last = Date.parse((await kget(c.env, 'calllast:' + tok)) || '') || 0;
       if (last && c.now - last < 60 * MIN) continue;
+      /* 25/11 הגדרות מתקדמות: outside the hours the client chose for its calls the dialer skips it on purpose */
+      { const es = await getEvSettings(c.env, tok).catch(() => null); if (es && es.call_window && !eventCallWindowOpen(es.call_window, new Date(c.now))) continue; }
       if (!shared) {
         const pacer = (await kjson(c.env, 'pacer:last')) || {};
         const win = c.d.callWindowState ? c.d.callWindowState() : { open: true };

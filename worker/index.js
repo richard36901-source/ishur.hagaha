@@ -34,7 +34,7 @@ import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, bu
 import { mondayMarkWon, mondayUpsertLead, mondayGql, mondayFindLead, mondayLeadNotes } from './monday.js';
 import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, groupsOf, LEAD_STATUSES, LEAD_OWNERS, LEAD_GROUPS } from './leads.js';
 import { clientWaba, clientToken, clientOnPortfolio, clientPhoneId, isGuestPhone, guestPhoneIds } from './whatsapp.js';
-import { sendCtaUrl, sendReplyButtons, guestCapacity, guestCapScope, pinGuestPhone, guestPortfolioBudget } from './whatsapp.js';
+import { sendCtaUrl, sendReplyButtons, sendList, guestCapacity, guestCapScope, pinGuestPhone, guestPortfolioBudget } from './whatsapp.js';
 import { fitBatch, dynamicPace } from './budget.js';
 import * as tguard from './templateguard.js';
 import { eventDayMessageFor, edMarkKey, ED_MARK_TTL, dayBeforeAllowed, dayBeforeDropped, navTarget, COMBO_NAMES, dayBeforeMessageFor, eventDayNeeded, eventStarted, retryDayAllowed } from './eventday.js';
@@ -44,6 +44,7 @@ import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseIn
 import { isAppAutoReply, chaseStopReason, leadAlertHeader, lastInboundTs } from './inbound.js';
 import { isTableQuestion, tableFor, tableReply } from './seating.js';
 import { guestLangApi } from './guest-lang.js';
+import { startFollowups, handleFollowupReply, yesGift, introNow, whoIsText, callWindowGate, getSettings as evSettings, saveSettings as evSettingsSave, shirFollowupVars, followupsFromRetell, putAnswer as fqPut, listAnswers as fqList, enabledSteps as fqSteps, handleEventSettings, Q_LABEL as FQ_LABEL, questionMessage, FOOD_OPTIONS, GIFT_YES_LINE } from './event-settings.js';   /* 25/11 הגדרות מתקדמות */
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
 import { logEvent, flushEventLog, readLogTail, OWNER_PHONE, stream } from './evlog.js';
 import { recordHit, recordPurchase, trafficReport } from './traffic.js';
@@ -2317,6 +2318,12 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
   /* host_roles: "כלה,חתן" — one role per host name, from a fixed list. Anything
      else is dropped rather than written into the sheet. */
   if (out.host_roles !== undefined && !hostRolesOk(out.host_roles)) delete out.host_roles;
+  /* 25/11 הגדרות מתקדמות: the couple's surnames (weddings). Not a Make field: the page already composed them into
+     event_title; they are kept in evsettings so the form can be filled again. */
+  try {
+    const l1 = form.get('last1'), l2 = form.get('last2');
+    if (env.RATE && (typeof l1 === 'string' || typeof l2 === 'string')) await evSettingsSave(env, token, { names: { last1: String(l1 || ''), last2: String(l2 || '') } });
+  } catch {}
   /* Richard 04/10: דיילות. Count + whether the city is in the centre (Ashkelon
      to Herzliya) come from the form; kept in KV, not in the sheet, and told to
      Slack so the hostesses get booked. Travel (₪250 each) is paid on its own
@@ -2858,6 +2865,9 @@ async function handleShirWebhook(request, env) {
    board already reads outcomes from Retell directly; reconcileShirCalls
    feeds those same calls through here when the webhook did not arrive. */
 async function processRetellEvent(env, body) {
+  /* 25/11 הגדרות מתקדמות: answers to the event's follow-up questions, when the agent sends them (tool args or the
+     post-call analysis). Absent until the Retell agent is updated; never in the way of the RSVP itself. */
+  try { const fu = followupsFromRetell(body); if (fu) await fqPut(env, fu.token, fu.guest_id, fu.answers, 'call'); } catch {}
   const action = retellToCallResult(body);
   if (!action) return okJsonPlain({ ok: true });
   /* the calls log: mid-call outcome → update; end of call → update the dial
@@ -3150,6 +3160,8 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
   if (!cap) return { ok: true, dialed: 0, busy: live, limit, queued: queue.length };
   const dialed = [];
   const introCache = new Map();
+  /* 25/11 הגדרות מתקדמות: the client may narrow the hours its guests are called (never widen the legal window) */
+  const evWinOpen = callWindowGate(env);
   let blocked = 0;
   /* 25/11 Richard (אביב: "קוממי שושי וקותי" on the board as לא מגיעים, and still in the call round): a guest who gave a
      final answer is never dialled, even when the call flag was left on (a no-answer result landing after a WhatsApp
@@ -3179,6 +3191,7 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
     if (env.RATE && await env.RATE.get('hold:' + g.token)) { blocked++; continue; }
     /* 03/11 ops call center: a round stopped for this event (POST /api/ops/call-round action stop) */
     if (env.RATE && await env.RATE.get('callstop:' + g.token)) { blocked++; continue; }
+    if (!force && !(await evWinOpen(g.token))) { blocked++; continue; }   /* outside this event's own call hours */
     /* was phoneBlocked() — which counts an opt-out. An opt-out is about
        messages, never about calls. See the note on callBlocked. */
     if (await callBlocked(env, g.phone)) { blocked++; continue; }
@@ -3195,6 +3208,8 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
     g.host_extra = introCache.get(g.token);
     if (!introCache.has('n:' + g.token)) introCache.set('n:' + g.token, (await env.RATE.get('callname:' + g.token).catch(() => null)) || '');
     g.host_spoken = introCache.get('n:' + g.token);   /* 25/11: how the hosts' names are said */
+    if (!introCache.has('f:' + g.token)) introCache.set('f:' + g.token, shirFollowupVars(await evSettings(env, g.token).catch(() => null)));
+    g.followups = introCache.get('f:' + g.token);   /* 25/11: the event's questions after a phone "yes" */
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
@@ -4319,11 +4334,20 @@ async function handleWaWebhook(request, env, url) {
 
     /* 09/11: the event's extra question (bus etc.) — answered by button or by a bare כן/לא.
        Checked BEFORE rsvp parsing: a "לא" here must never turn into "לא מגיע". */
+    /* 25/11 הגדרות מתקדמות: the event's follow-up questions (shuttle / food / the client's own), event-settings.js.
+       Read from the raw message: parsed turns a bare "כן"/"לא" into an RSVP. A template button, a question, or words
+       about arriving are never taken as an answer — they fall through to the normal flow. */
+    if (env.RATE && guest) {
+      const rawFq = String((msg.text && msg.text.body) || '').trim();
+      const rsvpish = msg.type === 'button' || isQuestion(rawFq) || /(מגיע|נגיע|להגיע|לבוא|נבוא|אגיע|אבוא)/.test(rawFq);
+      if (await handleFollowupReply(env, guest, from, msg, sendCh, FQ_DEPS, { rsvpish }).catch(() => false)) continue;
+    }
     if (env.RATE && guest) {
       const bid = String((msg.interactive && msg.interactive.button_reply && msg.interactive.button_reply.id) || '');
       const xqWait = bid.startsWith('xq:') ? 'btn' : await env.RATE.get('awaitxq:' + guest.guest_id).catch(() => null);
       if (xqWait) {
-        const ans = extraAnswerOf(textOf(parsed), bid);
+        /* 25/11: the raw words — textOf(parsed) turned a typed "כן"/"לא" into "מגיע"/"לא מגיע", so it was never an answer here */
+        const ans = extraAnswerOf(String((msg.text && msg.text.body) || '').trim() || textOf(parsed), bid);
         if (ans) {
           await env.RATE.put(`xqa:${guest.token}:${normPhone(from)}`, JSON.stringify({ a: ans, name: guest.name || '', at: new Date().toISOString() }), { metadata: { a: ans, name: String(guest.name || '').slice(0, 60) } });
           await env.RATE.delete('awaitxq:' + guest.guest_id).catch(() => {});
@@ -4342,7 +4366,7 @@ async function handleWaWebhook(request, env, url) {
         if (n) {
           await env.RATE.delete('awaitparty:' + guest.guest_id);
           const saved = await writeGuestReply(env, guest, 'מגיע', n);
-          if (saved) await sendCtaUrl(env, from, `מעולה, רשמנו ${n} 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${await pubIdOf(env, guest.token)}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
+          if (saved) { const gy = await giftForYes(env, guest, from); const rr = await sendCtaUrl(env, from, `מעולה, רשמנו ${n} 🎉 נתראה!` + gy.text, 'הוספה ליומן', `https://ishur.io/cal.html?t=${await pubIdOf(env, guest.token)}`, sendCh, { who: 'שיר (מענה אוטומטי)' }); if (gy.text && rr && rr.ok) await gy.mark(); }
           if (saved) await askExtraQ(env, guest, from, sendCh);
           else await say('קיבלנו, רגע רושמים ונחזור אליכם 🙂');
           continue;
@@ -4361,12 +4385,16 @@ async function handleWaWebhook(request, env, url) {
         /* 19/11 Richard (אריאל ודיקלה): a yes/no event (yesno:<token>) never asks how many — "מגיע" is one place, and that is the end of it */
         const yesNoOnly = !!(env.RATE && await env.RATE.get('yesno:' + guest.token).catch(() => null));
         if (saved && env.RATE && !yesNoOnly) await armPartyNudge(env, guest, from, ch);
-        await say(saved
-          ? (yesNoOnly ? GUEST_REPLY.yesOnly : GUEST_REPLY.askParty)
+        /* 25/11: a yes/no event is done at this point: the gift line rides on the confirmation, then the questions */
+        const gyY = saved && yesNoOnly ? await giftForYes(env, guest, from) : null;
+        const rY = await say(saved
+          ? (yesNoOnly ? GUEST_REPLY.yesOnly : GUEST_REPLY.askParty) + (gyY ? gyY.text : '')
           : HOLD);
+        if (gyY && gyY.text && rY && rY.ok) await gyY.mark();
+        if (saved && yesNoOnly) await askExtraQ(env, guest, from, sendCh);
       } else if (parsed.outcome === 'מגיע') {
         const saved = await writeGuestReply(env, guest, 'מגיע', parsed.party);
-        if (saved) await sendCtaUrl(env, from, GUEST_REPLY.counted(parsed.party), GUEST_REPLY.calendarBtn, `https://ishur.io/cal.html?t=${await pubIdOf(env, guest.token)}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
+        if (saved) { const gy = await giftForYes(env, guest, from); const rr = await sendCtaUrl(env, from, GUEST_REPLY.counted(parsed.party) + gy.text, GUEST_REPLY.calendarBtn, `https://ishur.io/cal.html?t=${await pubIdOf(env, guest.token)}`, sendCh, { who: 'שיר (מענה אוטומטי)' }); if (gy.text && rr && rr.ok) await gy.mark(); }
         if (saved) await askExtraQ(env, guest, from, sendCh);
         else await say(HOLD);
       } else if (parsed.outcome === 'לא מגיע') {
@@ -4491,6 +4519,13 @@ export async function sayDeclined(env, guest, from, say, plain) {
   }
   return r;
 }
+/* 25/11 (הגדרות מתקדמות): a guest who confirms gets the gift line on the confirmation itself — once per guest (the
+   same gift:<token>:<phone> mark as above), only with active links, and the client can turn it off (gift_on_yes). */
+async function giftForYes(env, guest, from) {
+  let gl = null;
+  try { gl = env.RATE ? JSON.parse((await env.RATE.get('giftlinks:' + guest.token)) || 'null') : null; } catch {}
+  return yesGift(env, guest.token, normPhone(from), gl);
+}
 function eventRowOf(raw, token) {
   return ((raw && raw.events && raw.events.values) || []).find(r => String((r || [])[1] || '').trim() === token) || null;
 }
@@ -4535,7 +4570,7 @@ async function guestFreeText(env, raw, guest, from, text, say, sendCh = 'guests'
     const saved = await writeGuestReply(env, guest, 'מגיע', n);
     if (env.RATE) await env.RATE.delete('awaitparty:' + guest.guest_id).catch(() => {});
     const changed = guest.rsvp === 'מגיע' && guest.party && guest.party !== n;
-    if (saved) await sendCtaUrl(env, from, changed ? `עדכנו ל-${n} 🙂 נתראה!` : `נרשם, ${n} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${await pubIdOf(env, guest.token)}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
+    if (saved) { const gy = await giftForYes(env, guest, from); const rr = await sendCtaUrl(env, from, (changed ? `עדכנו ל-${n} 🙂 נתראה!` : `נרשם, ${n} מגיעים 🎉 נתראה!`) + gy.text, 'הוספה ליומן', `https://ishur.io/cal.html?t=${await pubIdOf(env, guest.token)}`, sendCh, { who: 'שיר (מענה אוטומטי)' }); if (gy.text && rr && rr.ok) await gy.mark(); }
     if (saved) await askExtraQ(env, guest, from, sendCh);
     else await say('קיבלנו, רגע רושמים 🙂');
     await log(changed ? 'אורח תיקן כמות' : 'אורח מסר כמות בטקסט חופשי', `${guest.party || '?'} → ${n}`); return true;
@@ -4544,7 +4579,10 @@ async function guestFreeText(env, raw, guest, from, text, say, sendCh = 'guests'
     const saved = await writeGuestReply(env, guest, 'מגיע', 1);
     const yesNoOnly2 = !!(env.RATE && await env.RATE.get('yesno:' + guest.token).catch(() => null));   /* 19/11: a yes/no event does not ask how many */
     if (saved && env.RATE && !yesNoOnly2) await armPartyNudge(env, guest, from, sendCh);   /* 02/11 audit: was an undefined `ch` → ReferenceError after the sheet write, the guest got no reply */
-    await say(saved ? (yesNoOnly2 ? GUEST_REPLY.yesOnly : GUEST_REPLY.askParty) : 'קיבלנו, רגע רושמים 🙂');
+    const gyY2 = saved && yesNoOnly2 ? await giftForYes(env, guest, from) : null;   /* 25/11 */
+    const rY2 = await say(saved ? (yesNoOnly2 ? GUEST_REPLY.yesOnly : GUEST_REPLY.askParty) + (gyY2 ? gyY2.text : '') : 'קיבלנו, רגע רושמים 🙂');
+    if (gyY2 && gyY2.text && rY2 && rY2.ok) await gyY2.mark();
+    if (saved && yesNoOnly2) await askExtraQ(env, guest, from, sendCh);
     await log('אורח שינה למגיע בטקסט חופשי'); return true;
   }
   const when = c(6) ? `📅 ${heDate(c(6))}${c(36) ? ' בשעה ' + c(36) : ''}` : '';
@@ -4564,7 +4602,8 @@ async function guestFreeText(env, raw, guest, from, text, say, sendCh = 'guests'
     await say(`📍 ${where}${nav ? '\nניווט: ' + nav : ''}`); await log('שאלת מיקום, נענתה'); return true;
   }
   if (/(מי זה|מי אתם|מי שולח|מאיפה|מה זה|למה אני)/.test(t)) {
-    await say(`זו הזמנה ל${guestEventName(ev, { article: false })}, נשלחה דרך אישורי הגעה (ishur.io). אפשר לענות כאן מגיע / לא מגיע 🙂`); await log('שאלת מי זה, נענתה'); return true;
+    /* 25/11 הגדרות מתקדמות: with the parents when the event set them (callintro, the same words Shir says when asked) */
+    await say(whoIsText(guestEventName(ev, { article: false }), await introNow(env, guest.token, ilDate()).catch(() => ''))); await log('שאלת מי זה, נענתה'); return true;
   }
   if (/^(תודה|תודה רבה|סבבה|אוקיי|ok|👍|🙏|❤️|מזל טוב|בהצלחה)/i.test(t)) { await log('אורח הודה, בלי מענה'); return true; }
   /* anything else: acknowledge, and hand the hosts the message */
@@ -6077,8 +6116,12 @@ async function extraQOf(env, token) {
   if (!env.RATE || !token) return null;
   try { const q = JSON.parse((await env.RATE.get('extraq:' + token)) || 'null'); return q && q.id && q.q ? q : null; } catch { return null; }
 }
+const FQ_DEPS = { sendReplyButtons, sendList, sendText, logEvent, normPhone };
 async function askExtraQ(env, guest, from, sendCh) {
   try {
+    /* 25/11 הגדרות מתקדמות: an event with its own questions (evsettings) asks those; the old single question
+       (extraq:<token>, Shoham) runs only for an event that set none */
+    if (await startFollowups(env, guest, from, sendCh, FQ_DEPS)) return true;
     const q = await extraQOf(env, guest && guest.token);
     if (!q) return false;
     if (await env.RATE.get(`xqa:${guest.token}:${normPhone(from)}`)) return false;
@@ -6122,6 +6165,10 @@ function guestFlow() {
     { when: 'עדיין לא ענה · אחרי 6 שעות', note: 'תזכורת אחרונה, אחריה לא שואלים שוב', msgs: [{ text: PARTY_NUDGES[1].text }] },
     { when: 'האורח לוחץ "לא מגיע"', msgs: [{ text: GUEST_REPLY.declined }] },
     { when: 'האורח מתלבט ("אולי")', msgs: [{ text: GUEST_REPLY.maybe }] },
+    /* 25/11 הגדרות מתקדמות: only when the event switched them on */
+    { when: 'אחרי שאישר הגעה · אם הופעלה שאלת הסעה', note: 'מהגדרות מתקדמות', msgs: [{ text: questionMessage('shuttle', { questions: { shuttle: { on: true } } }).text, buttons: ['כן, נצטרף', 'לא צריך'] }] },
+    { when: 'אחרי שאישר הגעה · אם הופעלה שאלת אוכל', note: 'מהגדרות מתקדמות', msgs: [{ text: questionMessage('food', {}).text, buttons: FOOD_OPTIONS }] },
+    { when: 'אחרי שאישר הגעה · אם יש קישור מתנה', note: 'פעם אחת, על הודעת האישור', msgs: [{ text: GIFT_YES_LINE + 'go.ishur.io/gift/…' }] },
   ];
 }
 const PARTY_NUDGES = [
@@ -14105,6 +14152,10 @@ const WORKER = {
        default; only sent to guests when the client switched it on AND typed a
        link. Lives next to the navigation link on the dashboard. Credit-card
        gifts (our own) come later and will sit in the same record. */
+    /* 25/11 הגדרות מתקדמות (event-settings.js): parents, follow-up questions, call hours, gift line after a yes */
+    if (url.pathname === '/api/event-settings' && request.method === 'POST') {
+      return handleEventSettings(request, env, origin, { okJson, deny, tokenRecord, overBudget, logEvent });
+    }
     if (url.pathname === '/api/giftlinks' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -15612,8 +15663,15 @@ const WORKER = {
           snapshot.extra = { label: xq.label || 'הסעה', q: xq.q, yes, yes_seats: yes.reduce((t, x) => t + (x.seats || 0), 0), no };
         }
       } catch {}
+      /* 25/11 הגדרות מתקדמות: the follow-up questions that are on, and every guest's answers (by guest id) */
+      try {
+        const fs0 = await evSettings(env, token);
+        const steps0 = fqSteps(fs0);
+        if (steps0.length && env.RATE) snapshot.followups = { steps: steps0.map(k => ({ key: k, label: FQ_LABEL[k], q: k === 'custom' ? fs0.questions.custom.q : '' })), answers: await fqList(env, token) };
+      } catch {}
       snapshot.referral = referral;
-      if (limitedView) { for (const k of ['guests', 'changes', 'checkin', 'gifts', 'invoice', 'invoices', 'referral', 'referral_code', 'media']) delete snapshot[k]; snapshot.limited = true; }
+      /* 25/11: 'extra' (the bus list, names + phones) and 'followups' are guest data too */
+      if (limitedView) { for (const k of ['guests', 'changes', 'checkin', 'gifts', 'invoice', 'invoices', 'referral', 'referral_code', 'media', 'extra', 'followups']) delete snapshot[k]; snapshot.limited = true; }
       return okJson(snapshot, origin);
     }
 
