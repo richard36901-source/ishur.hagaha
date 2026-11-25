@@ -22,6 +22,7 @@
    ========================================================================== */
 
 import { sheetHookFetch } from './sheetsdirect.js';
+import { handleTmplCreate } from './tmpl-create.js';
 import * as audit from './audit.js';
 import { parseGuestFile, guestsFromRows, nextGuestSeq } from './parse.js';
 import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf, isTestEventRow, planMaxCallTries } from './dashboard.js';
@@ -12894,6 +12895,9 @@ const WORKER = {
     }
     if (url.pathname === '/api/brain-toggle' && request.method === 'POST') {
       return handleBrainToggle(request, env, origin);
+    }
+    if (url.pathname === '/api/tmpl-create' && request.method === 'POST') {   /* 26/11: submit a template to Meta (tmpl-create.js) */
+      return handleTmplCreate(request, env, origin, { isAdmin, deny, okJson, logEvent });
     }
     if (url.pathname === '/api/shir-admin' && request.method === 'POST') {
       return handleShirAdmin(request, env, origin);
