@@ -13086,6 +13086,41 @@ const WORKER = {
         return okJson({ ok: true, job }, origin);
       }
       if (b.action === 'clear') { await env.RATE.delete('callround:' + tok); return okJson({ ok: true }, origin); }
+      /* 25/11 (the day's audit): answers written from a call in which the guest never said them are taken back, and
+         answers a guest did say and were never written are put in — any event, one request.
+         {action:'fix-answers', corrections:[{guest_id, to:''|'מתלבט'}], records:[{guest_id, rsvp, party}]}.
+         A correction touches only a guest whose answer came from a call (W = "ענה"); a WhatsApp or a manual answer is
+         never changed here. to:'' → no answer again and, while the plan still owes a call, back to Shir's queue. */
+      if (b.action === 'fix-answers') {
+        const raw = await readSnapshot(env, 'write').catch(() => null);
+        const gRows = (raw && raw.guests && raw.guests.values) || [], eRows = (raw && raw.events && raw.events.values) || [];
+        if (!gRows.length) return deny(503, snapMiss(env), origin);
+        const capOf = t => { const e = eRows.find(r => String((r || [])[1] || '').trim() === t); return e ? planMaxCallTries(planKeyOf(e)) : 0; };
+        const data = [], corrected = [], skipped = [], recorded = [];
+        const want = new Map((Array.isArray(b.corrections) ? b.corrections : []).slice(0, 400).map(x => [String((x && x.guest_id) || '').trim(), String((x && x.to) || '') === 'מתלבט' ? 'מתלבט' : '']));
+        gRows.forEach((g, i) => {
+          const id = String((g || [])[2] || '').trim(); if (!want.has(id)) return;
+          const cur = String(g[15] || '').trim(), ans = String(g[22] || '').trim();
+          if (!(cur === 'מגיע' || cur === 'לא מגיע') || ans !== 'ענה' || /^removed/.test(String(g[28] || ''))) { skipped.push(id); return; }
+          const to = want.get(id), tries = Number(String(g[29] || '').trim()) || 0, again = tries < capOf(String(g[28] || '').trim());
+          data.push({ range: `אורחים!P${i + 2}`, values: [[to]] }, { range: `אורחים!N${i + 2}`, values: [['']] },
+            { range: `אורחים!V${i + 2}`, values: [[again ? 'נדרשת שיחה' : '']] }, { range: `אורחים!W${i + 2}`, values: [[to ? 'ענה - מתלבט' : 'שיחה ללא תוצאה ברורה']] });
+          corrected.push({ id, was: cur, to: to || 'ללא תשובה', again });
+        });
+        const okw = data.length ? await sheetBatchWrite(env, data) : true;
+        if (okw) for (const it of (Array.isArray(b.records) ? b.records : []).slice(0, 100)) {
+          const id = String((it && it.guest_id) || '').trim(), rsvp = String((it && it.rsvp) || '').trim(), party = Math.max(0, Math.min(30, parseInt(it && it.party, 10) || 0));
+          const g = gRows.find(r => String((r || [])[2] || '').trim() === id);
+          const cur = g ? String(g[15] || '').trim() : '';
+          if (!g || !(rsvp === 'מגיע' || rsvp === 'לא מגיע') || cur === 'מגיע' || cur === 'לא מגיע' || (rsvp === 'מגיע' && (!party || safeCallParty(party, Number(String(g[5] || '').trim()) || 0).held))) { skipped.push(id); continue; }
+          const res = callOutcome(rsvp, Number(String(g[29] || '').trim()) || 0, 3);
+          const w = await writeCallResult(env, id, res, rsvp === 'מגיע' ? await guardCallParty(env, { call: { retell_llm_dynamic_variables: { party_size_invited: String(g[5] || '') } } }, id, party, 'השלמה מתמליל') : undefined).catch(() => false);
+          (w ? recorded : skipped).push(id);
+        }
+        if (okw && (data.length || recorded.length)) await env.RATE.delete('snapcache').catch(() => {});
+        await logEvent(env, { area: 'שיחות', action: 'תיקון תשובות משיחות לפי התמלילים', ok: !!okw, review: !okw, detail: `${corrected.length} בוטלו/שונו · ${recorded.length} נרשמו · ${skipped.length} דולגו · ${String(b.note || '').slice(0, 100)}` }).catch(() => {});
+        return okJson({ ok: !!okw, corrected, recorded, skipped }, origin);
+      }
       /* 25/11: an answer the post-call review wrote by mistake is taken back. {action:'reopen', guest_ids:[…]}: the
          guest's "לא מגיע" is cleared and, while the plan still owes them a call, they return to Shir's queue. Only a
          guest who is "לא מגיע" now and did not answer by WhatsApp or in a call is touched. */
