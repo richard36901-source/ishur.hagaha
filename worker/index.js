@@ -23,6 +23,7 @@
 
 import { sheetHookFetch } from './sheetsdirect.js';
 import { handleTmplCreate } from './tmpl-create.js';
+import { handleD1Mirror, reconcile as d1Reconcile } from './d1mirror.js';   /* 26/11 D1 phase 1: sheet mirror (staging only, DB binding) */
 import * as audit from './audit.js';
 import { parseGuestFile, guestsFromRows, nextGuestSeq } from './parse.js';
 import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf, isTestEventRow, planMaxCallTries } from './dashboard.js';
@@ -11743,6 +11744,8 @@ const WORKER = {
     if (String(event.cron || '').startsWith('0 19 ')) {
       ctx.waitUntil(opsJob(env, 'auditDailyRoot', async () => { const day = ilDate().replace(/-/g, ''); const r = await audit.dailyRoot(env, day); await slackPost(env, `🔏 *עוגן יומן ביקורת* · ${ilDate()} · ${r.count} רשומות\nroot: \`${r.root}\``, { oneoff: true }).catch(() => {}); return r; }).catch(() => {}));
     }
+    /* 26/11 D1 phase 1: nightly sheet-vs-D1 reconcile → Slack. Only where the DB binding exists (staging) and cfg:d1_mirror is on. */
+    if (env.DB && String(event.cron || '').startsWith('0 19 ')) ctx.waitUntil((async () => d1Reconcile(env, await readSnapshot(env, 'background'), { slackPost }))().catch(() => {}));   /* not an opsJob: staging-only, never throws, posts its own Slack line */
     if (String(event.cron || '').startsWith('0 17 ') || String(event.cron || '').startsWith('0 18 ') || String(event.cron || '').startsWith('0 19 ')) {
       const ilHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(new Date(event.scheduledTime || Date.now())));
       if (ilHour === 20) {
@@ -12898,6 +12901,9 @@ const WORKER = {
     }
     if (url.pathname === '/api/tmpl-create' && request.method === 'POST') {   /* 26/11: submit a template to Meta (tmpl-create.js) */
       return handleTmplCreate(request, env, origin, { isAdmin, deny, okJson, logEvent });
+    }
+    if (url.pathname === '/api/d1-mirror' && request.method === 'POST') {   /* 26/11 D1 phase 1: status / sync / reconcile of the sheet mirror (d1mirror.js) */
+      return handleD1Mirror(request, env, origin, { isAdmin, deny, okJson, readSnapshot, slackPost });
     }
     if (url.pathname === '/api/shir-admin' && request.method === 'POST') {
       return handleShirAdmin(request, env, origin);
