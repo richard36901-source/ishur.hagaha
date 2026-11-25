@@ -67,6 +67,10 @@
   html[data-theme=dark] .tab[aria-selected=true] .tab-n{background:rgba(10,33,25,.18)}
   .tab:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
+  .csearch{padding:.45rem .5rem;border-bottom:1px solid var(--line);background:var(--card)}
+  .csearch input{width:100%;font:inherit;font-size:.9rem;padding:.45rem .6rem;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+  .csearch input:focus{outline:2px solid var(--ok);outline-offset:1px}
+  .conv .cev{display:block;font-size:.74rem;color:var(--ink2);margin-top:.1rem}
   .conv{display:block;width:100%;text-align:right;background:none;border:none;border-bottom:1px solid var(--line);padding:.65rem .9rem;cursor:pointer;font:inherit;color:var(--ink)}
   .conv.on{background:rgba(15,76,53,.08)}
   html[data-theme=dark] .conv.on{background:rgba(76,175,130,.12)}
@@ -220,6 +224,7 @@
       </button>
     </div>
     <div class="ownf" id="ownF" hidden role="group" aria-label="סינון לפי מטפלת"><button data-of="all" aria-pressed="true">כולם</button><button data-of="mine" aria-pressed="false" id="ofMine">שלי</button><button data-of="none" aria-pressed="false">לא משויך</button></div>
+    <div class="csearch"><input type="search" id="convQ" placeholder="חיפוש: טלפון, שם או שם אירוע" aria-label="חיפוש שיחה" autocomplete="off" enterkeyhint="search"></div>
     <div id="convList" role="tabpanel" aria-labelledby="tabAll"></div>
   </div>
   <div class="pane">
@@ -421,8 +426,23 @@
   /* ── conversation list ──
      counts come back computed over whatever the server just filtered, so the
      only response we trust for them is the unfiltered one. */
+  /* 25/11 Richard: the same search as the main inbox - phone, name or event name, over every conversation (server side) */
+  var convQuery = '', qTimer = null;
+  $('convQ').addEventListener('input', function () {
+    var v = this.value.trim();
+    clearTimeout(qTimer);
+    qTimer = setTimeout(function () { if (v !== convQuery) { convQuery = v; loadConvs(); } }, 280);
+  });
   function loadConvs() {
     var want = channel;
+    if (convQuery) {
+      var wq = convQuery, pl = { q: wq }; if (want !== 'all') pl.channel = want;
+      apiNet(pl).then(function (d) {
+        if (!d || !d.ok || convQuery !== wq || channel !== want) return;
+        paintList(d.conversations || []); shown();
+      });
+      return;
+    }
     var onAll = function (d) {
       if (!d || !d.ok) return;
       if (d.counts) { counts = d.counts; paintCounts(); }
@@ -456,7 +476,7 @@
     var host = $('convList'); host.innerHTML = '';
     if (!list.length) {
       host.innerHTML = '<div class="empty">' +
-        (channel === 'all'
+        (convQuery ? 'לא נמצאה שיחה שמתאימה לחיפוש.' : channel === 'all'
           ? 'עוד אין שיחות. ברגע שמישהו יכתוב — זה יופיע כאן.'
           : 'אין שיחות במספר הזה.') + '</div>';
       return;
@@ -475,6 +495,7 @@
         (c.nonrelevant ? '<span class="nr">לא רלוונטי</span>' : '') +
         (ow ? '<span class="own">' + esc(ow.name) + '</span>' : '') +
         '</span><time>' + esc(listTime(c.last_ts)) + '</time></b>' +
+        (c.event ? '<span class="cev" dir="auto">' + esc(c.event) + '</span>' : '') +
         '<span class="prev">' + (c.last_dir === 'out' ? '↩ ' : '') + esc(c.last_text || '') + '</span>';
       b.addEventListener('click', function () { openConv(c); });
       host.appendChild(b);

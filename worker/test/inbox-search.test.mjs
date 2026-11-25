@@ -25,3 +25,14 @@ test('call centre: the same search on a call row', () => {
   for (const q of ['נתני חגאי', 'חגי נתני', '052-111-0001', 'תאיר', 'נתני']) assert.equal(matches(row, { q }), true, q);
   assert.equal(matches(row, { q: 'כהן' }), false); assert.equal(matches(row, { q: '0549999999' }), false);
 });
+
+test('25/11 both inbox screens carry the search box and send the query to the server', async () => {
+  const fs = await import('node:fs');
+  for (const f of ['../../inbox.html', '../../next/inbox.html']) {
+    const h = fs.readFileSync(new URL(f, import.meta.url), 'utf8');
+    assert.ok(h.includes('id="convQ"'), f);
+    assert.ok(h.includes("pl = { q: wq }"), f);
+    assert.ok(h.includes("'לא נמצאה שיחה שמתאימה לחיפוש.'"), f);
+    assert.ok(h.indexOf('id="convQ"') < h.indexOf("$('convQ').addEventListener"), f);
+  }
+});
