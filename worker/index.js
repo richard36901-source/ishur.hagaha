@@ -6817,7 +6817,9 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         if (share > 0) { const used = Number(await env.RATE.get(`wpused:${token}:${today}`).catch(() => 0)) || 0; wb = { ...budget, left: Math.max(0, Math.min(budget.left, share - used)) }; }
       }
       const wbStart = wb ? wb.left : 0;
-      const res = await sendWave(env, ev, token, guests, wave, dry, wb);
+      /* 25/11 Richard: an extra send bought for "who did not answer" goes to them and the undecided only (it went to everybody) */
+      const waveUse = wave.key === 3 ? extraSendWave(wave, env.RATE ? await env.RATE.get('extrasend:' + token).catch(() => null) : null) : wave;
+      const res = await sendWave(env, ev, token, guests, waveUse, dry, wb);
       if (wb !== budget) {
         const spent = Math.max(0, wbStart - wb.left); budget.left -= spent;
         const used = Number(await env.RATE.get(`wpused:${token}:${today}`).catch(() => 0)) || 0;
@@ -10142,6 +10144,13 @@ async function handleVenueCommit(request, env, origin) {
   if (n == null) return deny(400, 'bad-number', origin);
   await writeCommit(env, token, n);
   return okJson({ ok: true, commit: n || null }, origin);
+}
+
+/* the extra-send add-on's KV value is an ISO date (old) or {at, scope, ref}; scope 'unanswered' = no answer yet + undecided */
+export function extraSendWave(wave, stored) {
+  let scope = 'all';
+  try { const j = JSON.parse(String(stored || '')); if (j && j.scope === 'unanswered') scope = 'unanswered'; } catch {}
+  return scope === 'unanswered' ? { ...wave, onlyUnanswered: true } : wave;
 }
 
 async function handleSendDate(request, env, origin) {
@@ -14272,7 +14281,9 @@ const WORKER = {
       if (!/^[0-9a-f-]{36}$/.test(tok) || !env.RATE) return deny(400, 'bad-token', origin);
       const kind = String(b.kind || '');
       if (kind === 'extrasend') {
-        await env.RATE.put('extrasend:' + tok, new Date().toISOString(), { expirationTtl: 200 * 86400 });
+        /* 25/11: the team chooses the audience too — everybody, or only who did not answer + the undecided */
+        const scope = String(b.scope || 'all') === 'unanswered' ? 'unanswered' : 'all';
+        await env.RATE.put('extrasend:' + tok, JSON.stringify({ at: new Date().toISOString(), scope, ref: 'admin' }), { expirationTtl: 200 * 86400 });
       } else if (kind === 'guests') {
         const n = Math.min(Math.max(parseInt(b.n, 10) || 0, 1), 900);
         let cur = { n: 0 }; try { cur = JSON.parse(await env.RATE.get('addon:' + tok)) || cur; } catch {}
