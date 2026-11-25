@@ -28,11 +28,14 @@
 
    Route  POST /api/team   (admin key / Google session, like every admin route)
      reads  {op:'me'|'list'|'get'|'events', all?, id?}
-     writes {action:'create'|'comment'|'status'|'roles', ...}
+     writes {action:'create'|'comment'|'status'|'roles'|'attach'|'file-delete', ...}
+   26/11 files (teamfiles.js): comment {files:[keys]} (text may then be empty), attach {id, files} (the opener,
+   onto the opening message, right after create), file-delete {id, key} (the uploader or an admin; logged).
    ========================================================================== */
 import { normEmail, getUser } from './auth.js';
 import { rolesOf, isLead, pagesFor, teamList, planRoles, setRoles, PAGE_OF, ROLES, ROLE_HE, cleanRoles } from './roles.js';
 import { listNotes, closeNote } from './teamnotes.js';
+import { resolveFiles, filesOf, deleteError } from './teamfiles.js';
 
 export const TYPES = { issue: 'באג / תקלה', request: 'בקשת לקוח' };
 export const STATUSES = ['open', 'in_progress', 'done', 'closed'];
@@ -113,6 +116,12 @@ async function saveItem(env, it) {
   rows.push(summaryOf(it));
   return writeIndex(env, rows);
 }
+/* an item by id, or a WhatsApp note's item made up on the spot (not saved) — what an upload is checked against */
+export async function loadItem(env, id, now = Date.now()) {
+  const it = await getItem(env, id);
+  if (it || !/^tn/.test(String(id || ''))) return it;
+  return adopt(env, String(id), now);
+}
 /* the notes from the last 30 days that have not become items yet */
 async function noteItems(env, rows, now) {
   const have = new Set(rows.map(r => r.id));
@@ -166,7 +175,7 @@ export async function handleTeam(request, env, origin, d) {
   const who = normEmail(request.headers.get('x-ishur-user') || '');
   /* reads come as {op}, writes as {action} — the sign-in gate logs a POST with `action` and the admin home batch only takes reads,
      so a write named in `op` (or a read named in `action`) is refused rather than slipping past the action log */
-  const READS = ['me', 'list', 'get', 'events'], WRITES = ['create', 'comment', 'status', 'roles'];
+  const READS = ['me', 'list', 'get', 'events'], WRITES = ['create', 'comment', 'status', 'roles', 'attach', 'file-delete'];
   const op = b.action !== undefined ? String(b.action) : String(b.op || 'me');
   if (b.action !== undefined ? !WRITES.includes(op) : !READS.includes(op)) return d.deny(400, 'bad-op', origin);
   const now = d.now ? d.now() : Date.now();
@@ -211,6 +220,32 @@ export async function handleTeam(request, env, origin, d) {
     const sent = await notify(env, d, 'create', it, who, text);
     return reply({ item: it, notified: sent }, rows);
   }
+  if (op === 'attach' || op === 'file-delete') {
+    const id = String(b.id || '');
+    let it = await getItem(env, id);
+    if (!it && /^tn/.test(id) && op === 'attach') it = await adopt(env, id, now);
+    if (!it || !canView(it, who, roles, true)) return d.deny(404, 'no-item', origin);
+    const at = new Date(now).toISOString();
+    if (op === 'attach') {
+      if (normEmail(it.opener) !== who) return d.deny(403, 'opener-only', origin);
+      const r = await resolveFiles(env, it, who, b.files);
+      if (r.error) return d.okJson({ ok: false, error: r.error }, origin);
+      if (!r.files.length) return d.okJson({ ok: false, error: 'empty' }, origin);
+      it.files = [...(it.files || []), ...r.files];
+    } else {
+      const hit = filesOf(it).find(x => x.f.key && x.f.key === String(b.key || ''));
+      const err = deleteError(hit && hit.f, who, roles);
+      if (err) return d.okJson({ ok: false, error: err }, origin);
+      const f = hit.f;
+      if (env.AUDIT_R2) await env.AUDIT_R2.delete(f.key).catch(() => {});
+      hit.list[hit.i] = { key: '', name: f.name, kind: f.kind, size: 0, by: f.by, at: f.at, deleted: true, del_by: who, del_at: at };
+      it.history = [...(it.history || []), { at, by: who, from: it.status, to: it.status, file: 'deleted', note: 'קובץ נמחק: ' + clean(f.name, 100) }].slice(-100);
+      if (d.logEvent) await d.logEvent(env, { area: 'צוות', action: 'קובץ נמחק ממשימה', ok: true, detail: `${it.id} · ${clean(f.name, 100)} · הועלה ע"י ${f.by} · נמחק ע"י ${who}` }).catch(() => {});
+    }
+    it.updated_at = at;
+    const rows = await saveItem(env, it);
+    return reply({ item: it }, rows);
+  }
   if (op === 'comment' || op === 'status') {
     const id = String(b.id || '');
     let it = await getItem(env, id);
@@ -219,15 +254,22 @@ export async function handleTeam(request, env, origin, d) {
     const at = new Date(now).toISOString();
     let extra = '';
     if (op === 'comment') {
-      const text = clean(b.text, 2000); if (!text) return d.okJson({ ok: false, error: 'empty' }, origin);
+      const text = clean(b.text, 2000);
       if (!canComment(it, who, roles)) return d.deny(403, 'not-yours', origin);
-      it.comments = [...(it.comments || []), { by: who, at, text }].slice(-MAX_COMMENTS); extra = text;
+      const r = await resolveFiles(env, it, who, b.files);
+      if (r.error) return d.okJson({ ok: false, error: r.error }, origin);
+      if (!text && !r.files.length) return d.okJson({ ok: false, error: 'empty' }, origin);
+      it.comments = [...(it.comments || []), { by: who, at, text, ...(r.files.length ? { files: r.files } : {}) }].slice(-MAX_COMMENTS);
+      extra = [text, r.files.length ? `${r.files.length === 1 ? 'קובץ מצורף: ' + clean(r.files[0].name, 80) : r.files.length + ' קבצים מצורפים'}` : ''].filter(Boolean).join('\n');
     } else {
       const to = String(b.to || ''); const err = moveError(it, who, to);
       if (err) return d.okJson({ ok: false, error: err, item: it }, origin);
+      const rf = await resolveFiles(env, it, who, b.files);
+      if (rf.error) return d.okJson({ ok: false, error: rf.error }, origin);
       it.history = [...(it.history || []), { at, by: who, from: it.status, to }].slice(-100);
       it.status = to;
-      if (b.text) { const t = clean(b.text, 2000); if (t) { it.comments = [...(it.comments || []), { by: who, at, text: t }].slice(-MAX_COMMENTS); extra = t; } }
+      const t = clean(b.text, 2000);
+      if (t || rf.files.length) { it.comments = [...(it.comments || []), { by: who, at, text: t, ...(rf.files.length ? { files: rf.files } : {}) }].slice(-MAX_COMMENTS); extra = t || `${rf.files.length} קבצים מצורפים`; }
       if (it.from_note && (to === 'done' || to === 'closed') && NOTE_RE.test(it.from_note)) await closeNote(env, it.from_note, 'בוצע בפאנל הצוות').catch(() => false);
     }
     it.updated_at = at;

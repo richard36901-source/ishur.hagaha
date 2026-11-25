@@ -59,7 +59,8 @@ import { quietRead, teamActionAfter, describedPath } from './team-log.js';
 import { alertDateSet, hostessReminders, arrivalOf } from './hostess-alerts.js';
 import { SWR_ROUTES, swrServe } from './swr.js';
 import { handleCallers } from './callers.js';
-import { handleTeam } from './teamissues.js';   /* 25/11 team issues panel + roles (teamissues.js, roles.js) */
+import { handleTeam, loadItem as teamLoadItem, canComment as teamCanComment } from './teamissues.js';
+import { handleTeamUpload, handleTeamFile } from './teamfiles.js';   /* 26/11 files on team items (R2 team/…) */   /* 25/11 team issues panel + roles (teamissues.js, roles.js) */
 import { inboundExtras } from './wa-extras.js';
 import { STYLES as INV_STYLES, normStyle, OWN_TEMPLATE, styledTemplate, eventStyle, refreshStatus as styleStatus, submitAll as styleSubmit, forgetStyle, approvedMap, tmplName as styleTmplName } from './invite-styles.js';
 import { handleLeadsMonday } from './leads-monday.js';
@@ -11959,6 +11960,9 @@ const WORKER = {
     /* 25/11 the future log (planned sends + calls, live calls) and the guest card — read-mostly admin routes */
     if (url.pathname === '/api/future-log' && request.method === 'POST') return handleFutureLog(request, env, origin, futureDeps());
     if (url.pathname === '/api/guest-card' && request.method === 'POST') return handleGuestCard(request, env, origin, { ...futureDeps(), readSnapshot: e => readSnapshot(e, 'ops'), logEvent, logRow: (e, t, r) => logRow(e, t, r) });
+    /* 26/11 team item files: before the block below, which clones and JSON-parses every /api POST body (a 25MB video) */
+    if (url.pathname === '/api/team-upload' && request.method === 'POST') return handleTeamUpload(request, env, origin, { okJson, deny, isAdmin, cors, loadItem: teamLoadItem, canComment: teamCanComment });
+    if (url.pathname === '/api/team-file' && request.method === 'GET') return handleTeamFile(request, env, origin, { okJson, deny, isAdmin, cors });
     if (url.pathname.startsWith('/api/auth/')) return handleAuth(request, env, origin, url);   /* 16/11 Google sign-in, users, action log (auth.js) */
     /* iPad sessions: a valid sess. token becomes the real admin key before any
        handler reads the body. Grow's IPN is skipped — its body is not ours. */
@@ -15362,7 +15366,7 @@ const WORKER = {
         styles: Object.entries(INV_STYLES).map(([k2, v2]) => ({ key: k2, he: v2.he, note: v2.note, body: v2.body || '', ready: !OWN_TEMPLATE(k2) || (!!ok2[styleTmplName(k2, 'text')] && !!ok2[styleTmplName(k2, 'img')]) })) }, origin); }
     if (url.pathname === '/api/leads-monday' && request.method === 'POST') return handleLeadsMonday(request, env, origin, { okJson, deny, isAdmin, gql: mondayGql, findLead: mondayFindLead });
     if (url.pathname === '/api/callers' && request.method === 'POST') return handleCallers(request, env, origin, { okJson, deny, isAdmin, normPhone, kvPrefix });
-    if (url.pathname === '/api/team' && request.method === 'POST') return handleTeam(request, env, origin, { okJson, deny, isAdmin, slackSend, listEvents: teamEvents });
+    if (url.pathname === '/api/team' && request.method === 'POST') return handleTeam(request, env, origin, { okJson, deny, isAdmin, slackSend, logEvent, listEvents: teamEvents });
     if (url.pathname === '/api/hostess-pay' && request.method === 'POST') return handleHostessPay(request, env, origin, { okJson, deny, isAdmin, kvPrefix });
     if (url.pathname === '/api/hostess-receipt' && request.method === 'POST') return handleReceiptUpload(request, env, origin, { okJson, deny, adminKeyOk });
     if (url.pathname === '/api/hostess-receipt' && request.method === 'GET') return handleReceiptGet(env, url);
