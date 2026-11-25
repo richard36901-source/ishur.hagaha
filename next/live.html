@@ -141,6 +141,12 @@
   var KINDS = {};
 
   var items = [], byId = {}, kind = '', bad = false, pin = null, q = '', paused = false, lastTs = 0, timer = null, openIds = {}, days = 2;
+  /* 25/11: kind / pin / search are asked of the SERVER (POST /api/stream kind, token, phone, q), so "שיחה" shows every
+     call in the range, not the calls among the last 2,000 records. seq drops an answer that arrives after a newer filter. */
+  var seq = 0, cut = null, qTimer = null;
+  function serverFilter() { var f = {}; if (kind) f.kind = kind; if (q) f.q = q; if (pin) { if (pin.type === 'token') f.token = pin.v; else f.phone = pin.v; } return f; }
+  function filtered() { return !!(kind || q || pin); }
+  function reload() { seq++; items = []; byId = {}; lastTs = 0; cut = null; $('list').innerHTML = '<div class="empty">טוען…</div>'; return load(true); }
 
   function hhmm(iso) { var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
   function dayLbl(iso) { var d = new Date(iso); return d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }); }
@@ -167,7 +173,7 @@
   }
   function labelCounts(c) {
     var sel = $('kindSel'); if (!sel) return;
-    Array.prototype.forEach.call(sel.options, function (o) { var k = o.value, inf = KINDS[k] || {}; var n = k ? c[k] : c.all; o.textContent = (k ? (inf.he || k) : 'כל הסוגים') + (n != null ? ' · ' + n : ''); });
+    Array.prototype.forEach.call(sel.options, function (o) { var k = o.value, inf = KINDS[k] || {}; var n = k ? c[k] : c.all; if (filtered() && k !== kind) n = null; o.textContent = (k ? (inf.he || k) : 'כל הסוגים') + (n != null ? ' · ' + n : ''); });
   }
   function renderLegend() {
     $('legend').innerHTML = KIND_ORDER.map(function (k) { var inf = KINDS[k] || {}; return '<div><span class="k ' + k + '">' + esc(inf.he || k) + '</span> ' + esc(inf.desc || '') + '</div>'; }).join('') +
@@ -204,7 +210,9 @@
     counts();
     var shown = items.filter(match).slice(0, 800);
     var costSum = 0; items.forEach(function (it) { if (match(it)) costSum += Number(it.cost) || 0; });
-    $('cnt').textContent = shown.length + ' מתוך ' + items.length + ' רשומות ב-' + (days === 2 ? '48 השעות' : days + ' הימים') + ' האחרונות' + (costSum ? ' · עלות ישירה ₪' + costSum.toFixed(2) : '') + (paused ? ' · מוקפא' : '');
+    var rng = (days === 2 ? '48 השעות' : days + ' הימים') + ' האחרונות';
+    $('cnt').textContent = (filtered() ? items.length + ' רשומות מתאימות ב-' + rng + (shown.length < items.length ? ' (מוצגות ' + shown.length + ')' : '') : shown.length + ' מתוך ' + items.length + ' רשומות ב-' + rng) +
+      (cut ? ' · החיפוש נעצר ב-' + cut + ', אפשר לצמצם טווח או סוג' : '') + (costSum ? ' · עלות ישירה ₪' + costSum.toFixed(2) : '') + (paused ? ' · מוקפא' : '');
     if (!shown.length) { $('list').innerHTML = '<div class="empty">אין מה להציג עם הסינון הזה.</div>'; return; }
     var lastDay = '';
     $('list').innerHTML = shown.map(function (it) {
@@ -228,8 +236,10 @@
   }
   function load(full) {
     if (paused && !full) return Promise.resolve();
-    return api('stream', full ? { days: days, limit: days > 7 ? 5000 : 2000 } : { days: 1, limit: 300, since: lastTs }).then(function (j) {
-      if (!j || !j.ok) return;
+    var my = seq;
+    return api('stream', Object.assign(full ? { days: days, limit: days > 7 ? 5000 : 2000 } : { days: 1, limit: 300, since: lastTs }, serverFilter())).then(function (j) {
+      if (!j || !j.ok || my !== seq) return;
+      if (full) cut = j.truncated ? (j.oldest_scanned ? new Date(j.oldest_scanned).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'מגבלת קריאה') : null;
       if (j.kinds) { KINDS = j.kinds; if (!$('chips').children.length) { renderChips(); renderLegend(); } }
       var fresh = {};
       (j.items || []).forEach(function (it) { if (!byId[it.id]) { byId[it.id] = it; items.push(it); if (!full) fresh[it.id] = 1; } if (it.ts > lastTs) lastTs = it.ts; });
@@ -247,10 +257,10 @@
     $('bar').querySelectorAll('.chip[data-k]').forEach(function (c) { c.classList.toggle('on', c.dataset.k === kind); });
     render();
   });
-  $('q').addEventListener('input', function () { q = $('q').value.trim().toLowerCase(); render(); });
-  $('kindSel').addEventListener('change', function () { kind = $('kindSel').value || ''; render(); });
+  $('q').addEventListener('input', function () { q = $('q').value.trim().toLowerCase(); render(); clearTimeout(qTimer); qTimer = setTimeout(reload, 450); });
+  $('kindSel').addEventListener('change', function () { kind = $('kindSel').value || ''; reload(); });
   if (/[?&]embed=1/.test(location.search)) document.documentElement.classList.add('embed');
-  $('days').addEventListener('change', function () { days = +$('days').value; items = []; byId = {}; lastTs = 0; $('list').innerHTML = '<div class="empty">טוען…</div>'; load(true); });
+  $('days').addEventListener('change', function () { days = +$('days').value; reload(); });
   $('pause').addEventListener('click', function () { paused = !paused; $('pause').classList.toggle('on', paused); $('pause').textContent = paused ? 'המשך' : 'הקפאה'; $('liveTxt').textContent = paused ? 'מוקפא' : 'מתעדכן כל 5 שנ׳'; render(); });
   $('legendBtn').addEventListener('click', function () { $('legend').classList.toggle('on'); });
   /* export: the same filter, server-side, verified, as a CSV download */
@@ -265,14 +275,14 @@
     var cp = e.target.closest('[data-copy]');
     if (cp) { try { navigator.clipboard.writeText(cp.dataset.copy); } catch (x) {} if (window.IshurUX && IshurUX.toast) IshurUX.toast('המזהה הועתק'); e.stopPropagation(); return; }
     var tg = e.target.closest('.tag');
-    if (tg) { pin = { type: tg.dataset.pin, v: tg.dataset.v }; $('pin').innerHTML = '<button class="chip x" id="unpin">✕ ' + esc(pin.type === 'phone' ? pin.v.replace(/^972/, '0') : pin.v.slice(0, 8)) + '</button>'; render(); return; }
+    if (tg && tg.dataset.pin) { pin = { type: tg.dataset.pin, v: tg.dataset.v }; $('pin').innerHTML = '<button class="chip x" id="unpin">✕ ' + esc(pin.type === 'phone' ? pin.v.replace(/^972/, '0') : pin.v.slice(0, 8)) + '</button>'; reload(); return; }
     var rl = e.target.closest('[data-recload]');
     if (rl) { rl.disabled = true; rl.textContent = 'טוען…'; recLoad(rl.dataset.recload).then(function () { render(); }); return; }
     if (e.target.closest('audio') || e.target.closest('a')) return;
     var row = e.target.closest('.row'); if (!row) return;
     openIds[row.dataset.id] = !openIds[row.dataset.id]; render();
   });
-  $('pin').addEventListener('click', function () { pin = null; $('pin').innerHTML = ''; render(); });
+  $('pin').addEventListener('click', function () { pin = null; $('pin').innerHTML = ''; reload(); });
   $('go').addEventListener('click', function () { adminKey = $('key').value.trim(); try { localStorage.setItem('ishur_calls_key', adminKey); } catch (e) {} $('gate').hidden = true; load(true); });
   document.addEventListener('visibilitychange', function () { if (!document.hidden) load(false); });
   /* deep links: live.html?t=<token> or ?phone=972… open pinned */

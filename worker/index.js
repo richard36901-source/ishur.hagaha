@@ -51,6 +51,7 @@ import { slackQuietHours, slackSend, flushSlackQueue, slackPost, slackResolve, a
 import { slackDigest } from './slack-gate.js';   /* 04/11 the 09:00 morning digest (registry: slack_digest) */
 import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex, memOver, memCount, makeWriterBody, guestNameKey } from './lib.js';
 import { authGate, handleAuth, isSessionToken, readSession } from './auth.js';
+import { quietRead, teamActionAfter } from './team-log.js';
 import { alertDateSet, hostessReminders, arrivalOf } from './hostess-alerts.js';
 import { SWR_ROUTES, swrServe } from './swr.js';
 import { handleCallers } from './callers.js';
@@ -11699,7 +11700,12 @@ const WORKER = {
      no content-type guessing (an uploaded file is never run as a page), and no full URL (tokens live in URLs)
      handed to other sites. A header a route already set is left as it is. */
   /* 16/11 login + users (auth.js): authGate is the one place a user session is accepted (and, only when KV cfg:auth_enforce = 'on', where a bare shared key from a browser is refused). No session and switch off = the same request, untouched. */
-  async fetch(request, env, ctx) { installStagingGuard(env); env = wrapEmail(env); const g = await authGate(request, env, ctx, { isRead: homeReadOk }); if (g.response) return hardenResponse(g.response); return hardenResponse(await changeWrap(g.request, env, rq => WORKER.fetchMain(rq, env, ctx))); },
+  async fetch(request, env, ctx) { installStagingGuard(env); env = wrapEmail(env); const g = await authGate(request, env, ctx, { isRead: (p, m, b) => homeReadOk(p, m, b) || quietRead(p, b) }); if (g.response) return hardenResponse(g.response);
+    /* 25/11 team-log.js: a signed-in user's successful change → one line in words on the users page */
+    const tq = g.user && g.request.method === 'POST' ? g.request.clone() : null;
+    const res = await changeWrap(g.request, env, rq => WORKER.fetchMain(rq, env, ctx));
+    if (tq && res && res.ok) { const job = teamActionAfter(env, { path: new URL(g.request.url).pathname, reqClone: tq, resClone: res.clone(), user: g.user, changeRoutes: CHANGE_ROUTES }).catch(() => {}); if (ctx && ctx.waitUntil) ctx.waitUntil(job); }
+    return hardenResponse(res); },
   async fetchMain(request, env, ctx) {
     const origin = request.headers.get('Origin') || '';
     const url = new URL(request.url);
@@ -11793,7 +11799,7 @@ const WORKER = {
           }
           /* 01/11: the board polls hold/extra state every few seconds; a READ (no 'on') is not an action and was flooding the journal */
           const readOnlyFlag = url.pathname === '/api/event-flag' && peek && typeof peek.on !== 'boolean';
-          if (peek && peek.admin_key && !readOnlyFlag && isAdmin(env, peek.admin_key)) {
+          if (peek && peek.admin_key && !readOnlyFlag && !quietRead(url.pathname, peek) && isAdmin(env, peek.admin_key)) {
             const ua = String(request.headers.get('User-Agent') || '');
             const who = /curl|python|node/i.test(ua) ? 'Claude' : 'דפדפן';
             const keys = Object.keys(peek).filter(k => !/admin_key|sig|nonce|stamp_ts|app/.test(k));
