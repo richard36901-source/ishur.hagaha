@@ -54,6 +54,7 @@ import { authGate, handleAuth, isSessionToken, readSession } from './auth.js';
 import { alertDateSet, hostessReminders, arrivalOf } from './hostess-alerts.js';
 import { SWR_ROUTES, swrServe } from './swr.js';
 import { handleCallers } from './callers.js';
+import { handleTeam } from './teamissues.js';   /* 25/11 team issues panel + roles (teamissues.js, roles.js) */
 import { inboundExtras } from './wa-extras.js';
 import { STYLES as INV_STYLES, normStyle, OWN_TEMPLATE, styledTemplate, eventStyle, refreshStatus as styleStatus, submitAll as styleSubmit, forgetStyle, approvedMap, tmplName as styleTmplName } from './invite-styles.js';
 import { handleLeadsMonday } from './leads-monday.js';
@@ -8138,7 +8139,7 @@ async function runBackup(env) {
    hostesses. One file a day in R2: marker prefixes by name only (the value is "1"),
    small valued prefixes with their values (capped, to stay inside the subrequest budget). */
 const STATE_MARKS = ['wsent:', 'wdead:', 'wfail:', 'wave:', 'wlate:', 'optout:'];
-const STATE_VALUES = ['partner:', 'ref:', 'staff:', 'hold:', 'customtmpl:', 'extrasend:', 'waveprio:', 'hostessbook:', 'auto:off:', 'sentdate:'];
+const STATE_VALUES = ['partner:', 'ref:', 'staff:', 'hold:', 'customtmpl:', 'extrasend:', 'waveprio:', 'hostessbook:', 'auto:off:', 'sentdate:', 'staffrole:', 'teamissue'];   /* 25/11 team roles + team issues (and teamissueidx) */
 async function runStateBackup(env) {
   if (!env.RATE || !env.AUDIT_R2) return { ok: false, error: 'not-configured' };
   try {
@@ -11488,8 +11489,15 @@ async function changeWrap(request, env, inner) {
 const CFG_ROUTES = new Set(['/api/gift-blast', '/api/subevent-send', '/api/subevent-remind', '/api/sms-blast', '/api/resend', '/api/wave-retry', '/api/daily-run', '/api/call-round']);
 /* 12/11 /api/admin/home: what may ride in a batch — the admin READ routes (the same list assets/lite.js caches)
    and GET /api/ops/*; never a body with an action-like field, never the batch route itself. */
-const HOME_READS = new Set(['status', 'leads', 'wave-audit', 'cap-status', 'call-board', 'evlog', 'ads-health', 'feedback-list', 'client-flags', 'calendar', 'send-board', 'ops-stats', 'traffic', 'campaign-stats', 'cost-log', 'shir-calls', 'template-stats', 'calls-log', 'inbox', 'board-event', 'template-text', 'msg-stats', 'brain-toggle', 'pause', 'fixedcost', 'addon-quote', 'leads-board', 'floor', 'referrals', 'partner/list', 'design-list', 'staff', 'event-flag']);
+const HOME_READS = new Set(['team', 'status', 'leads', 'wave-audit', 'cap-status', 'call-board', 'evlog', 'ads-health', 'feedback-list', 'client-flags', 'calendar', 'send-board', 'ops-stats', 'traffic', 'campaign-stats', 'cost-log', 'shir-calls', 'template-stats', 'calls-log', 'inbox', 'board-event', 'template-text', 'msg-stats', 'brain-toggle', 'pause', 'fixedcost', 'addon-quote', 'leads-board', 'floor', 'referrals', 'partner/list', 'design-list', 'staff', 'event-flag']);
 const HOME_MUTATING = ['action', 'act', 'mode', 'set', 'on', 'date', 'order', 'text', 'assignments', 'payload', 'blocked', 'paused', 'update', 'delete', 'send', 'template', 'to', 'enabled', 'confirm'];
+/* 25/11 the team panel's event picker: name + date + the first 8 of the token (never the full token, it opens the board) */
+async function teamEvents(env) {
+  const raw = await readSnapshot(env, 'ops').catch(() => null); if (!raw) return [];
+  const iso = v => { const m = String(v || '').match(/(\d{1,2})[./](\d{1,2})[./](\d{2,4})/); if (m) return (m[3].length === 2 ? '20' + m[3] : m[3]) + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0'); return (String(v || '').match(/\d{4}-\d{2}-\d{2}/) || [''])[0]; };
+  return (buildBizStats(raw).events || []).filter(e => e.token && (e.name || e.client)).map(e => ({ t8: String(e.token).slice(0, 8), name: e.name || e.client, date: iso(e.date) || String(e.date || '') }))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+}
 export function homeReadOk(p, m, body) {
   const path = String(p || '').split('?')[0];
   if (!/^\/api\/[a-zA-Z0-9/_-]+$/.test(path) || path === '/api/admin/home') return false;
@@ -15099,6 +15107,7 @@ const WORKER = {
         styles: Object.entries(INV_STYLES).map(([k2, v2]) => ({ key: k2, he: v2.he, note: v2.note, body: v2.body || '', ready: !OWN_TEMPLATE(k2) || (!!ok2[styleTmplName(k2, 'text')] && !!ok2[styleTmplName(k2, 'img')]) })) }, origin); }
     if (url.pathname === '/api/leads-monday' && request.method === 'POST') return handleLeadsMonday(request, env, origin, { okJson, deny, isAdmin, gql: mondayGql, findLead: mondayFindLead });
     if (url.pathname === '/api/callers' && request.method === 'POST') return handleCallers(request, env, origin, { okJson, deny, isAdmin, normPhone, kvPrefix });
+    if (url.pathname === '/api/team' && request.method === 'POST') return handleTeam(request, env, origin, { okJson, deny, isAdmin, slackSend, listEvents: teamEvents });
     if (url.pathname === '/api/hostess-pay' && request.method === 'POST') return handleHostessPay(request, env, origin, { okJson, deny, isAdmin, kvPrefix });
     if (url.pathname === '/api/hostess-receipt' && request.method === 'POST') return handleReceiptUpload(request, env, origin, { okJson, deny, adminKeyOk });
     if (url.pathname === '/api/hostess-receipt' && request.method === 'GET') return handleReceiptGet(env, url);
