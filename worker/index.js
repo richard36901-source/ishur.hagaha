@@ -3888,7 +3888,7 @@ async function handleWaWebhook(request, env, url) {
                 const allHeld = ids.length <= 1 || (await Promise.all(ids.map(id => env.RATE.get('wacap:' + id).catch(() => null)))).every(Boolean);
                 if (allHeld && !await env.RATE.get('wacap:guests')) {
                   await env.RATE.put('wacap:guests', new Date().toISOString(), { expirationTtl: 24 * 3600 });
-                  await alert(env, 'תקרת וואטסאפ', (ids.length > 1 ? 'כל המספרים של שיר הגיעו' : 'המספר של שיר הגיע') + ' לתקרת 250 שיחות ל-24 שעות (' + code + ')', 'השליחות ממתינות אוטומטית ונמשכות ברגע שמטא משחררת. אף אורח לא נספר כניסיון.', { key: 'wacap:guests', sev: 'P1', action: 'לחכות לפתיחת התקרה (המערכת מודיעה כשנפתחה) או לאמת את העסק במטא' });
+                  await alert(env, 'תקרת וואטסאפ', code === '131042' ? 'מטא דוחה הודעות לאורחים: בעיית תשלום בחשבון הוואטסאפ של שיר (131042) — לבדוק אמצעי תשלום ב-WhatsApp Manager' : (ids.length > 1 ? 'כל המספרים של שיר הגיעו' : 'המספר של שיר הגיע') + ' לתקרת 250 שיחות ל-24 שעות (' + code + ')', 'השליחות ממתינות אוטומטית ונמשכות ברגע שמטא משחררת. אף אורח לא נספר כניסיון.', { key: 'wacap:guests', sev: 'P1', action: 'לחכות לפתיחת התקרה (המערכת מודיעה כשנפתחה) או לאמת את העסק במטא' });
                 } else if (!allHeld) {
                   await env.RATE.delete(m.gk).catch(() => {}); await reopenEdMark(env, m);   /* resend via another number next tick */
                   /* once per number per hour, not once per failed message (02/11: hundreds) */
@@ -6217,6 +6217,26 @@ function heDate(iso) {
    opted out, and (for reminders) when they already answered. */
 /* true when Meta's health check no longer reports the business-initiated
    conversation cap on the guests number (fail-closed: unreadable = still capped) */
+/* A guest number that Meta refused (cap or payment) is held; the hold drops when its backoff is over and Meta's health
+   check says AVAILABLE. 25/11: this used to live only inside sendWave, and a held number makes the budget 0, so the
+   pacer cut every batch to nothing BEFORE sendWave ran - the check never happened and a refusal of a few minutes held
+   every guest message for the full 24 hours (a brit at 14:00 got its event-day message at 16:34). It now runs at the
+   top of every budget calculation as well. Returns how many holds were lifted. */
+async function liftGuestHolds(env) {
+  if (!env.RATE || !env.WA_TOKEN_GUESTS) return 0;
+  let lifted = 0;
+  for (const id of guestPhoneIds(env)) {
+    if (!(await env.RATE.get('wacap:' + id).catch(() => null))) continue;
+    const until = Number(await env.RATE.get('wacapuntil:' + id).catch(() => 0)) || 0;
+    if (until > Date.now()) continue;   /* 02/11: backoff first, health second */
+    const r = await fetch(`https://graph.facebook.com/v21.0/${id}?fields=health_status`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } }).catch(() => null);
+    const j = r ? await r.json().catch(() => ({})) : {};
+    if (j.health_status && String(j.health_status.can_send_message || '') === 'AVAILABLE') { await env.RATE.delete('wacap:' + id).catch(() => {}); lifted++; }
+  }
+  if (lifted) await logEvent(env, { area: 'שליחה', action: 'החזקת מספר אורחים שוחררה (מטא: AVAILABLE)', ok: true, detail: lifted + ' מספרים' }).catch(() => {});
+  return lifted;
+}
+
 async function guestsCapCleared(env) {
   if (!env.WA_PHONE_ID_GUESTS || !env.WA_TOKEN_GUESTS) return false;
   const r = await fetch(`https://graph.facebook.com/v21.0/${env.WA_PHONE_ID_GUESTS}?fields=health_status`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } }).catch(() => null);
@@ -6269,15 +6289,7 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
   /* 18/10: once the number hit Meta's 24h conversation cap, every send until
      the window rolls is a guaranteed failure — hold the wave and re-ask Meta's
      health endpoint each tick; the marker drops the moment it says AVAILABLE. */
-  if (!dry && env.RATE) for (const id of guestPhoneIds(env)) {   /* per-number holds lift on their own after Meta's window rolls */
-    if (await env.RATE.get('wacap:' + id).catch(() => null)) {
-      const until = Number(await env.RATE.get('wacapuntil:' + id).catch(() => 0)) || 0;
-      if (until > Date.now()) continue;   /* 02/11: backoff first, health second */
-      const r = await fetch(`https://graph.facebook.com/v21.0/${id}?fields=health_status`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } }).catch(() => null);
-      const j = r ? await r.json().catch(() => ({})) : {};
-      if (j.health_status && String(j.health_status.can_send_message || '') === 'AVAILABLE') await env.RATE.delete('wacap:' + id).catch(() => {});
-    }
-  }
+  if (!dry) await liftGuestHolds(env);
   if (!dry && env.RATE && await env.RATE.get('wacap:guests')) {
     const free = await guestsCapCleared(env);
     if (!free) return { wave: wave.key, sent: 0, skippedOptout: 0, skippedAnswered: 0, skippedDone: 0, failed: 0, truncated: true, held: true, capped: true };
@@ -6499,6 +6511,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
      waves stop at budget.left = 0 and keep their cursor, so the rest is
      simply the next tick's queue. */
   if (!dry && env.RATE) {
+    await liftGuestHolds(env).catch(() => 0);   /* 25/11: before the budget is read, or a held number can never be released */
     const cap = await guestCapacity(env).catch(() => null);
     if (cap && cap.numbers.length) {
       const wanted = budget ? budget.left : cap.remaining;
