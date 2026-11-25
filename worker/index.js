@@ -78,7 +78,7 @@ import * as ab from './ab.js';
 import { handleOutreach, handleOutreachTrack } from './outreach.js';   /* 02/11 outreach routes (B2B venues) */
 /* 02/11 noa-chase: Monday "לא ענה" → Noa's cadence queue, post-call QA, memory. All behind NOA_CHASE. */
 import { noaChaseTick, noaChaseCallEnded, memoryBlock, getMemory } from './noa.js';
-import { reviewCall, applyReview, callFromRetell } from './callqa.js';
+import { reviewCall, applyReview, callFromRetell, transcriptAnswer } from './callqa.js';
 import { handleApp, answerHook as appAnswerHook, morningRun as appMorningRun } from './app-push.js';
 import { venueFor, parseCommit, writeCommit } from './venue-commit.js';
 import { packageFor } from './package.js';
@@ -2967,10 +2967,36 @@ async function processRetellEvent(env, body) {
        and writes back to monday. Nothing here may break the webhook. */
     /* 08/11 (Richard): the reviewer runs on EVERY Shir guest call (CALL_QA, default on) — it was tied to
        NOA_CHASE (off by decision), so answers Shir heard but never recorded stayed off the board. */
+    /* 25/11 Richard (אביב: three guests rang back, confirmed, heard "רשמתי" and were dialled again): the answer is read
+       from the words when Shir said she recorded it but never called the tool. Outbound and callback calls alike. */
+    let netWrote = false;
+    try {
+      const guestCall = meta0.kind === 'guest' || !meta0.kind || ((meta0.kind === 'inbound' || meta0.kind === 'callback') && (meta0.caller_kind === 'guest' || !meta0.caller_kind));
+      const toolDone0 = !!(action.call_id && env.RATE && await env.RATE.get('shirtool:' + action.call_id).catch(() => null));
+      const hasAns0 = !!(action.result && /^(מגיע|לא מגיע|מתלבט)$/.test(String(action.result.rsvp || '')));
+      if (guestCall && meta0.guest_id && String(env.CALL_QA || 'on') !== 'off' && !toolDone0 && !hasAns0 && !/^not-connected|^voicemail/.test(String(action.why || ''))) {
+        const ta = transcriptAnswer(c0.transcript, c0.start_timestamp && c0.end_timestamp ? (c0.end_timestamp - c0.start_timestamp) / 1000 : NaN);
+        if (ta) {
+          const inb0 = String(c0.direction || '').includes('inbound') || meta0.kind === 'inbound';
+          const base0 = Number(meta0.tries) || 0, cap0 = Number(meta0.max_tries) || 3;
+          const res0 = callOutcome(ta.rsvp, inb0 ? base0 : base0 + 1, cap0);
+          /* a headcount far above the invitation is not written by the net at all: it stays with the manual review */
+          const held0 = ta.rsvp === 'מגיע' && safeCallParty(ta.party, invitedFromCall(body)).held;
+          if (res0 && !held0) {
+            netWrote = !!(await writeCallResult(env, meta0.guest_id, res0, ta.rsvp === 'מגיע' ? await guardCallParty(env, body, meta0.guest_id, ta.party, 'נקרא מהתמליל') : undefined).catch(() => false));
+            if (netWrote && action.call_id && env.RATE) await env.RATE.put('shirtool:' + action.call_id, 'net', { expirationTtl: 3 * 86400 }).catch(() => {});
+            stream(env, { kind: 'call', area: 'בקרה', action: 'נרשם מהתמליל (שיר לא הפעילה את הכלי)', ok: netWrote, review: !netWrote, token: meta0.token || '',
+              detail: `${gName0 || meta0.guest_id}${evName0 ? ' · ' + evName0 : ''} · ${ta.rsvp}${ta.party ? ' · ' + ta.party : ''}${inb0 ? ' · שיחה נכנסת' : ''}`,
+              data: { call_id: String(c0.call_id || ''), guest_id: meta0.guest_id, rsvp: ta.rsvp, party: ta.party || null, inbound: inb0 } }).catch(() => {});
+            await slackPost(env, `🧾 *נרשם מהתמליל* · ${gName0 || meta0.guest_id}${evName0 ? ' · ' + evName0 : ''}: ${ta.rsvp}${ta.party ? ' · ' + ta.party : ''} (שיר אמרה שרשמה ולא הפעילה את הכלי)`, { quiet: true, oneoff: true }).catch(() => {});
+          }
+        }
+      }
+    } catch (e) { await logEvent(env, { area: 'בקרה', action: 'קריאת תשובה מהתמליל נפלה', ok: false, ref: String(action.call_id || '').slice(-12), detail: String(e && e.message).slice(0, 160) }).catch(() => {}); }
     if ((String(env.CALL_QA || 'on') !== 'off' && (meta0.kind === 'guest' || !meta0.kind) || String(env.NOA_CHASE || '') === 'on' && meta0.kind === 'lead') && !String(c0.direction || '').includes('inbound') && action.kind !== 'skip') {   /* 24/11: a call that never connected is not reviewed */
       try {
         const qa = callFromRetell(c0, action, { event: evName0 });
-        qa.tool_recorded = !!(action.call_id && env.RATE && await env.RATE.get('shirtool:' + action.call_id));
+        qa.tool_recorded = netWrote || !!(action.call_id && env.RATE && await env.RATE.get('shirtool:' + action.call_id));
         const review = await reviewCall(env, qa);
         const qout = await applyReview(env, qa, review, { writeCallResult: async (gid, res, party) => writeCallResult(env, gid, res, await guardCallParty(env, c0, gid, party, 'בקרת השיחות')) });
         /* 08/11 (Richard): the daily / weekly QA digest counts what the reviewer did */
@@ -13080,6 +13106,29 @@ const WORKER = {
         if (okw && data.length) await env.RATE.delete('snapcache').catch(() => {});
         await logEvent(env, { area: 'שיחות', action: 'תשובה שנרשמה בטעות בוטלה', ok: !!okw, review: !okw, token: tok, detail: `${done.length} אורחים · ${String(b.note || '').slice(0, 100)}` }).catch(() => {});
         return okJson({ ok: !!okw, reopened: done, skipped }, origin);
+      }
+      /* 25/11: answers guests gave in a call that were never written (Shir said "רשמתי" without the tool) are put in
+         afterwards. {action:'record', items:[{guest_id, rsvp:'מגיע'|'לא מגיע', party}]}: only a guest of this event who
+         has no final answer now is written; the headcount passes the same limit as a live call. */
+      if (b.action === 'record') {
+        const items = (Array.isArray(b.items) ? b.items : []).slice(0, 300).map(x => ({ id: String((x && x.guest_id) || '').trim(), rsvp: String((x && x.rsvp) || '').trim(), party: Math.max(0, Math.min(30, parseInt(x && x.party, 10) || 0)) })).filter(x => x.id && (x.rsvp === 'מגיע' || x.rsvp === 'לא מגיע'));
+        if (!items.length) return deny(400, 'no-items', origin);
+        const raw = await readSnapshot(env, 'write').catch(() => null);
+        const gRows = (raw && raw.guests && raw.guests.values) || [];
+        if (!gRows.length) return deny(503, snapMiss(env), origin);
+        const done = [], skipped = [];
+        for (const it of items) {
+          const g = gRows.find(r => String((r || [])[2] || '').trim() === it.id && String(r[28] || '').trim() === tok);
+          const cur = g ? String(g[15] || '').trim() : '';
+          if (!g || cur === 'מגיע' || cur === 'לא מגיע') { skipped.push(it.id); continue; }
+          const lim = safeCallParty(it.party, Number(String(g[5] || '').trim()) || 0);
+          if (it.rsvp === 'מגיע' && (!it.party || lim.held)) { skipped.push(it.id); continue; }
+          const res = callOutcome(it.rsvp, Number(String(g[29] || '').trim()) || 0, 3);
+          const okw = await writeCallResult(env, it.id, res, it.rsvp === 'מגיע' ? await guardCallParty(env, { call: { retell_llm_dynamic_variables: { party_size_invited: String(g[5] || '') } } }, it.id, it.party, 'השלמה מתמליל') : undefined).catch(() => false);
+          (okw ? done : skipped).push(it.id);
+        }
+        await logEvent(env, { area: 'שיחות', action: 'תשובות משיחות שלא נרשמו הושלמו', ok: true, token: tok, detail: `${done.length} נרשמו · ${skipped.length} דולגו · ${String(b.note || '').slice(0, 100)}` }).catch(() => {});
+        return okJson({ ok: true, recorded: done, skipped }, origin);
       }
       /* 24/11: one named guest, one call on a set day, whatever they answered (drainCallRounds opens it) */
       if (b.action === 'one') {

@@ -71,6 +71,44 @@ export function recordedOf(call) {
   return '';
 }
 
+/* ── the safety net (25/11) ─────────────────────────────────────────────────
+   Shir sometimes says "רשמתי אחד" without calling the tool that writes it (seen on the callback agent: a guest rang
+   back, said "כן" and "אחד", heard "רשמתי", and was dialled again the next day because nothing was written).
+   This reads the answer from the words themselves, with no model: the agent asked, the guest said yes, and the count
+   is one clear number (or the guest said a bare "לא" in a call long enough to have heard the question).
+   Anything less clear returns null and stays with the manual review. → { rsvp, party? } | null */
+const NUM_VAL = { 'אחד': 1, 'אחת': 1, 'שניים': 2, 'שתיים': 2, 'שני': 2, 'שתי': 2, 'שלוש': 3, 'שלושה': 3, 'ארבע': 4, 'ארבעה': 4, 'חמש': 5, 'חמישה': 5, 'שש': 6, 'שישה': 6, 'שבע': 7, 'שבעה': 7, 'שמונה': 8, 'תשע': 9, 'תשעה': 9, 'עשר': 10, 'עשרה': 10 };
+const numOf = w => (/^\d{1,2}$/.test(w) ? Number(w) : NUM_VAL[w] || 0);
+const YES = new Set(['כן', 'מגיע', 'מגיעה', 'מגיעים', 'מגיעות', 'נגיע', 'אגיע', 'בטח', 'ברור']);
+const NOT_SURE = new Set(['לא', 'אולי', 'עדיין', 'תלוי', 'נראה', 'אעדכן', 'נעדכן', 'יודע', 'יודעת', 'יודעים', 'בטוח', 'בטוחה', 'בטוחים', 'או']);
+export function transcriptAnswer(transcript, durationS) {
+  const turns = [];
+  for (const l of String(transcript || '').split('\n')) {
+    const m = /^\s*(Agent|User):\s*(.*)$/.exec(l); if (!m) continue;
+    const text = m[2].replace(/\([^)]*\)/g, ' ').trim(); if (!text) continue;
+    const last = turns[turns.length - 1];
+    if (last && last.who === m[1]) last.text += ' ' + text; else turns.push({ who: m[1], text });
+  }
+  const tok = t => t.split(/\s+/).map(w => w.replace(/[^א-ת\d"']/g, '')).filter(Boolean);
+  const qi = turns.findIndex(t => t.who === 'Agent' && /מגיע|תגיע/.test(t.text));
+  if (qi < 0) return null;
+  const users = turns.map((t, i) => ({ ...t, i })).filter(t => t.who === 'User' && t.i > qi);
+  if (!users.length) return null;
+  const all = users.flatMap(u => tok(u.text));
+  const first = tok(users[0].text);
+  /* a bare "לא", after the question, in a call long enough to have heard it */
+  if (answerTokens(all).length && answerTokens(all).every(w => w === 'לא')) {
+    return (askedBeforeNo(transcript) && Number.isFinite(Number(durationS)) && Number(durationS) >= NO_MIN_S) ? { rsvp: 'לא מגיע' } : null;
+  }
+  if (!first.some(w => YES.has(w)) || all.some(w => NOT_SURE.has(w))) return null;
+  const nums = all.map(numOf).filter(Boolean);
+  if (nums.length !== 1 || nums[0] < 1 || nums[0] > 30) return null;
+  /* when Shir read a number back ("רשמתי אחד"), it has to be the same one */
+  const back = turns.filter(t => t.who === 'Agent' && /רשמתי/.test(t.text)).flatMap(t => tok(t.text.slice(t.text.indexOf('רשמתי')))).map(numOf).filter(Boolean);
+  if (back.length && back[0] !== nums[0]) return null;
+  return { rsvp: 'מגיע', party: nums[0] };
+}
+
 /* did the agent get to the attendance question before the guest's first "לא"? */
 export function askedBeforeNo(transcript) {
   let agent = '';
