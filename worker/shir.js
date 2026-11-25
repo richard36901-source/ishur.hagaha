@@ -377,7 +377,9 @@ export function buildCallPayload(guest, fromNumber, opts = {}) {
           : {
             guest_name: String(guest.name || ''),
             /* both hosts, so the other side's guests recognise it too (Richard 12/10) */
-            host_name: String(guest.event_name || guest.client_name || ''),
+            /* 25/11 Richard (שוהם ושי: Shir read "שי" wrongly): an event can carry the hosts' names as they should be
+               SPOKEN (callname:<token>, e.g. with vowel marks). Only what Shir says changes; event_name stays as written. */
+            host_name: String(hostExtra(guest.host_spoken) || guest.event_name || guest.client_name || ''),
             occasion: String(guest.occasion || 'אירוע'),
             event_name: String(guest.event_name || ''),
             event_date_spoken: spokenDate(guest.event_date),

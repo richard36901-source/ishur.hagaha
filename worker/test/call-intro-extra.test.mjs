@@ -54,3 +54,11 @@ test('an addition with a start day stays out of real calls until that day; a reh
   const src = fs.readFileSync(new URL('../index.js', import.meta.url), 'utf8');
   assert.ok(src.includes("introFor(await env.RATE.get('callintro:' + g.token).catch(() => null), day)"));
 });
+
+test('25/11 an event can say how its hosts\' names are spoken; the written name stays', () => {
+  const p = buildCallPayload({ ...G, event_name: 'שוהם ושי', host_spoken: 'שוהם ושַׁי' }, '+97200');
+  const v = p.retell_llm_dynamic_variables;
+  assert.equal(v.host_name, 'שוהם ושַׁי'); assert.equal(v.event_name, 'שוהם ושי');
+  assert.match(v.opening, /בשם שוהם ושַׁי — מגיעים/);
+  assert.equal(buildCallPayload({ ...G, event_name: 'שוהם ושי' }, '+97200').retell_llm_dynamic_variables.host_name, 'שוהם ושי');
+});

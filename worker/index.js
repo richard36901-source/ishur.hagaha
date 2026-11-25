@@ -3183,6 +3183,8 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
     /* 24/11: the event's own addition to the first sentence (callintro:<token>, e.g. the parents' names) */
     if (!introCache.has(g.token)) introCache.set(g.token, introFor(await env.RATE.get('callintro:' + g.token).catch(() => null), day));
     g.host_extra = introCache.get(g.token);
+    if (!introCache.has('n:' + g.token)) introCache.set('n:' + g.token, (await env.RATE.get('callname:' + g.token).catch(() => null)) || '');
+    g.host_spoken = introCache.get('n:' + g.token);   /* 25/11: how the hosts' names are said */
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
@@ -8975,7 +8977,7 @@ async function handleVoiceTools(request, env, origin) {
       if (!demoEv) return deny(404, 'unknown-token', origin);
     }
     /* 24/11: to_team 'shalev' rings the team's own phone with the event's details, so a change to an event's call is heard before guests hear it */
-    let teamTo = body.to_team === 'shalev' ? normPhone(env.SHALEV_PHONE || '') : '';
+    let teamTo = body.to_team === 'shalev' ? normPhone(env.SHALEV_PHONE || '') : body.to_team === 'richard' ? normPhone(env.OWNER_PHONE || OWNER_PHONE) : '';   /* 25/11: Richard asked to hear a call himself */
     /* no secret set: the team's own list (staff:<phone>, the back-office sign-in) knows her number */
     if (body.to_team === 'shalev' && !teamTo && env.RATE) {
       const lst = await env.RATE.list({ prefix: 'staff:', limit: 100 }).catch(() => null);
@@ -9000,7 +9002,9 @@ async function handleVoiceTools(request, env, origin) {
       Object.assign(g, { name: String(body.name || c(2).split(/\s+/)[0] || 'אורח יקר'), client_name: c(34) || c(2) || g.client_name, occasion: c(5) || g.occasion, event_name: c(34) || c(2) || evName || g.event_name,
         event_date: /^\d{4}-\d{2}-\d{2}$/.test(dDay) ? dDay : g.event_date, reception_time: c(36) || g.reception_time, venue_name: c(4) || c(38) || g.venue_name, venue_city: c(37) || g.venue_city });
     }
-    if (demoEv && env.RATE) g.host_extra = introFor(await env.RATE.get('callintro:' + String(demoEv[1] || '').trim()).catch(() => null));   /* a rehearsal hears it even before its start day */
+    if (demoEv && env.RATE) g.host_extra = introFor(await env.RATE.get('callintro:' + String(demoEv[1] || '').trim()).catch(() => null));
+    if (demoEv && env.RATE) g.host_spoken = (await env.RATE.get('callname:' + String(demoEv[1] || '').trim()).catch(() => null)) || '';
+    if (body.host_spoken) g.host_spoken = String(body.host_spoken).slice(0, 80);   /* a rehearsal can try a spelling before it is saved */   /* a rehearsal hears it even before its start day */
     const payload = buildCallPayload(g, env.SHIR_FROM);
     payload.metadata.test = 'voice-tools-shir';
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', { method: 'POST', headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => null);
@@ -15370,7 +15374,9 @@ const WORKER = {
         sentWaves.noCalls = !!(await env.RATE.get('nocalls:' + token).catch(() => null));   /* 19/11: this event asked for no phone calls */
         sentWaves.todaDate = await env.RATE.get('todadate:' + token).catch(() => null);
         sentWaves.extraPaid = !!(await env.RATE.get('extrasend:' + token));
-        sentWaves.callsAddon = !!(await env.RATE.get('callsaddon:' + token));
+        { const ca = await env.RATE.get('callsaddon:' + token); sentWaves.callsAddon = !!ca;
+          /* 25/11: the day the calls add-on was given, so the board can show its round as a row of its own */
+          if (ca) { let at = ca; try { const o = JSON.parse(ca); if (o && o.at) at = o.at; } catch {} const t = Date.parse(String(at)); if (t) sentWaves.callsAddonAt = ilDate(new Date(t)); } }
         /* did the event-day message go out to anybody */
         try {
           const [a, b2] = await Promise.all([env.RATE.list({ prefix: `s5d:${token}:`, limit: 1 }), env.RATE.list({ prefix: `s5t:${token}:`, limit: 1 })]);

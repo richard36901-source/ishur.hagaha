@@ -135,3 +135,18 @@ test('24/11 a guest who pressed "טעות" (wrong number) does not wait for any 
   assert.equal(marked[1].queued, 1); assert.equal(marked[1].stats.waiting, 1);   /* only C still waits for round 2 */
   assert.equal(marked[2].stats.waiting, 1);
 });
+
+test('25/11 a calls add-on on a plan with its own round shows as a row of its own, with what it did', () => {
+  const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  const evRow = Array(45).fill(''); evRow[1] = 'TOKA'; evRow[6] = day(8); evRow[31] = 'פרמיום'; evRow[39] = day(-13); evRow[40] = day(-3);
+  const G = (id, tries, flag, rsvp, ans) => { const g = Array(35).fill(''); g[1] = 'c'; g[2] = id; g[3] = id; g[4] = '97250123456' + id.slice(-1); g[15] = rsvp || ''; g[21] = flag ? 'נדרשת שיחה' : ''; g[22] = ans || ''; g[28] = 'TOKA'; g[29] = String(tries); return g; };
+  const guests = [G('G1', 1, true), G('G2', 2, false, '', 'לא ענה'), G('G3', 2, false, 'מגיע', 'ענה'), G('G4', 1, false, 'מגיע', 'ענה')];
+  const raw = { events: { values: [Array(45).fill('h'), evRow] }, guests: { values: [Array(35).fill('h'), ...guests] } };
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
+  const withAddon = buildDashboard('TOKA', raw, 0, { callsAddon: true, callsAddonAt: today }).sends.filter(s => /^calls/.test(s.key));
+  assert.deepEqual(withAddon.map(r => r.key), ['calls', 'calls2']);
+  const a = withAddon[1];
+  assert.equal(a.date, today); assert.equal(a.status, 'running'); assert.equal(a.queued, 1);
+  assert.deepEqual({ dialed: a.stats.dialed, answered: a.stats.answered, confirmed: a.stats.confirmed, no_answer: a.stats.no_answer, waiting: a.stats.waiting }, { dialed: 2, answered: 1, confirmed: 1, no_answer: 1, waiting: 1 });
+  assert.deepEqual(buildDashboard('TOKA', raw, 0, {}).sends.filter(s => /^calls/.test(s.key)).map(r => r.key), ['calls'], 'no add-on, no extra row');
+});

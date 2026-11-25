@@ -349,6 +349,19 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
       }
     }
   }
+  /* 25/11 Richard (אלעד: a calls round added from the client card ran, and the board showed nothing): on a plan that
+     has call rounds of its own, the add-on is one more round and gets a row. Its guests are the ones the plan's rounds
+     did not close: tries above the plan's limit = this round already rang them. */
+  if (!sent.noCalls && sent.callsAddon && sent.callsAddonAt && planCap > 0 && !sent.callRound) {
+    const at = String(sent.callsAddonAt).slice(0, 10);
+    const waitA = guests.filter(g => planWaits(g) && g.tries <= planCap).length;
+    const rang = guests.filter(g => g.tries > planCap);
+    const ans = rang.filter(g => /^ענה($| - )/.test(g.call_ans) && (g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided'));
+    const stA = at > todayIso ? 'scheduled' : (waitA && at === todayIso) ? 'running' : (rang.length || at < todayIso) ? 'sent' : 'running';
+    sends.push({ key: 'calls2', label: 'סבב שיחות נוסף (למי שלא ענה ולמתלבטים)', date: at, status: stA, auto: true, queued: stA === 'sent' ? 0 : waitA, addon: true,
+      stats: { dialed: rang.length, answered: ans.length, confirmed: ans.filter(g => g.status === 'confirmed').length, declined: ans.filter(g => g.status === 'declined').length,
+        undecided: ans.filter(g => g.status === 'undecided').length, no_answer: rang.length - ans.length, waiting: stA === 'sent' ? 0 : waitA, later: 0, later_confirmed: 0, later_declined: 0, later_undecided: 0 } });
+  }
   /* Richard 21/10: an extra round booked by hand shows as its own row.
      04/11: on ANY plan - whatever we add, paid or free, the client sees it */
   /* 04/11: a round armed by hand on the same day as the regular round IS
@@ -437,7 +450,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
     if (!t) continue;
     t.answered++; t[g.status]++;
   }
-  for (const x of sends) if (per[x.key] && x.key !== 'event_day' && x.key !== 'day_after' && !/^calls_r\d$/.test(x.key)) x.stats = per[x.key];
+  for (const x of sends) { if (per[x.key] && x.key !== 'event_day' && x.key !== 'day_after' && !/^calls_r\d$/.test(x.key)) if (!x.addon) x.stats = per[x.key]; }
   if (xr) for (const x of sends) if (x.key === 'calls2') x.stats = perX;
   if (ROUNDS) for (const x of sends) { const k = x.key === 'calls' ? 1 : (/^calls_r(\d)$/.exec(x.key) || [])[1]; if (k && perR[k]) { if (x.key === 'calls') x.stats_all = x.stats; x.stats = perR[k]; } }
   /* 24/11: a finished round does not say "עוד לא חויגו": whoever it did not dial moved on to the next round, and the
