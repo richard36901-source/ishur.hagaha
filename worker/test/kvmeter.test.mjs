@@ -72,3 +72,17 @@ test('a day change flushes the old day and starts the new one at zero', async ()
   assert.ok([...RATE.m.keys()].some(k => k.startsWith('kvm:2026-11-24:')));
   assert.equal(st.tot.day, '2026-11-25'); assert.equal(st.tot.get, 0);
 });
+
+test('a cron (force) or a heavy invocation flushes the isolate at once — an isolate evicted right after one heavy run still reports it', async () => {
+  const RATE = kv(); const env = meterEnv({ RATE, KV_METER_LOG: '3' });
+  const f = beginInvocation(env, 'cron */10'); await env.RATE.get('a:1');
+  await endInvocation(env, f, { log: () => {}, force: true });
+  assert.equal([...RATE.m.keys()].filter(k => k.startsWith('kvm:')).length, 1, 'cron: flushed although under the threshold and under FLUSH_MS');
+  const RATE2 = kv(); const env2 = meterEnv({ RATE: RATE2, KV_METER_LOG: '3' });
+  const g = beginInvocation(env2, 'POST /api/heavy'); for (let i = 0; i < 5; i++) await env2.RATE.get('b:' + i);
+  await endInvocation(env2, g, { log: () => {} });
+  const k = [...RATE2.m.keys()].find(x => x.startsWith('kvm:')); assert.ok(k, 'heavy request flushed'); assert.equal(RATE2.md.get(k).g, 5);
+  const h = beginInvocation(env2, 'POST /api/light'); await env2.RATE.get('c:1');
+  const puts = RATE2.n.put; await endInvocation(env2, h, { log: () => {} });
+  assert.equal(RATE2.n.put, puts, 'a light request inside FLUSH_MS writes nothing');
+});

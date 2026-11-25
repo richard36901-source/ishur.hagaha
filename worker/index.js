@@ -11661,7 +11661,7 @@ const WORKER = {
     installStagingGuard(env); env = meterEnv(wrapEmail(env));
     const jobs = []; const meter = beginInvocation(env, 'cron ' + String(event.cron || ''));
     const inner = { waitUntil: p => { const q = Promise.resolve(p).catch(() => {}); jobs.push(q); ctx.waitUntil(q); } };
-    try { return await WORKER.scheduledMain(event, env, inner); } finally { await Promise.allSettled(jobs); await endInvocation(env, meter).catch(() => {}); }
+    try { return await WORKER.scheduledMain(event, env, inner); } finally { await Promise.allSettled(jobs); await endInvocation(env, meter, { force: true }).catch(() => {}); }
   },
   /* the morning run: reports (and, next stage, the guest sending waves) */
   async scheduledMain(event, env, ctx) {

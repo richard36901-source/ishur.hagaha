@@ -80,7 +80,7 @@ export function beginInvocation(env, what) {
 export function topPrefixes(pre, n = 6) {
   return Object.entries(pre || {}).sort((a, b) => b[1] - a[1]).slice(0, n).map(([p, c]) => p + '=' + c).join(' ');
 }
-export async function endInvocation(env, f, { log = console.log, now = Date.now() } = {}) {
+export async function endInvocation(env, f, { log = console.log, now = Date.now(), force = false } = {}) {
   const m = meterOf(env); if (!m || !f) return null;
   m.st.frames.delete(f);
   const threshold = Number(env.KV_METER_LOG) > 0 ? Number(env.KV_METER_LOG) : 500;
@@ -89,7 +89,8 @@ export async function endInvocation(env, f, { log = console.log, now = Date.now(
     line = `kvmeter ${f.what} get=${f.get} list=${f.list} put=${f.put} del=${f.del} ms=${now - f.t0} top: ${topPrefixes(f.pre)}`;
     try { log(line); } catch {}
   }
-  await flushIsolate(env, { now }).catch(() => {});
+  /* a cron isolate can be evicted right after its one heavy run: flush at once after every cron and every heavy invocation */
+  await flushIsolate(env, { now, force: force || !!line }).catch(() => {});
   return line;
 }
 
