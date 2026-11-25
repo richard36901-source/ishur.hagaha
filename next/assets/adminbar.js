@@ -68,6 +68,7 @@
     { href: 'brain.html', label: 'המוח' },
     { href: 'automations.html', label: 'אוטומציות' },
     { href: 'live.html', label: 'לוג חי' },
+    { href: 'future.html', label: 'מה מתוכנן · שיחות חיות' },   /* 25/11 future log + live calls */
     { href: 'users.html', label: 'משתמשים והרשאות' },
     { href: 'login.html', label: 'החשבון שלי · התנתקות' },
   ];

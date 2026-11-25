@@ -11,6 +11,8 @@
 <script src="assets/ux.js?v=5"></script>
 <script src="assets/adminbar.js?v=24" defer></script>
 <script src="assets/guard.js?v=22"></script>
+<script src="assets/rec-player.js?v=1"></script>
+<script src="assets/guest-card.js?v=1"></script>
 <style>
   :root{
     --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A; --gold-pale:rgba(199,174,122,.3);
@@ -43,6 +45,8 @@
   th{font-weight:600;color:var(--ink3);font-size:.74rem;background:var(--soft)}
   tr:last-child td{border-bottom:none}
   td.nm{font-weight:600;overflow-wrap:anywhere}
+  .gname{font:inherit;font-weight:600;background:none;border:none;padding:0;color:inherit;cursor:pointer;text-align:right;text-decoration:underline;text-decoration-color:var(--gold-soft);text-underline-offset:3px}
+  .gname:hover{color:var(--ok)}
   td.ph{direction:ltr;text-align:right;color:var(--ink2);white-space:nowrap}
   .pill{display:inline-block;font-size:.76rem;font-weight:600;border-radius:8px;padding:.1rem .5rem;border:1px solid currentColor}
   .p-yes{color:var(--ok)} .p-no{color:var(--no)} .p-maybe{color:var(--maybe)} .p-none{color:var(--ink3)}
@@ -164,7 +168,7 @@
     var host = $('list');
     if (!rows.length) { host.innerHTML = '<div class="empty">אין אורחים שמתאימים לסינון הזה.</div>'; return; }
     host.innerHTML = '<table><thead><tr><th>אורח</th><th>טלפון</th><th>תשובה</th><th>איך</th><th>מתי</th><th></th></tr></thead><tbody>' + rows.map(function (r, i) {
-      return '<tr><td class="nm">' + esc(r.name) + '</td><td class="ph">' + esc(pretty(r.phone)) + '</td><td>' + pill(r) + '</td><td class="how">' + how(r) + '</td><td class="when">' + when(r.at) + '</td>' +
+      return '<tr><td class="nm"><button type="button" class="gname" data-guest-card data-token="' + esc(token) + '" data-guest="' + esc(r.id) + '" title="כרטיס אורח: הודעות, שיחות ומה מתוכנן">' + esc(r.name) + '</button></td><td class="ph">' + esc(pretty(r.phone)) + '</td><td>' + pill(r) + '</td><td class="how">' + how(r) + '</td><td class="when">' + when(r.at) + '</td>' +
         '<td class="act"><button class="lk" data-i="' + i + '">הוכחה ותיקון</button></td></tr>';
     }).join('') + '</tbody></table>';
   }
@@ -210,7 +214,7 @@
       h += '<h3>שיחות טלפון (' + calls.length + ')</h3>';
       h += calls.length ? calls.map(function (c) {
         return '<div class="call"><div class="ct">' + when(c.ts) + ' · ' + c.duration_s + ' שניות · ' + esc(c.outcome || c.answer || 'ללא תוצאה') + '</div>' +
-          (c.recording ? '<audio controls preload="none" src="' + esc(c.recording) + '"></audio><a href="' + esc(c.recording) + '" download="' + esc(c.recording_name || (c.id + '.wav')) + '">הורדת ההקלטה</a>' : '<div class="ct">אין הקלטה לשיחה הזאת</div>') +
+          (c.has_recording && window.IshurRec ? IshurRec.html({ id: c.id, name: c.recording_name || (c.id + '.wav'), duration_s: c.duration_s }) : '<div class="ct">אין הקלטה לשיחה הזאת</div>') +
           (c.transcript ? '<pre dir="auto">' + esc(c.transcript.replace(/^Agent:/gm, 'שיר:').replace(/^User:/gm, 'אורח:')) + '</pre>' : '') + '</div>';
       }).join('') : '<div class="ct" style="color:var(--ink3);font-size:.84rem">לא נמצאו שיחות לאורח הזה ב-14 הימים האחרונים.</div>';
       h += '<h3>וואטסאפ (' + wa.length + ' הודעות אחרונות)</h3>';
@@ -225,6 +229,8 @@
   $('chips').addEventListener('click', function (e) { var b = e.target.closest('.chip'); if (!b || !token) return; filter = b.dataset.f; loadList(); });
   $('q').addEventListener('input', function () { clearTimeout(qTimer); qTimer = setTimeout(loadList, 300); });
   $('list').addEventListener('click', function (e) { var b = e.target.closest('.lk'); if (b) openProof(rows[Number(b.dataset.i)]); });
+  if (window.IshurRec) IshurRec.bind($('dlg'));   /* 25/11 our player instead of the browser's */
+  window.addEventListener('ishur:guestcard', function () { loadList(); });
   $('dClose').addEventListener('click', function () { $('dlg').close(); });
   $('dlg').addEventListener('click', function (e) { if (e.target === $('dlg')) $('dlg').close(); });
   $('dlg').addEventListener('close', function () { var a = $('dBody').querySelectorAll('audio'); for (var i = 0; i < a.length; i++) a[i].pause(); cur = null; });

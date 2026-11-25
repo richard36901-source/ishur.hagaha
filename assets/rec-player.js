@@ -94,7 +94,8 @@
     root = root || document;
     if (root.__recp) return; root.__recp = true;
     root.addEventListener('click', function (e) {
-      var box = e.target.closest && e.target.closest('.recp[data-rec]'); if (!box) return;
+      var box = e.target.closest && e.target.closest('.recp[data-rec]'); if (!box || e.__recp) return;
+      e.__recp = true;   /* bound on a dialog AND its page: one click is handled once */
       if (e.target.closest('.rp-play')) {
         e.preventDefault();
         ready(box).then(function (a) {

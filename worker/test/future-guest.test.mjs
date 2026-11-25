@@ -148,3 +148,17 @@ test('doneHe covers every action; the routes are wired', () => {
   assert.ok(src.includes("url.pathname === '/api/future-log' && request.method === 'POST'"));
   assert.ok(src.includes("url.pathname === '/api/guest-card' && request.method === 'POST'"));
 });
+
+test('pages: our player replaces <audio controls>; the guest card opens from answers, the live log and the future page', () => {
+  const rd = p => fs.readFileSync(new URL('../../' + p, import.meta.url), 'utf8');
+  const ans = rd('answers.html'), live = rd('next/live.html'), fut = rd('next/future.html'), rp = rd('assets/rec-player.js'), gc = rd('assets/guest-card.js');
+  for (const h of [ans, live, fut]) { assert.ok(h.includes('rec-player.js')); assert.ok(h.includes('guest-card.js')); }
+  assert.ok(!/<audio controls/.test(ans), 'answers.html has no browser player any more');
+  assert.ok(ans.includes('data-guest-card data-token='));
+  assert.ok(live.includes('data-guest-card data-token='));
+  assert.ok(fut.includes("ISHUR_CONFIG.endpoint('future-log')"));
+  for (const w of ['rp-play', 'type="range"', 'rp-sp', 'rp-dl', "'X-Admin-Key'", '[1, 1.5, 2]']) assert.ok(rp.includes(w), w);
+  assert.ok(!/[?&](key|admin_key)=/.test(rp), 'the key never rides in a URL');
+  for (const a of ['cancel_send', 'cancel_call', 'stop_event', 'stop_all', 'undo_send', 'undo_call', 'resume_event', 'resume_all']) assert.ok(gc.includes(a), a);
+  assert.ok(gc.includes("endpoint('guest-card')"));
+});

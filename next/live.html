@@ -13,6 +13,8 @@
 <script src="/assets/ux.js?v=4"></script>
 <script src="/next/assets/adminbar.js?v=17" defer></script>
 <script src="/assets/guard.js?v=22"></script>
+<script src="/assets/rec-player.js?v=1"></script>
+<script src="/assets/guest-card.js?v=1"></script>
 <script>(function(){try{var t=localStorage.getItem('ishur_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <style>
   /* ── the full audit log, live (Richard 22/10): every record has an id and a
@@ -94,6 +96,7 @@
         <button class="btn" id="pause">הקפאה</button>
         <button class="btn" id="legendBtn" title="מה זה כל סוג">מקרא</button>
         <button class="btn" id="exportBtn" title="ייצוא מה שמסונן כ-CSV (עם hash לכל שורה)">ייצוא CSV</button>
+        <a class="btn" href="future.html" style="text-decoration:none">מה מתוכנן · שיחות חיות</a>
       </div></details>
     </div>
   </div>
@@ -155,7 +158,8 @@
     if (kind && it.kind !== kind) return false;
     if (bad && !(it.ok === false || it.review)) return false;
     if (pin) { if (pin.type === 'token' && String(it.token || '').slice(0, 8) !== pin.v.slice(0, 8)) return false; if (pin.type === 'phone' && phoneOf(it) !== pin.v) return false; }
-    if (q) { var hay = (it.id + ' ' + it.action + ' ' + it.detail + ' ' + phoneOf(it) + ' ' + it.token + ' ' + it.area + ' ' + (it.data ? JSON.stringify(it.data) : '')).toLowerCase(); if (hay.indexOf(q) < 0) return false; }
+    /* 25/11: the same test the server applies (the whole record), so a record the server found by guest/event name stays shown */
+    if (q) { if (!it.__hay) it.__hay = JSON.stringify(it).toLowerCase(); if (it.__hay.indexOf(q) < 0) return false; }
     return true;
   }
   function counts() {
@@ -196,7 +200,7 @@
       if (d.outcome) rows.push(['תוצאה', '<span class="he">' + esc(d.outcome) + (d.duration_s != null ? ' · ' + esc(d.duration_s) + ' שנ׳' : '') + '</span>']);
       rows.push(['תמלול', '<span class="he">' + esc(it.detail || '(אין תמלול)') + '</span>']);
       /* 12/11 security: fetched with the key in a header and played from a blob — the admin key is never part of a URL */
-      if (recOk(d.recording)) rows.push(['הקלטה', recUrl[d.recording]
+      if (recOk(d.recording)) rows.push(['הקלטה', window.IshurRec ? IshurRec.html({ id: d.call_id || IshurRec.idOf(d.recording), name: d.recording_name, duration_s: d.duration_s }) : recUrl[d.recording]
         ? '<a href="' + esc(recUrl[d.recording]) + '" download="' + esc(d.recording_name || 'call.wav') + '">⬇ ' + esc(d.recording_name || 'הורדה') + '</a><audio controls src="' + esc(recUrl[d.recording]) + '"></audio>'
         : '<button type="button" class="chip" data-recload="' + esc(d.recording) + '">' + (recUrl[d.recording] === '' ? 'אין הקלטה' : '▶ ' + esc(d.recording_name || 'הקלטה')) + '</button>']);
     } else if (it.detail) rows.push(['פירוט', '<span class="he">' + esc(it.detail) + '</span>']);
@@ -207,6 +211,8 @@
     return '<div class="full">' + rows.map(function (r) { return '<b>' + r[0] + '</b><span>' + r[1] + '</span>'; }).join('') + '</div>';
   }
   function render(newIds) {
+    /* 25/11: a recording that is playing is not repainted away by the 5-second poll */
+    if (Array.prototype.some.call(document.querySelectorAll('#list .recp audio'), function (a) { return !a.paused; })) return;
     counts();
     var shown = items.filter(match).slice(0, 800);
     var costSum = 0; items.forEach(function (it) { if (match(it)) costSum += Number(it.cost) || 0; });
@@ -222,7 +228,7 @@
       var tags = '<span class="tag id" data-copy="' + esc(it.id) + '" title="העתקת המזהה">#' + esc(String(it.id).slice(-9)) + '</span>';
       if (Number(it.cost) > 0) tags += '<span class="tag" style="direction:rtl;color:var(--amber)" title="עלות ישירה של הפעולה (מטא/שיחה)">₪' + Number(it.cost).toFixed(2) + '</span>';
       if (it.token) tags += '<span class="tag" data-pin="token" data-v="' + esc(it.token) + '" title="' + esc(it.token) + '">' + esc(it.event && it.event.event ? it.event.event : String(it.token).slice(0, 8)) + '</span>';
-      if (it.guest && it.guest.name) tags += '<span class="tag" style="direction:rtl">' + esc(it.guest.name) + '</span>';
+      if (it.guest && it.guest.name) tags += (it.guest.id && it.token ? '<span class="tag" style="direction:rtl" data-guest-card data-token="' + esc(it.token) + '" data-guest="' + esc(it.guest.id) + '" title="כרטיס אורח">' : '<span class="tag" style="direction:rtl">') + esc(it.guest.name) + '</span>';
       if (it.geo) tags += '<span class="tag" style="direction:rtl" title="מיקום לפי IP">' + esc(it.geo.split(' · ')[0]) + '</span>';
       var ph = phoneOf(it);
       if (ph) tags += '<span class="tag" data-pin="phone" data-v="' + esc(ph) + '">' + esc(ph.replace(/^972/, '0')) + '</span>';
@@ -278,11 +284,12 @@
     if (tg && tg.dataset.pin) { pin = { type: tg.dataset.pin, v: tg.dataset.v }; $('pin').innerHTML = '<button class="chip x" id="unpin">✕ ' + esc(pin.type === 'phone' ? pin.v.replace(/^972/, '0') : pin.v.slice(0, 8)) + '</button>'; reload(); return; }
     var rl = e.target.closest('[data-recload]');
     if (rl) { rl.disabled = true; rl.textContent = 'טוען…'; recLoad(rl.dataset.recload).then(function () { render(); }); return; }
-    if (e.target.closest('audio') || e.target.closest('a')) return;
+    if (e.target.closest('audio') || e.target.closest('a') || e.target.closest('.recp')) return;
     var row = e.target.closest('.row'); if (!row) return;
     openIds[row.dataset.id] = !openIds[row.dataset.id]; render();
   });
   $('pin').addEventListener('click', function () { pin = null; $('pin').innerHTML = ''; reload(); });
+  if (window.IshurRec) IshurRec.bind(document);
   $('go').addEventListener('click', function () { adminKey = $('key').value.trim(); try { localStorage.setItem('ishur_calls_key', adminKey); } catch (e) {} $('gate').hidden = true; load(true); });
   document.addEventListener('visibilitychange', function () { if (!document.hidden) load(false); });
   /* deep links: live.html?t=<token> or ?phone=972… open pinned */

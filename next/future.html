@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>מה מתוכנן · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="/config.js?v=72"></script>
+<script src="/assets/ux.js?v=4"></script>
+<script src="/next/assets/adminbar.js?v=17" defer></script>
+<script src="/assets/guard.js?v=22"></script>
+<script src="/assets/rec-player.js?v=1"></script>
+<script src="/assets/guest-card.js?v=1"></script>
+<script>(function(){try{var t=localStorage.getItem('ishur_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+<style>
+  /* 25/11 Richard: the log of what is ABOUT to happen (every planned send round and call, from the same projection the
+     senders use) and the calls happening now. POST /api/future-log (worker/future-log.js). */
+  :root{--ink:#1B2620;--ink2:#4E5C55;--ink3:#7F8C86;--paper:#FBFAF7;--card:#fff;--line:#E1E4DE;--pine:#0F4C35;--pine-s:rgba(15,76,53,.09);--warn:#A8402F;--warn-s:rgba(168,64,47,.10);--good:#2E7D5B;--good-s:rgba(46,125,91,.12);--amber:#9A5B00;--soft:#F4F2EC;--ok:#0F4C35}
+  html[data-theme=dark]{--ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;--paper:#131714;--card:#1A201C;--line:#2A322C;--pine:#7BC9A4;--pine-s:rgba(123,201,164,.14);--good:#7BC9A4;--warn:#E58C7C;--amber:#E3AA4C;--soft:#202722;--ok:#7BC9A4}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;font-size:14px;line-height:1.45}
+  .wrap{max-width:1100px;margin:0 auto;padding:1rem 1rem 4rem}
+  h1{font-family:'Frank Ruhl Libre',serif;color:var(--pine);font-size:1.5rem;margin:0}
+  h2{font-size:.95rem;margin:1.2rem 0 .5rem;color:var(--ink2)}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap;margin-bottom:.7rem}
+  .tabs{display:flex;gap:.3rem}
+  .tab{font:inherit;font-size:.85rem;border:1px solid var(--line);background:var(--card);color:var(--ink2);border-radius:8px;padding:.4rem .8rem;cursor:pointer}
+  .tab.on{background:var(--pine);border-color:var(--pine);color:#fff}
+  html[data-theme=dark] .tab.on{color:#131714}
+  .bar{display:flex;gap:.45rem;flex-wrap:wrap;align-items:center;margin:.4rem 0 .6rem}
+  select,.btn{font:inherit;font-size:.85rem;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:.4rem .6rem}
+  .btn{cursor:pointer}
+  #ev{flex:1 1 16rem;min-width:0}
+  .cnt{font-size:.8rem;color:var(--ink3)}
+  .day{font-size:.8rem;font-weight:600;color:var(--ink3);margin:.9rem 0 .3rem}
+  .row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) 5rem minmax(0,1.2fr);gap:.6rem;align-items:center;padding:.5rem .6rem;border:1px solid var(--line);border-radius:8px;background:var(--card);margin:.3rem 0;font-size:.86rem}
+  .row.off{opacity:.65}
+  .row .n{font-weight:600;font-variant-numeric:tabular-nums;text-align:center}
+  .row .tp{direction:ltr;text-align:right;color:var(--ink3);font-size:.76rem;overflow-wrap:anywhere}
+  .row .ev{font-weight:600;overflow-wrap:anywhere}
+  .tag{display:inline-block;font-size:.72rem;border-radius:6px;padding:0 .35rem;margin-inline-start:.3rem;border:1px solid var(--line);color:var(--ink3)}
+  .tag.w{color:var(--warn);border-color:var(--warn)}
+  .crow{border:1px solid var(--line);border-radius:8px;background:var(--card);margin:.35rem 0;padding:.55rem .65rem}
+  .crow .h{display:flex;gap:.5rem;flex-wrap:wrap;align-items:baseline;font-size:.86rem}
+  .crow .h b{font-weight:600}
+  .crow .s{font-size:.8rem;color:var(--ink2)}
+  .crow .s.w{color:var(--warn)}
+  .gl{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.4rem}
+  .gbtn{font:inherit;font-size:.78rem;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:8px;padding:.15rem .5rem;cursor:pointer}
+  .gbtn:hover{border-color:var(--pine)}
+  details summary{cursor:pointer;font-size:.8rem;color:var(--ink2);margin-top:.3rem}
+  pre{font:inherit;font-size:.82rem;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--soft);border-radius:8px;padding:.5rem .6rem;margin:.3rem 0 0}
+  .live{display:inline-flex;align-items:center;gap:.4rem;font-size:.8rem;color:var(--ink3)}
+  .live i{width:8px;height:8px;border-radius:50%;background:var(--good);box-shadow:0 0 0 3px var(--good-s)}
+  .empty{color:var(--ink3);padding:1.4rem;text-align:center;border:1px dashed var(--line);border-radius:8px}
+  .notes{font-size:.78rem;color:var(--ink3);margin:.4rem 0}
+  .gate{max-width:360px;margin:4rem auto;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:1.2rem}
+  .gate input{width:100%;font:inherit;padding:.6rem;border:1px solid var(--line);border-radius:8px;margin:.5rem 0;background:var(--card);color:var(--ink)}
+  @media (max-width:640px){.row{grid-template-columns:1fr auto}.row .tp{grid-column:1/-1}.row .ev{grid-column:1/-1}}
+</style>
+</head>
+<body>
+<div class="wrap" id="main">
+  <div class="top">
+    <h1>מה מתוכנן</h1>
+    <div class="tabs" role="tablist">
+      <button class="tab on" data-tab="plan" role="tab">שליחות ושיחות מתוכננות</button>
+      <button class="tab" data-tab="live" role="tab">שיחות חיות</button>
+    </div>
+  </div>
+  <section id="planView">
+    <div class="bar">
+      <select id="ev" aria-label="אירוע"><option value="">כל האירועים (גבול עליון)</option></select>
+      <select id="days" aria-label="טווח"><option value="7">7 ימים</option><option value="14" selected>14 יום</option><option value="30">30 יום</option></select>
+      <button class="btn" id="refresh" type="button">רענון</button>
+      <span class="cnt" id="cnt"></span>
+    </div>
+    <div class="notes" id="notes"></div>
+    <h2>סבבי שליחה</h2>
+    <div id="sends"><div class="empty">טוען…</div></div>
+    <h2>שיחות</h2>
+    <div id="calls"></div>
+  </section>
+  <section id="liveView" hidden>
+    <div class="bar"><span class="live"><i></i><span id="liveTxt">מתעדכן כל 10 שנ׳</span></span></div>
+    <h2>שיחות שמתקיימות עכשיו</h2>
+    <div id="now"></div>
+    <h2>50 השיחות האחרונות</h2>
+    <div id="recent"></div>
+  </section>
+</div>
+<div class="gate" id="gate" hidden>
+  <b>כניסת אדמין</b>
+  <input id="key" type="password" placeholder="מפתח אדמין" autocomplete="current-password">
+  <button class="btn" id="go" type="button">כניסה</button>
+</div>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var key = '', sess = ''; try { key = localStorage.getItem('ishur_calls_key') || ''; sess = localStorage.getItem('ishur_session') || ''; } catch (e) {}
+  var tab = 'plan', seq = 0, liveTimer = null, events = {};
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function dm(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? m[3] + '/' + m[2] : ''; }
+  var DOW = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+  function dayHe(iso) { var d = new Date(iso + 'T12:00:00Z'); return 'יום ' + DOW[d.getUTCDay()] + ' · ' + dm(iso); }
+  function when(ts) { var d = new Date(ts); return isNaN(d) ? '' : d.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); }
+  function mmss(s) { s = Math.max(0, Math.round(Number(s) || 0)); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+  function api(body) {
+    var p = Object.assign({ admin_key: key }, sess ? { session: sess } : {}, body);
+    if (window.IshurGuard && IshurGuard.stamp) p = IshurGuard.stamp(p);
+    return fetch(ISHUR_CONFIG.endpoint('future-log'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) })
+      .then(function (r) { if (r.status === 403) { $('gate').hidden = false; $('main').hidden = true; throw new Error('403'); } return r.json(); });
+  }
+  function paintPlan(j) {
+    var sends = j.sends || [], calls = j.calls || [];
+    (sends.concat(calls)).forEach(function (x) { if (x.token && x.event) events[x.token] = x.event; });
+    var sel = $('ev'), cur = sel.value;
+    sel.innerHTML = '<option value="">כל האירועים (גבול עליון)</option>' + Object.keys(events).sort(function (a, b) { return events[a] < events[b] ? -1 : 1; }).map(function (t) { return '<option value="' + esc(t) + '">' + esc(events[t]) + '</option>'; }).join('');
+    sel.value = cur;
+    $('notes').textContent = (j.notes || []).join(' · ');
+    var total = sends.reduce(function (a, s) { return a + (s.held || s.dropped ? 0 : s.count); }, 0);
+    $('cnt').textContent = sends.length + ' סבבים · ' + total + ' הודעות' + (j.at ? ' · נכון ל-' + when(j.at) : '');
+    if (!sends.length) $('sends').innerHTML = '<div class="empty">אין שליחות מתוכננות בטווח הזה.</div>';
+    else {
+      var last = '', h = '';
+      sends.forEach(function (s) {
+        if (s.day !== last) { last = s.day; h += '<div class="day">' + esc(dayHe(s.day)) + '</div>'; }
+        h += '<div class="row' + (s.held || s.dropped ? ' off' : '') + '"><span class="ev">' + esc(s.event || s.tok8) + '</span><span>' + esc(s.type_he) +
+          (s.held ? '<span class="tag w">מוקפא</span>' : '') + (s.dropped ? '<span class="tag w">לא יישלח</span>' : '') + '</span>' +
+          '<span class="n" title="' + (s.exact ? 'נספר אורח-אורח' : 'גבול עליון') + '">' + (s.exact ? '' : 'עד ') + esc(s.count) + '</span><span class="tp">' + esc(s.template) + '</span></div>';
+      });
+      $('sends').innerHTML = h;
+    }
+    $('calls').innerHTML = calls.length ? calls.map(function (c) {
+      return '<div class="crow"><div class="h"><b>' + esc(c.event || c.tok8) + '</b><span class="s">' + esc(c.date ? 'אירוע ' + dm(c.date) : '') + '</span>' +
+        (c.queued ? '<span class="s">' + c.queued + ' בתור לשיחה' + (c.capped ? ' · ' + c.capped + ' מיצו ניסיונות' : '') + '</span>' : '') + '</div>' +
+        (c.queued ? (c.next_at ? '<div class="s">הסבב הבא: ' + esc(c.next_he) + '</div>' : '<div class="s w">לא יחויג: ' + esc(c.blocked_he || 'חלון החיוג סגור') + '</div>') : '') +
+        (c.round_day ? '<div class="s">סבב שיחות מתוכנן ' + esc(dayHe(c.round_day)) + ' · עד ' + esc(c.round_n) + ' אורחים שלא ענו</div>' : '') +
+        ((c.guests || []).length ? '<details><summary>מי בתור (' + c.guests.length + ')</summary><div class="gl">' + c.guests.map(function (g) {
+          return '<button type="button" class="gbtn" data-guest-card data-token="' + esc(c.token) + '" data-guest="' + esc(g.guest_id) + '">' + esc(g.name) + ' · ' + esc((Number(g.tries) || 0) + 1) + '/' + esc(g.max_tries) + '</button>';
+        }).join('') + '</div></details>' : '') + '</div>';
+    }).join('') : '<div class="empty">אין שיחות מתוכננות.</div>';
+  }
+  function loadPlan() {
+    var my = ++seq, body = { days: Number($('days').value) || 14 };
+    if ($('ev').value) body.token = $('ev').value;
+    $('sends').innerHTML = '<div class="empty">טוען…</div>';
+    return api(body).then(function (j) { if (my !== seq) return; if (!j || !j.ok) { $('sends').innerHTML = '<div class="empty">לא הצלחנו לקרוא את התכנון כרגע. נסו שוב בעוד רגע.</div>'; return; } paintPlan(j); }).catch(function () {});
+  }
+  function callRow(c, liveNow) {
+    var who = c.guest || c.name || '';
+    var g = c.guest_id && c.token ? '<button type="button" class="gbtn" data-guest-card data-token="' + esc(c.token) + '" data-guest="' + esc(c.guest_id) + '">' + esc(who || 'אורח') + '</button>' : esc(who || (c.phone ? '0' + String(c.phone).slice(3) : 'שיחה נכנסת'));
+    if (liveNow) return '<div class="crow"><div class="h"><span class="live"><i></i></span>' + g + '<span class="s">' + esc(c.event || c.tok8 || '') + '</span><span class="s">' + mmss(c.seconds) + ' · ' + (c.status === 'registered' ? 'מחייגת' : 'בשיחה') + '</span></div></div>';
+    return '<div class="crow"><div class="h">' + g + '<span class="s">' + esc(c.event || '') + '</span><span class="s">' + esc(when(c.ts)) + ' · ' + mmss(c.duration_s) + ' · ' + esc(c.outcome || c.answer || c.disconnection || 'ללא תוצאה') + '</span></div>' +
+      (c.has_recording && window.IshurRec ? IshurRec.html({ id: c.call_id, name: c.recording_name, duration_s: c.duration_s }) : '') +
+      (c.transcript ? '<details><summary>תמלול' + (c.summary ? ' · ' + esc(c.summary).slice(0, 80) : '') + '</summary><pre dir="auto">' + esc(String(c.transcript).replace(/^Agent:/gm, 'שיר:').replace(/^User:/gm, 'אורח:')) + '</pre></details>' : '') + '</div>';
+  }
+  var openDetails = {};
+  function loadLive() {
+    if (tab !== 'live' || document.hidden) return;
+    /* a recording that plays or a transcript that is open is not repainted under the reader */
+    var playing = Array.prototype.some.call(document.querySelectorAll('#recent audio'), function (a) { return !a.paused; });
+    api({ action: 'live' }).then(function (j) {
+      if (!j || !j.ok) return;
+      $('now').innerHTML = (j.in_progress || []).length ? j.in_progress.map(function (c) { return callRow(c, true); }).join('') : '<div class="empty">אין שיחה פעילה כרגע.</div>';
+      if (!playing && !document.querySelector('#recent details[open]')) $('recent').innerHTML = (j.recent || []).length ? j.recent.map(function (c) { return callRow(c, false); }).join('') : '<div class="empty">אין שיחות ב-3 הימים האחרונים.</div>';
+      $('liveTxt').textContent = 'מתעדכן כל 10 שנ׳ · ' + when(j.at);
+    }).catch(function () { $('liveTxt').textContent = 'לא מתעדכן כרגע'; });
+  }
+  document.querySelector('.tabs').addEventListener('click', function (e) {
+    var b = e.target.closest('.tab'); if (!b) return;
+    tab = b.dataset.tab;
+    Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (x) { x.classList.toggle('on', x === b); });
+    $('planView').hidden = tab !== 'plan'; $('liveView').hidden = tab !== 'live';
+    clearInterval(liveTimer);
+    if (tab === 'live') { loadLive(); liveTimer = setInterval(loadLive, 10000); }
+    try { history.replaceState(null, '', tab === 'live' ? '#live' : '#'); } catch (x) {}
+  });
+  $('ev').addEventListener('change', loadPlan); $('days').addEventListener('change', loadPlan); $('refresh').addEventListener('click', loadPlan);
+  $('go').addEventListener('click', function () { key = $('key').value.trim(); try { localStorage.setItem('ishur_calls_key', key); } catch (e) {} $('gate').hidden = true; $('main').hidden = false; loadPlan(); });
+  if (window.IshurRec) IshurRec.bind(document);
+  var sp = new URLSearchParams(location.search);
+  loadPlan().then(function () { if (sp.get('t')) { $('ev').value = sp.get('t'); if ($('ev').value) loadPlan(); } });
+  if (location.hash === '#live') document.querySelector('.tab[data-tab=live]').click();
+})();
+</script>
+</body>
+</html>
