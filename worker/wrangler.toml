@@ -188,3 +188,12 @@ binding = "APP_DB"
 database_name = "ishur-app-staging"
 database_id = "e1b353f2-1230-4f01-992c-94bd38009494"
 migrations_dir = "migrations-app"
+
+# 26/11 D1 phase 1 (docs/D1-PLAN.md, worker/d1mirror.js): the sheet mirror. STAGING ONLY until Richard approves gate 1.
+# Nothing reads it in production; the mirror runs only with this binding AND KV cfg:d1_mirror = {"value":"on"}.
+#   npx wrangler d1 migrations apply ishur-staging --remote --env staging
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "ishur-staging"
+database_id = "409578a4-2963-4493-ab5b-0fe981b37021"
+migrations_dir = "d1/migrations"

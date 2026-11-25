@@ -57,6 +57,7 @@
    ========================================================================== */
 
 import { readSnapshotDirect } from './gsheets.js';
+import { mirrorAfterRefresh } from './d1mirror.js';   /* 26/11 D1 phase 1: mirror of the sheet as read (no-op without the DB binding) */
 
 export const K = {
   cache: 'snapcache', last: 'snaplast', patch: 'snappatch', dirty: 'snapdirty', dirtyAct: 'snapdirty:act', fail: 'snapfail',
@@ -245,6 +246,9 @@ function refresh(env, st, deps) {
     const startedAt = Date.now();
     const raw = await (deps.fetchRaw || fetchRaw)(env).catch(() => null);
     if (!validSnapshot(raw)) { await noteFail(env, st); return null; }
+    /* 26/11 D1 phase 1 (d1mirror.js): the sheet as read, before the overlay patches below change it.
+       Returns at once without env.DB (production); never throws; waits at most 2 s. */
+    if (env.DB) await mirrorAfterRefresh(env, raw).catch(() => null);
     const entry = { at: startedAt, raw, applied: {} };
     const kvPatches = await kjson(env, K.patch);
     applyNewer(entry, [...st.patches, ...(Array.isArray(kvPatches) ? kvPatches : [])].sort((a, b) => a.at - b.at));
