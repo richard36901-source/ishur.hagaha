@@ -89,3 +89,19 @@ to connect.
 ## Age rating answers (draft)
 No web browsing outside our own pages, no user-generated content shown to other users, no chat, no ads, no
 gambling, no violence or mature content. Expected rating: 4+.
+
+## Google Play listing (25/11/2026)
+- **App name (30):** אישורי הגעה לאירועים
+- **Short description (80):** רואים מי מגיע לאירוע, מי עוד לא ענה ומה נשלח, בזמן אמת. ללקוחות ishur.io.
+- **Full description:** the Hebrew App Store description above, without the Apple/Google sign-in sentence (Android v1 signs in
+  with phone and code only).
+- **Category:** Lifestyle (tags: Events). **Contact:** info@ishur.io, https://ishur.io. **Privacy:** https://ishur.io/terms.html#privacy
+- **Graphics:** icon `store/icon-512.png`, feature graphic `store/feature-graphic-1024x500.png`, phone screenshots
+  `store/screenshots/android-phone/` (1080x1920).
+- **App access:** restricted; give Google the same demo phone and code as Apple (production demo client).
+- **Ads:** no. **Content rating (IARC):** utility/productivity, no violence, no user interaction between users, no ads → Everyone.
+- **Target audience:** 18+. **News app:** no. **Health app:** no. **Government:** no. **Financial features:** none.
+- **Data safety:** collected (not shared): name, phone number, email (only Apple/Google sign-in on iPhone, so Android: no),
+  contacts (guest list), user IDs, device or other IDs (push token, only if notifications are allowed), app interactions,
+  diagnostics. Encrypted in transit: yes. Users can request deletion: yes (in the app and https://ishur.io/delete-account.html).
+- **Release:** a closed test first (12 testers for 14 days, Google's rule for new personal accounts), then production.
