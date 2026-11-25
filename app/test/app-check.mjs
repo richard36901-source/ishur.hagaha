@@ -31,7 +31,8 @@ const api = async (p, body) => { const r = await fetch(BASE + p, { method: 'POST
 const files = fs.readdirSync(WWW, { recursive: true }).map(f => path.join(WWW, f)).filter(f => /\.(html|css|js)$/.test(f));
 const src = files.map(f => fs.readFileSync(f, 'utf8')).join('\n');
 check('P7 no prices or buy wording in the app', !/₪|מחיר|לרכישה|קנו|שדרג/.test(src));
-check('P8 no radius above 8px, no font CDN', !/border-radius:\s*(9|[1-9][0-9])px|fonts\.googleapis/.test(src));
+/* 26/11 Richard lifted the 8px corner rule ("Yes, go full Apple": Apple's current rounded design); the font rule stays */
+check('P8 no font CDN (system font)', !/fonts\.googleapis/.test(src));
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json' };
 const server = http.createServer((req, res) => {
@@ -123,7 +124,7 @@ try {
   const evp = await p.evaluate(() => ({ rows: document.querySelectorAll('#evList .evrow').length, pastLast: (() => { const r = Array.from(document.querySelectorAll('#evList .evrow')); const firstPast = r.findIndex(x => x.classList.contains('past')); return firstPast < 0 || r.slice(firstPast).every(x => x.classList.contains('past')); })(), open: !document.getElementById('events').hidden }));
   check('R6 all my events: a row per event, past events last', evp.open && evp.rows === myEvents.length && evp.rows >= 1 && evp.pastLast, `${evp.rows} rows, data ${myEvents.length}`);
   await p.screenshot({ path: path.join(SHOTS, '14-events-light.png') });
-  await p.click('#eventsClose');
+  await p.$eval('#eventsClose', b => b.click()); /* 26/11: off-screen, VoiceOver-only close (Richard: no close button up top) */
   await p.screenshot({ path: path.join(SHOTS, '5-account-light.png') });
 
   /* P13: the regular board, in app mode, inside the app */
@@ -264,7 +265,7 @@ try {
   const still = await p.evaluate(() => Array.from(document.querySelectorAll('#helpScene *')).every(el => getComputedStyle(el).animationName === 'none'));
   check('P15 no movement in help when the device asks for reduced motion', still);
   await p.emulateMedia({ reducedMotion: 'no-preference', colorScheme: 'dark' });
-  await p.click('#helpClose');
+  await p.$eval('#helpClose', b => b.click()); /* 26/11: off-screen, VoiceOver-only close (Richard: no close button up top) */
 
   /* Review after the event (Richard 20/11). No demo client has a past event, so the account answer is given one:
      the real answer from staging plus an invented past event that has not been reviewed yet. */
@@ -288,12 +289,12 @@ try {
   const revUrl = await p.locator('#page:not([hidden]) #pageFrame').getAttribute('src').catch(() => '');
   check('review: "לדרג עכשיו" opens the review form for that event inside the app', /\/feedback\.html\?t=cccccccc-0000-4000-8000-00000000000c&app=1/.test(revUrl || ''), revUrl);
   await p.screenshot({ path: path.join(SHOTS, '15-review.png') });
-  await p.click('#pageClose');
+  await p.$eval('#pageClose', b => b.click()); /* 26/11: off-screen, VoiceOver-only close (Richard: no close button up top) */
   await p.click('[data-tab=account]'); await p.click('#eventsOpen');
   const rowsR = await p.evaluate(() => Array.from(document.querySelectorAll('#evList .evrow')).map(r => ({ past: r.classList.contains('past'), rev: !!r.querySelector('[data-review]') })));
   check('all my events: the past event is greyed, last, with a review button', rowsR.length >= 2 && rowsR[rowsR.length - 1].past && rowsR[rowsR.length - 1].rev && rowsR.slice(0, -1).every(r => !r.past), JSON.stringify(rowsR));
   await p.screenshot({ path: path.join(SHOTS, '16-events-past.png') });
-  await p.click('#eventsClose');
+  await p.$eval('#eventsClose', b => b.click()); /* 26/11: off-screen, VoiceOver-only close (Richard: no close button up top) */
   await ctx.unroute('**/api/account/me');
 
   /* P6: the delete-account request starts inside the app and the server takes it */

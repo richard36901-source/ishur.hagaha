@@ -2,7 +2,7 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="format-detection" content="telephone=no">
 <title>ishur</title>
@@ -213,9 +213,9 @@
 <!-- help centre: short animated explanations, one idea per screen -->
 <div id="help" class="help" hidden role="dialog" aria-modal="true" aria-labelledby="helpTitle">
   <header class="helpbar">
-    <button id="helpBack" type="button" hidden>חזרה</button>
+    <button id="helpBack" class="xbtn back" type="button" hidden aria-label="חזרה"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
     <h2 id="helpTitle">עזרה והסברים</h2>
-    <button id="helpClose" type="button">סגירה</button>
+    <button id="helpClose" class="xbtn" type="button" aria-label="סגירה"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
   </header>
   <div id="helpTopics" class="list helptopics"></div>
   <div id="helpPlayer" class="helpplayer" hidden>
@@ -230,13 +230,13 @@
 
 <!-- all my events: one row each; an event that has passed is greyed, sits last, and can be reviewed -->
 <div id="events" class="help" hidden role="dialog" aria-modal="true" aria-labelledby="eventsTitle">
-  <header class="helpbar"><span></span><h2 id="eventsTitle">האירועים שלי</h2><button id="eventsClose" type="button">סגירה</button></header>
+  <header class="helpbar"><span></span><h2 id="eventsTitle">האירועים שלי</h2><button id="eventsClose" class="xbtn" type="button" aria-label="סגירה"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></header>
   <div id="evList" class="list evpage"></div>
 </div>
 
 <!-- a page of the site shown over the app (the review form, "recommend us") -->
 <div id="page" class="help" hidden role="dialog" aria-modal="true" aria-labelledby="pageTitle">
-  <header class="helpbar"><span></span><h2 id="pageTitle"></h2><button id="pageClose" type="button">סגירה</button></header>
+  <header class="helpbar"><span></span><h2 id="pageTitle"></h2><button id="pageClose" class="xbtn" type="button" aria-label="סגירה"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></header>
   <iframe id="pageFrame" title="" referrerpolicy="no-referrer"></iframe>
 </div>
 
