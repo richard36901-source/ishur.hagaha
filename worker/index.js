@@ -96,6 +96,7 @@ import { handleFutureLog } from './future-log.js';   /* 25/11 what is planned + 
 import { handleGuestCard } from './guest-card.js';   /* 25/11 one guest, everything */
 import { handleAnswersLog } from './answers-log.js';   /* 25/11 who answered, how, and the proof */   /* 24/11 the team's requests to Richard */
 import { cleanQuery, inboxSearch } from './inbox-search.js';   /* 23/11 inbox search box */
+import { handleInboxCompose } from './inbox-send.js';   /* 25/11 inbox composer: send, files, templates */
 import { handleSubeventCreate, handleSubeventSend, handleSubeventRemind, handleSubeventSummary, continueSubevents, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
 import { cleanParam } from './whatsapp.js';   /* 02/11 audit: links that reach guests */
 import { withRun, isOff } from './ops-run.js';   /* 03/11 ops center: runs ledger + kill switches */
@@ -4118,7 +4119,7 @@ async function handleWaWebhook(request, env, url) {
           at: new Date().toISOString(),
         })).catch(() => {});
       stream(env, { kind: 'wa_in', area: ch === 'guests' ? 'שיר' : 'נועה', action: '📥 ' + from + (profileName ? ' · ' + profileName : ''), ok: true, phone: from, detail: body }).catch(() => {});
-      await touchConversation(env, from, { ts, dir: 'in', text: body, ch }).catch(() => {});
+      await touchConversation(env, from, { ts, dir: 'in', text: body, ch, line: sendCh, pid: phoneId }).catch(() => {});
       if (ch !== 'guests') await crmTouch(env, from, { dir: 'in', text: body, ch: 'client', at: new Date(ts).toISOString(), id: msg.id ? 'wa:' + msg.id : undefined }).catch(() => {});
       await logRow(env, ch === 'guests' ? 'msg_guests' : 'msg_clients', {
         id: msg.id || '', dir: 'נכנסת', who: ch === 'guests' ? 'אורח' : 'לקוח / ליד',
@@ -14425,6 +14426,10 @@ const WORKER = {
     if (url.pathname === '/api/review-claim' && request.method === 'POST') return handleReviewClaim(request, env, origin, accountDeps());
     if (url.pathname === '/api/otp-send' && request.method === 'POST') {
       return handleOtpSend(request, env, origin);
+    }
+    /* 25/11 inbox composer (inbox-send.js): state / templates / media upload / send */
+    if (/^\/api\/inbox\/(state|templates|media|send)$/.test(url.pathname) && request.method === 'POST') {
+      return handleInboxCompose(request, env, origin, url.pathname, { okJson, deny, cors, adminKeyOk, getUser: (e, m) => getUser(e, m), readSession: (e, t) => readSession(e, t) });
     }
     if (url.pathname === '/api/inbox' && request.method === 'POST') {
       return handleInbox(request, env, origin);
