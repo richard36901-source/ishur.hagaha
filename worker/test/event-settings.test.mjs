@@ -254,3 +254,16 @@ test('setup step: the surnames are kept (not sent to Make), and the Make field l
   const setup = src.slice(src.indexOf('const SETUP_FIELDS = ['), src.indexOf('];', src.indexOf('const SETUP_FIELDS = [')));
   assert.ok(!/last1|last2/.test(setup), 'the Make field list is untouched');
 });
+
+test('client pages: the settings card is its own card on the board (not in the setup flow); the setup step only gains the surnames', () => {
+  const dash = fs.readFileSync(new URL('../../dashboard.html', import.meta.url), 'utf8');
+  assert.ok(dash.includes('<section class="card" id="advCard" hidden>'));
+  assert.ok(dash.includes(".replace(/\\/api\\/status$/, '/api/event-settings')"), 'reached through the status URL, so a stale cached config.js still finds it');
+  assert.ok(dash.includes("id=\"exportCsv\"") && dash.includes("a.download = 'מוזמנים.csv'"));
+  assert.ok(dash.includes("else if (/^fq-/.test(filter)) { if (!fqMatch(g, filter)) return false; }"));
+  const up = fs.readFileSync(new URL('../../upload.html', import.meta.url), 'utf8');
+  assert.ok(!up.includes('advCard') && !up.includes('event-settings'), 'the setup flow does not get the advanced settings');
+  assert.ok(up.includes('id="f-last1"') && up.includes('id="f-last2"'));
+  assert.ok(up.includes("var a = fullName(1), b = fullName(2);"), 'the event title (column 34) carries "first last" when the surname was filled');
+  assert.ok(up.includes("return f && l ? f + ' ' + l : f;"), 'and the first name alone when it was not');
+});

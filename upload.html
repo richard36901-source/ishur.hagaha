@@ -162,6 +162,9 @@
   .hpair input[type=text]{flex:1 1 auto;min-width:0}
   .hpair .hrole{flex:0 0 9.5rem;min-width:0}
   .hpair .hrole[hidden]{display:none}
+  /* 25/11: a wedding asks the surname too (guests did not recognise "שוהם ושי" without one) */
+  .frow input.lastn{margin-top:.4rem}
+  .frow input.lastn[hidden]{display:none}
   @media(max-width:359px){.hpair{flex-direction:column}.hpair .hrole{flex-basis:auto}}
   .ferr{font-size:.75rem;color:var(--err);max-height:0;opacity:0;overflow:hidden;transition:max-height .18s,opacity .18s}
   .ferr.on{max-height:4em;opacity:1;margin-top:.15rem}
@@ -614,6 +617,7 @@
             <input type="text" id="f-name1" autocomplete="off" placeholder="נועה">
             <div class="hrole" id="role1Wrap"><select id="f-role1" data-isel aria-label="תפקיד באירוע"></select></div>
           </div>
+          <input type="text" id="f-last1" class="lastn" autocomplete="off" placeholder="שם משפחה" aria-label="שם משפחה" hidden>
           <p class="ferr" id="e-name1" aria-live="polite"></p>
         </div>
         <div class="frow" id="name2Row">
@@ -622,6 +626,7 @@
             <input type="text" id="f-name2" autocomplete="off" placeholder="יונתן">
             <div class="hrole" id="role2Wrap"><select id="f-role2" data-isel aria-label="תפקיד באירוע"></select></div>
           </div>
+          <input type="text" id="f-last2" class="lastn" autocomplete="off" placeholder="שם משפחה" aria-label="שם משפחה" hidden>
         </div>
         <div class="frow full">
           <label for="f-edate">תאריך האירוע <span class="req">*</span></label>
@@ -1183,6 +1188,11 @@
     $('name2Row').style.display = two ? '' : 'none';
     if (two) $('name2Lbl').innerHTML = pair[1] + ' <span class="req">*</span>';
 
+    /* 25/11: first name AND surname for each of the couple, weddings only (optional: empty keeps "נועה ויונתן") */
+    var wed = S.occasion === 'wedding';
+    $('f-last1').hidden = !wed; $('f-last2').hidden = !wed || !two;
+    if (!wed) { $('f-last1').value = ''; $('f-last2').value = ''; }
+
     var on = rolesOn();
     $('role1Wrap').hidden = !on;
     $('role2Wrap').hidden = !on;
@@ -1284,13 +1294,18 @@
     });
   }
 
+  /* "first last" when the surname was filled, the first name alone otherwise */
+  function fullName(i) {
+    var f = ($('f-name' + i).value || '').trim(), l = ($('f-last' + i) && !$('f-last' + i).hidden ? $('f-last' + i).value || '' : '').trim();
+    return f && l ? f + ' ' + l : f;
+  }
   function footHtml() {
-    var names = [$('f-name1').value.trim(), $('f-name2').value.trim()].filter(Boolean).join(' ו');
+    var names = [fullName(1), fullName(2)].filter(Boolean).join(' ו');
     var F = CFG.MESSAGE_FOOTER;
     return '<span class="fine-l">' + F.sentBy.replace('{names}', esc(names) || '…') + '</span>' +
            '<span class="fine-l">' + F.optOut + '</span>';
   }
-  ['f-name1', 'f-name2', 'f-extra', 'f-title', 'f-venue', 'f-city'].forEach(function (id) {
+  ['f-name1', 'f-name2', 'f-last1', 'f-last2', 'f-extra', 'f-title', 'f-venue', 'f-city'].forEach(function (id) {
     var el = $(id);
     if (el) el.addEventListener('input', renderPreview);
   });
@@ -1849,13 +1864,16 @@
       name1: $('f-name1').value.trim(),
       name2: ($('f-name2').value || '').trim(),
       host_roles: hostRoles(),
+      /* 25/11: kept by the Worker (evsettings) so the form can be filled again; the title above already carries them */
+      last1: ($('f-last1').hidden ? '' : $('f-last1').value || '').trim(),
+      last2: ($('f-last2').hidden ? '' : $('f-last2').value || '').trim(),
       /* column 34 (event title) is the only host field the sender reads, and
          Make prefers event_title over name1 — so both hosts must be joined
          here or every wedding invitation goes out with one name */
       event_title: (function () {
         var t = ($('f-title') && $('f-title').value || '').trim();
         if (t) return t;
-        var a = $('f-name1').value.trim(), b = ($('f-name2').value || '').trim();
+        var a = fullName(1), b = fullName(2);
         return b ? a + ' ו' + b : a;
       })(),
       event_date: $('f-edate').value,
