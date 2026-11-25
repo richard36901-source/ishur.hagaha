@@ -85,6 +85,10 @@
   var BOOT = Date.now();
   function splashOut() { var sp = $('splash'); if (!sp || sp.classList.contains('out')) return; setTimeout(function () { sp.classList.add('out'); setTimeout(function () { sp.hidden = true; }, 400); }, Math.max(0, 800 - (Date.now() - BOOT))); }
   setTimeout(splashOut, 5000);
+  /* 26/11 Richard: opening the app showed two backgrounds and a jump. The phone's own launch picture now stays until our
+     opening screen has painted under it, then fades into it, so there is one hand-over and no flash of the page behind. */
+  (function () { var sp = plugin('SplashScreen'); if (!sp) return; var go = function () { try { sp.hide({ fadeOutDuration: 250 }); } catch (e) {} };
+    requestAnimationFrame(function () { requestAnimationFrame(go); }); setTimeout(go, 2500); })();
   function show(signedIn) {
     $('signin').hidden = signedIn; $('app').hidden = !signedIn; $('tabs').hidden = !signedIn; $('connect').hidden = true;
     splashOut();
@@ -134,15 +138,17 @@
   function postView() { try { $('boardFrame').contentWindow.postMessage({ ishurView: view }, siteOrigin || '*'); } catch (e) {} }
   /* The regular client board, in its app mode, inside the app. The session travels in the address fragment (never
      sent to a server), so a locked board opens too. Loaded on first use and again when the event changes. */
-  var boardFor = '';
+  var boardFor = '', frameLoads = 0;
   function openBoard() {
     if (!current) return;
-    if (boardFor === current) { postView(); return; }
-    boardFor = current;
+    /* 26/11 Richard: tapping ראשי again returns to the main board. The frame may have moved on to another site page
+       (seating, budget, schedule); then it loads the board afresh instead of only switching the view. */
+    if (boardFor === current && frameLoads <= 1) { postView(); return; }
+    boardFor = current; frameLoads = 0;
     $('boardWait').hidden = false;
     $('boardFrame').src = ENV.board + '?t=' + encodeURIComponent(current) + '&app=1&view=' + view + LQ + '&theme=' + document.documentElement.getAttribute('data-theme') + '#s=' + encodeURIComponent(session);
   }
-  $('boardFrame').addEventListener('load', function () { $('boardWait').hidden = true; postView(); });
+  $('boardFrame').addEventListener('load', function () { if ($('boardFrame').getAttribute('src')) frameLoads++; $('boardWait').hidden = true; postView(); });
   function evTitle(e) { return (e && (e.name || e.occasion)) || 'האירוע'; }
 
   function render() {
@@ -488,6 +494,70 @@
     sel.addEventListener('change', function () { T('lang_set', { id: sel.value }); I18N.set(sel.value); if (window.IshurTrack) window.IshurTrack.flush(); setTimeout(function () { location.reload(); }, 300); });
   })();
 
+  /* 26/11 Richard: a sheet closes when dragged down, as in iOS. It follows the finger 1:1 (resisting upward), and on
+     release it closes if pulled past a third of its height or flicked down; otherwise it springs back. Closing is the
+     sheet's own "not now" / "cancel", so the same thing happens as tapping it. Tapping the dimmed area closes too. */
+  [['pushAsk', 'pushNo'], ['reviewAsk', 'reviewLater'], ['sheet', 'sheetNo']].forEach(function (pr) {
+    var sh = $(pr[0]), box = sh && sh.querySelector('.sheetbox'), no = $(pr[1]); if (!box || !no) return;
+    var y0 = null, dy = 0, t0 = 0, last = [];
+    function set(y, anim) { box.style.transition = anim ? 'transform ' + anim : 'none'; box.style.transform = y ? 'translateY(' + y + 'px)' : ''; }
+    box.addEventListener('pointerdown', function (e) { if (e.target.closest('button,a,input')) return; y0 = e.clientY; dy = 0; t0 = e.timeStamp; last = [[e.timeStamp, e.clientY]]; try { box.setPointerCapture(e.pointerId); } catch (x) {} });
+    box.addEventListener('pointermove', function (e) {
+      if (y0 == null) return; var d = e.clientY - y0;
+      dy = d >= 0 ? d : -(Math.abs(d) * 0.55 * 300) / (300 + 0.55 * Math.abs(d)); /* rubber-band upward */
+      last.push([e.timeStamp, e.clientY]); if (last.length > 5) last.shift(); set(dy);
+    });
+    function end() {
+      if (y0 == null) return; y0 = null;
+      var a = last[0], b = last[last.length - 1], v = b && a && b[0] > a[0] ? (b[1] - a[1]) / (b[0] - a[0]) : 0; /* px per ms */
+      if (dy > box.offsetHeight / 3 || (v > 0.5 && dy > 10)) {
+        set(box.offsetHeight + 40, '.22s ease-out');
+        setTimeout(function () { no.click(); set(0); }, 220); haptic();
+      } else set(0, '.35s cubic-bezier(.2,.9,.25,1)');
+    }
+    box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
+    box.style.touchAction = 'none';
+    sh.addEventListener('click', function (e) { if (e.target === sh) no.click(); });
+  });
+  /* 26/11 a full-screen sheet (help, my events, a site page) closes when its top bar is dragged down: it follows the
+     finger, and closes past a quarter of the screen or on a downward flick; otherwise it springs back. */
+  [['help', 'helpClose'], ['events', 'eventsClose'], ['page', 'pageClose']].forEach(function (pr) {
+    var pg = $(pr[0]), bar = pg && pg.querySelector('.helpbar'), x = $(pr[1]); if (!bar || !x) return;
+    var y0 = null, dy = 0, last = [];
+    function set(y) { pg.style.transform = y ? 'translateY(' + y + 'px)' : ''; }
+    bar.addEventListener('pointerdown', function (e) { if (e.target.closest('.xbtn.back')) return; y0 = e.clientY; dy = 0; last = [[e.timeStamp, e.clientY]]; pg.classList.add('dragging'); try { bar.setPointerCapture(e.pointerId); } catch (z) {} });
+    bar.addEventListener('pointermove', function (e) { if (y0 == null) return; dy = Math.max(0, e.clientY - y0); last.push([e.timeStamp, e.clientY]); if (last.length > 5) last.shift(); set(dy); });
+    function end() {
+      if (y0 == null) return; y0 = null; pg.classList.remove('dragging');
+      var a = last[0], b = last[last.length - 1], v = a && b && b[0] > a[0] ? (b[1] - a[1]) / (b[0] - a[0]) : 0;
+      if (dy > window.innerHeight / 4 || (v > 0.5 && dy > 12)) {
+        pg.classList.add('drag-out'); set(window.innerHeight); haptic();
+        setTimeout(function () { pg.classList.remove('drag-out'); x.click(); set(0); }, 240);
+      } else { pg.classList.add('drag-back'); set(0); setTimeout(function () { pg.classList.remove('drag-back'); }, 380); }
+    }
+    bar.addEventListener('pointerup', end); bar.addEventListener('pointercancel', end);
+  });
+  /* 26/11 swipe back / forward between the board's pages. History in the app is the board frame's history, so
+     history.back() and forward() move the frame. Back is from the edge a page comes in from (right in Hebrew). */
+  (function () {
+    var hint = $('navHint'), g = null;
+    Array.prototype.forEach.call(document.querySelectorAll('#v-board .edge'), function (ed) {
+      ed.addEventListener('pointerdown', function (e) { g = { go: ed.getAttribute('data-go'), x0: e.clientX, start: ed.classList.contains('start'), dx: 0 }; try { ed.setPointerCapture(e.pointerId); } catch (z) {} });
+      ed.addEventListener('pointermove', function (e) {
+        if (!g) return; var rtl = document.documentElement.getAttribute('dir') === 'rtl';
+        var inward = (e.clientX - g.x0) * ((g.start !== rtl) ? 1 : -1); g.dx = Math.max(0, Math.min(inward, 140));
+        var fromLeft = (g.start && !rtl) || (!g.start && rtl), pos = Math.min(g.dx, 90) - 44;
+        hint.style.left = fromLeft ? pos + 'px' : ''; hint.style.right = fromLeft ? '' : pos + 'px';
+        hint.querySelector('svg').style.transform = fromLeft ? 'scaleX(-1)' : '';
+        hint.style.opacity = Math.min(1, g.dx / 50); var ready = g.dx > 80; if (ready && !hint.classList.contains('ready')) haptic(); hint.classList.toggle('ready', ready);
+      });
+      function end() {
+        if (!g) return; var c = g; g = null; hint.style.transition = 'opacity .2s'; hint.style.opacity = 0; setTimeout(function () { hint.style.transition = ''; hint.classList.remove('ready'); }, 200);
+        if (c.dx > 80) { T('swipe_nav', { go: c.go }); if (c.go === 'back') history.back(); else history.forward(); }
+      }
+      ed.addEventListener('pointerup', end); ed.addEventListener('pointercancel', end);
+    });
+  })();
   window.IshurApp = { post: post, store: store, plugin: plugin, native: NATIVE, session: function () { return session; }, reload: loadEvent, openEvent: pickEvent };
   T('app_open', { signed: session ? 1 : 0 });
   if (session) start(); else { show(false); T('signin_view'); }

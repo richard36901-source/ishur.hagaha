@@ -7,7 +7,12 @@
    3. Non-blocking toasts instead of alert().
    4. A soft fade-in so page-to-page never flashes white. */
 /* 22/11 Richard: inside the app the language is chosen in חשבון, not by the button on each page */
-(function () { try { if (/[?&]app=1(&|$)/.test(location.search) || sessionStorage.getItem('ishur_in_app') === '1') { var s = document.createElement('style'); s.textContent = '#langPick{display:none!important}'; document.head.appendChild(s);
+(function () { try { if (/[?&]app=1(&|$)/.test(location.search) || sessionStorage.getItem('ishur_in_app') === '1') { var s = document.createElement('style'); s.textContent = '#langPick{display:none!important}'
+    /* 26/11 Richard (app round 9): no web scroll line, no zoom on a double tap, and room at the end for the app's floating tab bar */
+    + 'html{scrollbar-width:none;touch-action:manipulation}::-webkit-scrollbar{display:none;width:0;height:0}body{padding-bottom:96px}'
+    /* and Apple's current shapes inside the app: rounder cards, capsule buttons and inputs (the website itself is unchanged) */
+    + '.card{border-radius:24px!important}.btn,button.btn,a.btn{border-radius:999px!important}input[type=text],input[type=tel],input[type=search],input[type=number],select,textarea{border-radius:14px!important}'; document.head.appendChild(s);
+  var vp = document.querySelector('meta[name=viewport]'); if (vp) vp.setAttribute('content', 'width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover');
   /* dragging the page down while typing hides the keyboard, as in iOS apps */
   var y0 = null; document.addEventListener('touchstart', function (e) { y0 = e.touches.length === 1 ? e.touches[0].clientY : null; }, { passive: true });
   document.addEventListener('touchmove', function (e) { var a = document.activeElement; if (y0 == null || !a || !/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return; if (e.touches[0].clientY - y0 > 4 && !e.target.closest('input,textarea')) { a.blur(); y0 = null; } }, { passive: true });

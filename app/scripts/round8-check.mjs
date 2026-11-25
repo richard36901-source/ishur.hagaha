@@ -89,7 +89,7 @@ try {
   ok('swipe from the edge closes help', await p.locator('#help').isHidden());
   await p.click('#helpOpen'); await drag(p, 200, 400, 360, 410); await p.waitForTimeout(500);
   ok('a swipe that does not start at the edge does nothing', await p.locator('#help').isVisible());
-  await p.click('#helpClose');
+  await p.$eval('#helpClose', b => b.click()); /* 26/11: off-screen, VoiceOver-only close (Richard: no close button up top) */
   ok('no script errors', !errors.length, errors.join(' | '));
   await ctx.close();
 } finally { await b.close(); server.close(); }

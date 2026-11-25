@@ -162,7 +162,7 @@ Nothing in the app works for real clients until this is done. Today production h
 
 ## 6. App Store review (M6)
 
-- [ ] **You:** say "submit". Claude sends the build for review.
+- [x] Submitted for App Review 25/11/2026 ~23:35 (version 1.0, build 6, production servers, Israel only, free; reviewer demo 050-000-5201 on production). Status: Waiting for Review.
 - [ ] **Claude:** answer the reviewer if they ask or reject. A first rejection is common; usually a small fix.
 - [ ] **You:** when approved, say "release" (or let it release automatically).
 

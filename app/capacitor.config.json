@@ -14,10 +14,11 @@
       "enabled": true
     },
     "SplashScreen": {
-      "launchAutoHide": true,
-      "launchShowDuration": 600,
+      "launchAutoHide": false,
+      "launchShowDuration": 3000,
       "backgroundColor": "#0F2E22",
-      "showSpinner": false
+      "showSpinner": false,
+      "launchFadeOutDuration": 0
     },
     "PushNotifications": {
       "presentationOptions": [
