@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>לוג אישורים · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="config.js?v=74"></script>
+<script src="assets/ux.js?v=5"></script>
+<script src="assets/adminbar.js?v=24" defer></script>
+<script src="assets/guard.js?v=22"></script>
+<style>
+  :root{
+    --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A; --gold-pale:rgba(199,174,122,.3);
+    --paper:#F8F4EA; --ink:#1B2420; --ink2:#4A554E; --ink3:#7A847C;
+    --bg:#FAF8F1; --card:#fff; --line:#E3E1D8; --soft:#F1EFE8;
+    --ok:#0F4C35; --no:#A8402F; --maybe:#8A6D1F; --blue:#3D5A80;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --ink:#EDEAE0; --ink2:#C5C9C2; --ink3:#98A099; --bg:#101613; --card:#18201C; --line:#2A342F; --soft:#1F2824; --ok:#57B38B; --no:#E08A7B; --maybe:#D3B565; --blue:#8FB0D9; --pine:#CFE3D8; }
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Heebo',system-ui,sans-serif;background:var(--bg);color:var(--ink);direction:rtl;line-height:1.5;padding-bottom:4rem}
+  .head{background:radial-gradient(130% 140% at 50% -30%,#17402F 0%,#0F2E22 60%,#0A2119 100%);color:var(--paper);padding:1rem;text-align:center;border-bottom:1px solid var(--gold-pale)}
+  .head h1{font-family:'Frank Ruhl Libre',serif;font-size:1.3rem}
+  .head h1 i{font-style:normal;color:var(--gold-soft)}
+  .head p{font-size:.78rem;color:rgba(248,244,234,.7)}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 .9rem}
+  .bar{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin:1rem 0 .6rem}
+  select,input[type=search],input[type=number]{font:inherit;font-size:.92rem;padding:.5rem .6rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+  #evSel{flex:1 1 16rem;min-width:0}
+  #q{flex:1 1 11rem;min-width:0}
+  .chips{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.7rem}
+  .chip{font:inherit;font-size:.8rem;border:1px solid var(--line);background:var(--card);color:var(--ink2);border-radius:8px;padding:.3rem .6rem;cursor:pointer}
+  .chip.on{background:var(--ok);border-color:var(--ok);color:#fff}
+  @media (prefers-color-scheme: dark){ .chip.on{color:#0A2119} }
+  .chip b{font-weight:600;margin-inline-start:.3rem}
+  .sumline{font-size:.84rem;color:var(--ink2);margin-bottom:.6rem}
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  th,td{text-align:right;padding:.5rem .6rem;border-bottom:1px solid var(--line);font-size:.86rem;vertical-align:middle}
+  th{font-weight:600;color:var(--ink3);font-size:.74rem;background:var(--soft)}
+  tr:last-child td{border-bottom:none}
+  td.nm{font-weight:600;overflow-wrap:anywhere}
+  td.ph{direction:ltr;text-align:right;color:var(--ink2);white-space:nowrap}
+  .pill{display:inline-block;font-size:.76rem;font-weight:600;border-radius:8px;padding:.1rem .5rem;border:1px solid currentColor}
+  .p-yes{color:var(--ok)} .p-no{color:var(--no)} .p-maybe{color:var(--maybe)} .p-none{color:var(--ink3)}
+  .how{font-size:.8rem;color:var(--ink2)} .how.warn{color:var(--no);font-weight:600}
+  .when{font-size:.76rem;color:var(--ink3);white-space:nowrap}
+  .lk{font:inherit;font-size:.8rem;font-weight:600;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:.3rem .6rem;cursor:pointer;white-space:nowrap}
+  .lk:hover{border-color:var(--gold)}
+  .empty{text-align:center;color:var(--ink3);padding:2.5rem 1rem;font-size:.95rem}
+  .gate{max-width:340px;margin:4rem auto;text-align:center;padding:0 1rem}
+  .gate input{width:100%;border:1px solid var(--line);border-radius:8px;padding:.7rem .9rem;font:inherit;margin:.8rem 0 .5rem;text-align:center;direction:ltr;background:var(--card);color:var(--ink)}
+  .gate button{width:100%;border:none;border-radius:8px;background:#0F2E22;color:#F8F4EA;padding:.7rem;font:inherit;font-weight:600;cursor:pointer}
+  .gate p.err{color:var(--no);font-size:.8rem;min-height:1.2rem;margin-top:.4rem}
+  .toast{position:fixed;bottom:1rem;right:50%;transform:translateX(50%);background:#0F2E22;color:#F8F4EA;border-radius:8px;padding:.5rem 1.2rem;font-size:.85rem;opacity:0;transition:opacity .25s;pointer-events:none;z-index:60}
+  .toast.on{opacity:1}
+  /* the proof popup */
+  dialog{border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);padding:0;width:min(94vw,620px);max-height:88vh;margin:auto}
+  dialog::backdrop{background:rgba(0,0,0,.5)}
+  .dh{display:flex;align-items:flex-start;gap:.6rem;padding:.8rem 1rem;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--card);z-index:1}
+  .dh h2{font-size:1.02rem;flex:1;overflow-wrap:anywhere}
+  .dh small{display:block;font-weight:400;color:var(--ink3);font-size:.78rem}
+  .x{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:.2rem .6rem;cursor:pointer}
+  .db{padding:.8rem 1rem 1rem;overflow:auto}
+  .db h3{font-size:.82rem;color:var(--ink3);font-weight:600;margin:.9rem 0 .4rem}
+  .db h3:first-child{margin-top:0}
+  .msg{max-width:86%;border-radius:8px;padding:.4rem .6rem;margin:.25rem 0;font-size:.86rem;white-space:pre-wrap;overflow-wrap:anywhere;border:1px solid var(--line)}
+  .msg.in{background:var(--soft);margin-inline-end:auto;border-color:var(--gold-soft)}
+  .msg.out{margin-inline-start:auto}
+  .msg time{display:block;font-size:.68rem;color:var(--ink3);margin-top:.15rem}
+  .call{border:1px solid var(--line);border-radius:8px;padding:.6rem .7rem;margin:.4rem 0}
+  .call .ct{font-size:.82rem;color:var(--ink2);margin-bottom:.35rem}
+  .call audio{width:100%;margin:.3rem 0}
+  .call pre{font:inherit;font-size:.84rem;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--soft);border-radius:8px;padding:.5rem .6rem}
+  .call a{font-size:.8rem;color:var(--blue)}
+  .fix{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;border-top:1px solid var(--line);padding:.7rem 1rem;position:sticky;bottom:0;background:var(--card)}
+  .fix span{font-size:.8rem;color:var(--ink3)}
+  .fix input{width:4rem;text-align:center}
+  .b{font:inherit;font-size:.84rem;font-weight:600;border:none;border-radius:8px;padding:.45rem .8rem;cursor:pointer;color:#fff}
+  .b:disabled{opacity:.5;cursor:wait}
+  .b.yes{background:#0F4C35} .b.no{background:#A8402F} .b.maybe{background:#8A6D1F}
+  @media (max-width:640px){
+    table,thead,tbody,tr,td{display:block}
+    thead{display:none}
+    tr{border-bottom:1px solid var(--line);padding:.55rem .6rem;display:grid;grid-template-columns:1fr auto;gap:.15rem .5rem}
+    td{border:none;padding:0}
+    td.nm{grid-column:1} td.act{grid-column:2;grid-row:1 / span 2;align-self:center}
+    td.ph,td.how,td.when{grid-column:1}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+<header class="head">
+  <h1>ishur<i>.io</i> · לוג אישורים</h1>
+  <p>כל אורח, מה ענה, איך ענה, וההוכחה: ההודעה בוואטסאפ או ההקלטה של השיחה</p>
+</header>
+
+<div class="gate" id="gate" hidden>
+  <h2 style="font-family:'Frank Ruhl Libre',serif">כניסה</h2>
+  <input type="password" id="keyIn" placeholder="מפתח גישה" autocomplete="off">
+  <button id="keyGo">כניסה</button>
+  <p class="err" id="keyErr"></p>
+</div>
+
+<main class="wrap" id="main" hidden>
+  <div class="bar">
+    <select id="evSel" aria-label="אירוע"></select>
+    <input type="search" id="q" placeholder="חיפוש: שם או טלפון" autocomplete="off" enterkeyhint="search">
+  </div>
+  <div class="chips" id="chips"></div>
+  <p class="sumline" id="sumline"></p>
+  <div id="list"></div>
+</main>
+
+<dialog id="dlg">
+  <div class="dh"><h2 id="dName"></h2><button class="x" id="dClose" aria-label="סגירה">✕</button></div>
+  <div class="db" id="dBody"></div>
+  <div class="fix">
+    <span>תיקון ידני:</span>
+    <input type="number" id="fxN" min="1" max="30" value="1" aria-label="כמות מגיעים">
+    <button class="b yes" data-set="מגיע">מגיעים</button>
+    <button class="b maybe" data-set="מתלבט">מתלבטים</button>
+    <button class="b no" data-set="לא מגיע">לא מגיעים</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG;
+  var $ = function (id) { return document.getElementById(id); };
+  var adminKey = '', token = '', filter = 'all', rows = [], cur = null, qTimer = null;
+  var FILTERS = [['all', 'הכל'], ['confirmed', 'אישרו'], ['declined', 'לא מגיעים'], ['undecided', 'מתלבטים'], ['none', 'לא ענו'], ['call', 'ענו בשיחה'], ['wa', 'ענו בוואטסאפ'], ['manual', 'ידני / לא ידוע']];
+  try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function toast(m) { var t = $('toast'); t.textContent = m; t.classList.add('on'); setTimeout(function () { t.classList.remove('on'); }, 2000); }
+  function pretty(p) { var d = String(p || '').replace(/\D/g, ''); if (d.slice(0, 3) === '972') d = '0' + d.slice(3); return d.replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$3'); }
+  function when(iso) { if (!iso) return ''; var d = new Date(iso); if (isNaN(d)) return esc(iso); return d.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); }
+  function api(payload) {
+    payload.admin_key = adminKey;
+    return fetch(CFG.endpoint('answers-log'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      .then(function (r) { if (r.status === 403) { gate('המפתח לא נכון'); return null; } return r.json(); });
+  }
+  function gate(err) { $('gate').hidden = false; $('main').hidden = true; $('keyErr').textContent = err || ''; }
+
+  function pill(r) {
+    if (r.rsvp === 'מגיע') return '<span class="pill p-yes">מגיעים' + (r.party ? ' · ' + r.party : '') + '</span>';
+    if (r.rsvp === 'לא מגיע') return '<span class="pill p-no">לא מגיעים</span>';
+    if (r.rsvp === 'מתלבט') return '<span class="pill p-maybe">מתלבטים</span>';
+    return '<span class="pill p-none">לא ענו</span>';
+  }
+  function how(r) {
+    if (!r.rsvp) return '<span class="how">' + esc(r.call_answer || (r.tries ? 'חויגו ' + r.tries : '')) + '</span>';
+    return '<span class="how' + (r.method === 'unknown' ? ' warn' : '') + '">' + esc(r.method === 'unknown' ? 'מקור לא ידוע (' + (r.call_answer || 'אין') + ')' : r.method_he) + '</span>';
+  }
+
+  function paint() {
+    var host = $('list');
+    if (!rows.length) { host.innerHTML = '<div class="empty">אין אורחים שמתאימים לסינון הזה.</div>'; return; }
+    host.innerHTML = '<table><thead><tr><th>אורח</th><th>טלפון</th><th>תשובה</th><th>איך</th><th>מתי</th><th></th></tr></thead><tbody>' + rows.map(function (r, i) {
+      return '<tr><td class="nm">' + esc(r.name) + '</td><td class="ph">' + esc(pretty(r.phone)) + '</td><td>' + pill(r) + '</td><td class="how">' + how(r) + '</td><td class="when">' + when(r.at) + '</td>' +
+        '<td class="act"><button class="lk" data-i="' + i + '">הוכחה ותיקון</button></td></tr>';
+    }).join('') + '</tbody></table>';
+  }
+  function paintChips(counts) {
+    $('chips').innerHTML = FILTERS.map(function (f) { return '<button class="chip' + (f[0] === filter ? ' on' : '') + '" data-f="' + f[0] + '">' + f[1] + '<b>' + (counts && counts[f[0]] != null ? counts[f[0]] : '') + '</b></button>'; }).join('');
+  }
+
+  function loadEvents() {
+    return api({}).then(function (j) {
+      if (!j) return;
+      $('gate').hidden = true; $('main').hidden = false;
+      var evs = j.events || [];
+      $('evSel').innerHTML = '<option value="">בחירת אירוע…</option>' + evs.map(function (e) {
+        return '<option value="' + esc(e.token) + '">' + esc(e.name + (e.client && e.client !== e.name ? ' · ' + e.client : '') + (e.date ? ' · ' + e.date.slice(8, 10) + '/' + e.date.slice(5, 7) : '') + ' · ' + e.confirmed + '/' + e.guests + (e.past ? ' · עבר' : '')) + '</option>';
+      }).join('');
+      var want = new URLSearchParams(location.search).get('t') || '';
+      try { want = want || sessionStorage.getItem('ishur_answers_ev') || ''; } catch (e2) {}
+      if (want && evs.some(function (e) { return e.token === want; })) { $('evSel').value = want; token = want; loadList(); }
+      else { $('list').innerHTML = '<div class="empty">בחרו אירוע כדי לראות את כל האורחים ואיך כל אחד ענה.</div>'; paintChips(null); }
+    });
+  }
+  function loadList() {
+    if (!token) return;
+    var t0 = token, f0 = filter, q0 = $('q').value.trim();
+    api({ token: t0, filter: f0, q: q0 }).then(function (j) {
+      if (!j || !j.ok || t0 !== token || f0 !== filter) return;
+      rows = j.rows || []; paintChips(j.counts); paint();
+      var c = j.counts || {};
+      $('sumline').textContent = (j.event ? j.event.name + ' · ' : '') + c.all + ' אורחים · אישרו ' + c.confirmed + ' (' + c.seats + ' מקומות) · לא מגיעים ' + c.declined + ' · מתלבטים ' + c.undecided + ' · לא ענו ' + c.none;
+    });
+  }
+
+  function openProof(r) {
+    cur = r;
+    $('dName').innerHTML = esc(r.name) + '<small>' + esc(pretty(r.phone)) + ' · ' + (r.rsvp ? esc(r.rsvp) + (r.party ? ' ' + r.party : '') + ' · ' + esc(r.method_he || 'מקור לא ידוע') : 'לא ענו') + '</small>';
+    $('fxN').value = r.party || r.invited || 1;
+    $('dBody').innerHTML = '<div class="empty">טוען…</div>';
+    if (!$('dlg').open) $('dlg').showModal();
+    api({ action: 'proof', token: token, guest_id: r.id }).then(function (j) {
+      if (!j || !j.ok || cur !== r) return;
+      var h = '';
+      var calls = j.calls || [], wa = j.whatsapp || [];
+      h += '<h3>שיחות טלפון (' + calls.length + ')</h3>';
+      h += calls.length ? calls.map(function (c) {
+        return '<div class="call"><div class="ct">' + when(c.ts) + ' · ' + c.duration_s + ' שניות · ' + esc(c.outcome || c.answer || 'ללא תוצאה') + '</div>' +
+          (c.recording ? '<audio controls preload="none" src="' + esc(c.recording) + '"></audio><a href="' + esc(c.recording) + '" download="' + esc(c.recording_name || (c.id + '.wav')) + '">הורדת ההקלטה</a>' : '<div class="ct">אין הקלטה לשיחה הזאת</div>') +
+          (c.transcript ? '<pre dir="auto">' + esc(c.transcript.replace(/^Agent:/gm, 'שיר:').replace(/^User:/gm, 'אורח:')) + '</pre>' : '') + '</div>';
+      }).join('') : '<div class="ct" style="color:var(--ink3);font-size:.84rem">לא נמצאו שיחות לאורח הזה ב-14 הימים האחרונים.</div>';
+      h += '<h3>וואטסאפ (' + wa.length + ' הודעות אחרונות)</h3>';
+      h += wa.length ? wa.map(function (m) {
+        return '<div class="msg ' + (m.dir === 'in' ? 'in' : 'out') + '" dir="auto">' + esc(m.text || '(' + m.type + ')') + '<time>' + (m.dir === 'in' ? 'האורח' : esc(m.who || 'אנחנו')) + ' · ' + when(m.ts) + (m.ok ? '' : ' · לא נמסר') + '</time></div>';
+      }).join('') : '<div class="ct" style="color:var(--ink3);font-size:.84rem">אין הודעות וואטסאפ עם האורח הזה.</div>';
+      $('dBody').innerHTML = h;
+    });
+  }
+
+  $('evSel').addEventListener('change', function () { token = this.value; try { sessionStorage.setItem('ishur_answers_ev', token); } catch (e) {} filter = 'all'; $('q').value = ''; rows = []; if (token) loadList(); else { $('list').innerHTML = ''; $('sumline').textContent = ''; paintChips(null); } });
+  $('chips').addEventListener('click', function (e) { var b = e.target.closest('.chip'); if (!b || !token) return; filter = b.dataset.f; loadList(); });
+  $('q').addEventListener('input', function () { clearTimeout(qTimer); qTimer = setTimeout(loadList, 300); });
+  $('list').addEventListener('click', function (e) { var b = e.target.closest('.lk'); if (b) openProof(rows[Number(b.dataset.i)]); });
+  $('dClose').addEventListener('click', function () { $('dlg').close(); });
+  $('dlg').addEventListener('click', function (e) { if (e.target === $('dlg')) $('dlg').close(); });
+  $('dlg').addEventListener('close', function () { var a = $('dBody').querySelectorAll('audio'); for (var i = 0; i < a.length; i++) a[i].pause(); cur = null; });
+  document.querySelector('.fix').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-set]'); if (!b || !cur) return;
+    var rsvp = b.dataset.set, n = Math.max(1, Math.min(30, parseInt($('fxN').value, 10) || 1)), r = cur;
+    var btns = document.querySelectorAll('.fix .b'); for (var i = 0; i < btns.length; i++) btns[i].disabled = true;
+    api({ action: 'set', token: token, guest_id: r.id, rsvp: rsvp, party: n }).then(function (j) {
+      for (var k = 0; k < btns.length; k++) btns[k].disabled = false;
+      if (!j || !j.ok) { toast('לא נשמר, נסו שוב'); return; }
+      r.rsvp = rsvp; r.party = rsvp === 'מגיע' ? n : 0; r.method = 'manual'; r.method_he = 'סומן ידנית'; r.at = new Date().toISOString();
+      paint(); $('dlg').close(); toast('נשמר: ' + r.name + ' · ' + rsvp + (rsvp === 'מגיע' ? ' ' + n : ''));
+    });
+  });
+  $('keyGo').addEventListener('click', function () { adminKey = $('keyIn').value.trim(); if (!adminKey) return; try { localStorage.setItem('ishur_calls_key', adminKey); } catch (e) {} loadEvents(); });
+  $('keyIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('keyGo').click(); });
+  window.addEventListener('ishur:fresh', function () { loadList(); });
+
+  if (adminKey) loadEvents(); else gate();
+})();
+</script>
+</body>
+</html>

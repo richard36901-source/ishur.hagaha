@@ -21,6 +21,7 @@ User-agent: Applebot
 User-agent: Applebot-Extended
 User-agent: CCBot
 Disallow: /calls.html
+Disallow: /answers.html
 Disallow: /dashboard.html
 Disallow: /admin.html
 Disallow: /admin.new.html

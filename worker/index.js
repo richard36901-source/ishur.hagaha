@@ -87,7 +87,8 @@ import { suggest as lineupSuggest, clean as lineupClean, ics as lineupIcs, feedK
 import { handleAccount, handleReviewClaim, sendLoginCode, adminSendPin, reviewState, readLedger, ledgerBalance, emailFromLeads, readContact, validEmail, pinFor, resetPin, boardLockOn, boardSessionOk, mintSession as mintAcctSession, verifySession as verifyAcctSession } from './account.js';   /* 12/11 personal-area */
 import { sendEmail as sendPlainEmail } from './outreach.js';
 import { navLinkOk, giftLinkOk } from './links.js';
-import { isTeamNote, saveNote, listNotes, closeNote } from './teamnotes.js';   /* 24/11 the team's requests to Richard */
+import { isTeamNote, saveNote, listNotes, closeNote } from './teamnotes.js';
+import { handleAnswersLog } from './answers-log.js';   /* 25/11 who answered, how, and the proof */   /* 24/11 the team's requests to Richard */
 import { cleanQuery, inboxSearch } from './inbox-search.js';   /* 23/11 inbox search box */
 import { handleSubeventCreate, handleSubeventSend, handleSubeventRemind, handleSubeventSummary, continueSubevents, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
 import { cleanParam } from './whatsapp.js';   /* 02/11 audit: links that reach guests */
@@ -6181,7 +6182,8 @@ async function writeGuestReply(env, guest, outcome, party) {
       event_type: 'call_result', guest_id: guest.guest_id,
       rsvp: outcome,
       call_status: outcome === 'מתלבט' ? '__keep__' : '',
-      answer: 'ענה בוואטסאפ',
+      /* 25/11: an answer set by hand says so (the host on the board, the team in the answers log); it used to be written as a WhatsApp answer */
+      answer: String(guest.answer_label || 'ענה בוואטסאפ').slice(0, 40),
       tries: '__keep__',
       party: party != null ? String(party) : '__keep__',
       ts: new Date().toISOString(),
@@ -11728,6 +11730,12 @@ const WORKER = {
     if (url.pathname.startsWith('/api/raffle/')) return handleRaffle(request, env, origin, url, { okJson, deny, normPhone, overBudget, fetchSnapshot: e => readSnapshot(e, 'dashboard'), getBrain: e => getBrain(e), slackSend: (e, t, o) => slackSend(e, t, o), sendText: (e, to, text, ch, c) => sendText(e, to, text, ch, c) });
     if (url.pathname === '/webhooks/monday-leads') return handleMondayWebhook(request, env, url);
     if (url.pathname.startsWith('/api/crm/')) return handleCrm(request, env, origin, url, crmDeps(ctx));
+    /* 25/11 Richard: the answers log - every guest's answer, how it was given, and the proof (WhatsApp lines / call recording) */
+    if (url.pathname === '/api/answers-log' && request.method === 'POST') {
+      return handleAnswersLog(request, env, origin, { adminKeyOk: (e, k) => adminKeyOk(e, k), okJson, deny, normPhone, ilDate, logEvent,
+        readSnapshot: e => readSnapshot(e, 'write'), auditQuery: (e, q) => audit.query(e, q), recordingLink: (e, id, days) => audit.recordingLink(e, id, days),
+        writeAnswer: (e, guest, outcome, party) => writeGuestReply(e, guest, outcome, party) });
+    }
     if (url.pathname.startsWith('/api/auth/')) return handleAuth(request, env, origin, url);   /* 16/11 Google sign-in, users, action log (auth.js) */
     /* iPad sessions: a valid sess. token becomes the real admin key before any
        handler reads the body. Grow's IPN is skipped — its body is not ours. */
@@ -14612,7 +14620,7 @@ const WORKER = {
       const raw = await readSnapshot(env, 'guest');
       const row = ((raw && raw.guests && raw.guests.values) || []).find(r => String(r[2] || '').trim() === gid && String(r[28] || '').trim() === tok);
       if (!row) return deny(404, 'unknown-guest', origin);
-      const guest = { guest_id: gid, token: tok, phone: normPhone(row[4] || ''), name: String(row[3] || '').trim(), by_client: true };
+      const guest = { guest_id: gid, token: tok, phone: normPhone(row[4] || ''), name: String(row[3] || '').trim(), by_client: true, answer_label: 'סומן ידנית (מארח)' };
       const saved = await writeGuestReply(env, guest, outcome, outcome === 'מגיע' ? party : undefined);
       if (saved && env.RATE) await env.RATE.delete('awaitparty:' + gid).catch(() => {});
       await logEvent(env, { area: 'לוח לקוח', action: 'המארח אישר אורח ידנית', ok: saved, phone: guest.phone, token: tok, detail: `${guest.name}: ${outcome}${party ? ' · ' + party : ''}` }).catch(() => {});
