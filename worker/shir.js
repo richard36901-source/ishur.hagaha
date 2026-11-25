@@ -611,17 +611,25 @@ export function retellToCallResult(body) {
        nothing usable, which is the same thing. */
     const cad = (call.call_analysis && call.call_analysis.custom_analysis_data) || {};
     const ao = String(cad.outcome || '').trim();
+    /* 25/11 Richard (נאוה בן ארצי: an 8-second call in which she said nothing, and the analysis wrote "מגיע"): the
+       analysis is a model's summary. Its answer is written only when the guest's own words in the transcript say the
+       same; the headcount is the number the guest said, never the summary's. Otherwise the call stays "ללא תוצאה
+       ברורה" and goes to a person. A call that carries no transcript at all cannot be checked and is taken as before. */
+    const sup = analysisSupported(call.transcript, ao, call.start_timestamp && call.end_timestamp ? call.end_timestamp - call.start_timestamp : NaN);
+    let unsupported = '';
     if (ao && ao !== 'לא ברור' && ao !== 'לא ענה') {
       const cap = Number(meta.max_tries) || 3;
-      const r = callOutcome(ao, base, cap);
+      const r = sup.ok ? callOutcome(ao, base, cap) : null;
+      if (!sup.ok) unsupported = ao;
       if (r) {
         r.tries = tries;
         if (r.call_status === 'נדרשת שיחה' && r.tries >= cap) r.call_status = '';
-        const ps = Number(cad.party_size);
+        const ps = sup.checked ? Number(sup.party) : Number(cad.party_size);
         return { kind: 'end', call_id: callId, guest_id: String(meta.guest_id), result: r, party_size: ps > 0 ? ps : undefined, cost_cents: costOf(call), from_analysis: true };
       }
     }
     return {
+      ...(unsupported ? { unsupported } : {}),
       kind: 'end-no-outcome', call_id: callId, guest_id: String(meta.guest_id),
       result: {
         rsvp: '__keep__', call_status: tries >= (Number(meta.max_tries) || 3) ? '' : 'נדרשת שיחה',
@@ -631,6 +639,35 @@ export function retellToCallResult(body) {
     };
   }
   return null;
+}
+
+/* Do the guest's own words in the transcript carry the answer a summary claims?
+   → { ok, checked, party? }. checked:false = there was no transcript to read. */
+const A_NUM = { 'אחד': 1, 'אחת': 1, 'שניים': 2, 'שתיים': 2, 'שני': 2, 'שתי': 2, 'שלוש': 3, 'שלושה': 3, 'ארבע': 4, 'ארבעה': 4, 'חמש': 5, 'חמישה': 5, 'שש': 6, 'שישה': 6, 'שבע': 7, 'שבעה': 7, 'שמונה': 8, 'תשע': 9, 'תשעה': 9, 'עשר': 10, 'עשרה': 10 };
+const A_YES = new Set(['כן', 'מגיע', 'מגיעה', 'מגיעים', 'מגיעות', 'נגיע', 'אגיע', 'בטח', 'ברור']);
+export function analysisSupported(transcript, rsvp, durMs) {
+  const t = String(transcript || '');
+  if (!t.trim()) return { ok: true, checked: false };
+  let agentBefore = '', sawNo = false, askedBeforeNo = false; const words = [];
+  for (const l of t.split('\n')) {
+    const u = /^\s*User:\s*(.*)$/.exec(l), a = /^\s*Agent:\s*(.*)$/.exec(l);
+    if (a && !sawNo) agentBefore += ' ' + a[1];
+    if (!u) continue;
+    const w = u[1].replace(/\([^)]*\)/g, ' ').split(/\s+/).map(x => x.replace(/[^א-ת\d]/g, '')).filter(Boolean);
+    if (!sawNo && w.includes('לא')) { sawNo = true; askedBeforeNo = /מגיע|תגיע|סגרתם/.test(agentBefore); }
+    words.push(...w);
+  }
+  const nums = words.map(x => (/^\d{1,2}$/.test(x) ? Number(x) : A_NUM[x] || 0)).filter(Boolean);
+  if (rsvp === 'מגיע') {
+    const ok = words.some(x => A_YES.has(x)) && !words.includes('לא') && nums.length === 1;
+    return ok ? { ok: true, checked: true, party: nums[0] } : { ok: false, checked: true };
+  }
+  if (rsvp === 'לא מגיע') {
+    const said = /(^|\s)לא(\s|$)/.test(words.join(' '));
+    return { ok: said && askedBeforeNo && Number(durMs) >= 8000 && !words.some(x => /^(עוד|עדיין|יודע|יודעת|יודעים|אולי|בטוח|בטוחה|עכשיו)$/.test(x)), checked: true };
+  }
+  if (rsvp === 'מתלבט') return { ok: words.length > 0, checked: true };
+  return { ok: true, checked: true };
 }
 
 /* 'inbound' (they rang us) and 'callback' (we rang back a missed inbound)

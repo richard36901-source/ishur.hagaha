@@ -2969,6 +2969,10 @@ async function processRetellEvent(env, body) {
        NOA_CHASE (off by decision), so answers Shir heard but never recorded stayed off the board. */
     /* 25/11 Richard (אביב: three guests rang back, confirmed, heard "רשמתי" and were dialled again): the answer is read
        from the words when Shir said she recorded it but never called the tool. Outbound and callback calls alike. */
+    if (action.unsupported) {
+      stream(env, { kind: 'call', area: 'בקרה', action: 'סיכום השיחה טען תשובה שהאורח לא אמר — לא נרשם, לבדיקה', ok: false, review: true, token: meta0.token || '',
+        detail: `${gName0 || meta0.guest_id}${evName0 ? ' · ' + evName0 : ''} · הסיכום: ${action.unsupported}`, data: { call_id: String(c0.call_id || ''), guest_id: meta0.guest_id || '', claimed: action.unsupported } }).catch(() => {});
+    }
     let netWrote = false;
     try {
       const guestCall = meta0.kind === 'guest' || !meta0.kind || ((meta0.kind === 'inbound' || meta0.kind === 'callback') && (meta0.caller_kind === 'guest' || !meta0.caller_kind));

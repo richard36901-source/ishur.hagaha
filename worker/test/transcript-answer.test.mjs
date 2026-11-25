@@ -48,3 +48,18 @@ test('25/11 "לא עוד לא" is "not yet": never a refusal (the real call that
     assert.equal(transcriptAnswer('Agent: מגיעים לחתונה?\nUser: ' + u + '\n', 20), null, u);
   assert.deepEqual(transcriptAnswer('Agent: מגיעים לחתונה?\nUser: לא לא תודה\n', 20), { rsvp: 'לא מגיע' });
 });
+
+test('25/11 the post-call summary cannot write an answer the guest never said (נאוה: 8 seconds, silent, "מגיע")', async () => {
+  const { retellToCallResult, analysisSupported } = await import('../shir.js');
+  const mk = (transcript, outcome, party, ms = 8000) => ({ event: 'call_analyzed', call: { call_id: 'c1', direction: 'outbound', start_timestamp: 1000, end_timestamp: 1000 + ms, disconnection_reason: 'user_hangup', transcript,
+    metadata: { guest_id: 'G-f85d36d5-154', kind: 'guest', tries: '2', max_tries: '3' }, call_analysis: { custom_analysis_data: { outcome, party_size: party } } } });
+  const silent = retellToCallResult(mk('Agent: היי, מדברת שיר מאישורי הגעה בשם תאיר ואביב, והוריהם יעקב ומירי פיטוסי ושרון וכרמי מורי — מגיעים לחתונה \n', 'מגיע', 4));
+  assert.equal(silent.kind, 'end-no-outcome'); assert.equal(silent.unsupported, 'מגיע'); assert.equal(silent.result.rsvp, '__keep__'); assert.equal(silent.result.answer, 'שיחה ללא תוצאה ברורה');
+  const good = retellToCallResult(mk('Agent: מגיעים לחתונה?\nUser: כן\nAgent: כמה תהיו?\nUser: שניים\n', 'מגיע', 5, 20000));
+  assert.equal(good.kind, 'end'); assert.equal(good.result.rsvp, 'מגיע'); assert.equal(good.party_size, 2, 'the number the guest said, not the summary\'s');
+  assert.equal(retellToCallResult(mk('Agent: מגיעים לחתונה?\nUser: כן\n', 'מגיע', 3, 20000)).kind, 'end-no-outcome', 'a yes with no number is for a person');
+  assert.equal(retellToCallResult(mk('Agent: היי, \nUser: לא \n', 'לא מגיע', 0, 5000)).kind, 'end-no-outcome');
+  assert.equal(retellToCallResult(mk('Agent: מגיעים לחתונה?\nUser: לא עוד לא\n', 'לא מגיע', 0, 20000)).kind, 'end-no-outcome');
+  assert.equal(retellToCallResult(mk('Agent: מגיעים לחתונה?\nUser: לא, לא נגיע\nAgent: תודה\n', 'לא מגיע', 0, 20000)).result.rsvp, 'לא מגיע');
+  assert.deepEqual(analysisSupported('', 'מגיע', 9000), { ok: true, checked: false });
+});
