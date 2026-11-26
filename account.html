@@ -15,7 +15,7 @@
 <script src="assets/i18n.js?v=9" defer></script>
 <script src="assets/tracking.js?v=23"></script>
 <script src="assets/guard.js?v=22"></script>
-<script src="assets/pwa.js?v=1"></script>
+<script src="assets/pwa.js?v=2"></script>
 <script src="assets/tour.js?v=2"></script>
 <script>
   /* saved (or system) theme before first paint — same key as the dashboard */
@@ -47,6 +47,8 @@
   body{font-family:'Heebo',sans-serif;color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh}
   .wrap{max-width:560px;margin:0 auto;padding:0 16px}
   .top{position:relative}
+  /* 26/11 Richard: the floating language button covered the theme button; it now sits beside it */
+  .lng.flt{left:3.4rem!important;top:.8rem!important}
   .theme-tog{position:absolute;top:.8rem;left:.9rem;z-index:2;border:1px solid rgba(199,174,122,.35);background:rgba(255,255,255,.08);color:#F8F4EA;border-radius:6px;width:36px;height:36px;font-size:1rem;cursor:pointer}
   .brand{display:flex;align-items:center;justify-content:center;gap:.5rem}
   .brand img{width:30px;height:30px;object-fit:contain}
