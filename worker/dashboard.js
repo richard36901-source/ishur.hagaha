@@ -273,6 +273,9 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
   const state = (n, date) => {
     const d = date ? date.slice(0, 10) : '';
     if (sent[n]) return 'sent';
+    /* 26/11 Richard (שוהם, Sunday's extra send read "בתהליך"): a round whose day has not come is scheduled, whatever marks exist
+       (guests kept out of it in advance carry a send mark) — "בתהליך" only on its day, "בוצע" when done */
+    if (d && d > todayIso) return 'scheduled';
     if (cnt(n) > 0) return (cnt(n) >= 0.9 * eligible(n) || (n > 1 && d && d < todayIso)) ? 'sent' : 'running';
     return d && d < todayIso ? 'passed' : 'scheduled';
   };
