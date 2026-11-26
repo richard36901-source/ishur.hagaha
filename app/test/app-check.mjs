@@ -31,8 +31,8 @@ const api = async (p, body) => { const r = await fetch(BASE + p, { method: 'POST
 const files = fs.readdirSync(WWW, { recursive: true }).map(f => path.join(WWW, f)).filter(f => /\.(html|css|js)$/.test(f));
 const src = files.map(f => fs.readFileSync(f, 'utf8')).join('\n');
 check('P7 no prices or buy wording in the app', !/₪|מחיר|לרכישה|קנו|שדרג/.test(src));
-/* 26/11 Richard lifted the 8px corner rule ("Yes, go full Apple": Apple's current rounded design); the font rule stays */
-check('P8 no font CDN (system font)', !/fonts\.googleapis/.test(src));
+/* 26/11 Richard briefly lifted the 8px rule ("full Apple"), then chose "Ours, Apple feel": the rule is back */
+check('P8 no radius above 8px, no font CDN', !/border-radius:\s*(9|[1-9][0-9])px|fonts\.googleapis/.test(src));
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json' };
 const server = http.createServer((req, res) => {

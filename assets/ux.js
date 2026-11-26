@@ -13,8 +13,12 @@
     var s = document.createElement('style'); s.textContent = '#langPick{display:none!important}'
     /* 26/11 Richard (app round 9): no web scroll line, no zoom on a double tap, and room at the end for the app's floating tab bar */
     + 'html{scrollbar-width:none;touch-action:manipulation}::-webkit-scrollbar{display:none;width:0;height:0}body{padding-bottom:96px}'
-    /* and Apple's current shapes inside the app: rounder cards, capsule buttons and inputs (the website itself is unchanged) */
-    + '.card{border-radius:24px!important}.btn,button.btn,a.btn{border-radius:999px!important}input[type=text],input[type=tel],input[type=search],input[type=number],select,textarea{border-radius:14px!important}'
+    /* (26/11: the rounder app-only shapes were removed again: Richard chose our own design language, corners up to 8px) */
+    /* 26/11 Richard: inside the app the board's event header took too much of the screen: one compact block (name, then
+       venue and countdown on one line), same colours and type as the web board */
+    + '.top:has(#title){padding-top:.5rem!important;padding-bottom:.55rem!important}.top:has(#title) .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.2rem .6rem}'
+    + '.top:has(#title) h1{width:100%;font-size:1.15rem!important;line-height:1.3!important;margin:0!important}.top:has(#title) .lux-rule2{display:none!important}'
+    + '.top:has(#title) .sub{margin:0!important;font-size:.82rem!important}.top:has(#title) .cd-wrap{display:inline-block}.top:has(#title) .cd{margin-top:0!important}'
     /* 26/11 Richard: the board's own pages (seating, budget, QR) are part of the app, not "the website": no "→ ללוח"
        button (swipe back or the ראשי tab do that), and a pop-up scrolls itself, not the page behind, and keeps its
        buttons above the app's floating tab bar */
