@@ -60,7 +60,7 @@
       window.addEventListener('message', function (e) { if (e.source === window.parent && e.data && e.data.ishurView) setView(String(e.data.ishurView)); });
       document.addEventListener('DOMContentLoaded', function () {
         var MAP = { statusCard: 'home', shareCard: 'sends', afterCard: 'home', guestsCard: 'home guests', gaddCard: 'guests',
-          mediaCard: 'sends', designCard: 'sends', guestLangCard: 'sends', extraCard: 'sends', sendsCard: 'sends', changeNote: 'sends', refCard: 'account', invoiceCard: 'account', addonsCard: 'none', pwaCard: 'none', advCard: 'sends' };   /* 25/11: the advanced settings sit with the other event settings (share, language) */
+          mediaCard: 'sends', designCard: 'sends', guestLangCard: 'sends', extraCard: 'sends', sendsCard: 'sends', changeNote: 'sends', refCard: 'account', invoiceCard: 'account', addonsCard: 'none', pwaCard: 'none', advCard: 'sends', stopCard: 'account' };   /* 26/11 Richard: in the app the stop / cancel lives in the account tab */   /* 25/11: the advanced settings sit with the other event settings (share, language) */
         Object.keys(MAP).forEach(function (id) { var el = document.getElementById(id); if (el) el.setAttribute('data-v', MAP[id]); });
       });
       var m = /(?:^#|&)s=(acct\.[0-9a-zA-Z._-]{20,200})(?:&|$)/.exec(location.hash || '');
@@ -87,6 +87,8 @@
   /* 22/11 Richard ("aligning it properly"): in the app the four buttons sit in an even 2 x 2 grid, same width each */
   html.in-app[data-view=home] #guestsCard .gl-acts{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
   html.in-app[data-view=home] #guestsCard .gl-acts .buy{display:flex;align-items:center;justify-content:center;gap:.35rem;width:100%;min-height:44px;text-align:center}
+.gift-tag{display:inline-block;font-size:.68rem;font-weight:600;line-height:1;padding:.22rem .5rem;margin-inline-start:.35rem;border-radius:6px;background:var(--gold-bg,rgba(180,136,74,.14));color:var(--gold,#B4884A);vertical-align:middle}
+  #gaddCard.ga-off{display:none}
 </style>
 
 <style>
@@ -1038,7 +1040,7 @@
 
   <!-- add guests, one at a time, up to 10 free (Richard 11/09) -->
   <section class="card" id="gaddCard">
-    <div class="card-h" style="display:flex;justify-content:space-between;align-items:center"><span>הוספת מוזמנים</span><span id="gaddCount" style="font-size:.8rem;color:var(--ink3);font-weight:400">–</span></div>
+    <div class="card-h" style="display:flex;justify-content:space-between;align-items:center"><span>הוספת מוזמנים <span class="gift-tag">במתנה</span></span><span id="gaddCount" style="font-size:.8rem;color:var(--ink3);font-weight:400">–</span></div>
     <div class="card-b">
       <p style="font-size:.85rem;color:var(--ink2);margin:0 0 .7rem">שכחתם מישהו? עד 10 מוזמנים נוספים בחינם. ממלאים שם, טלפון וכמה מגיעים, ולוחצים שליחה. אם ההזמנות כבר יצאו, ההזמנה נשלחת אליהם מיד.</p>
       <div class="gadd">
@@ -2716,6 +2718,8 @@
     if (!j) return;
     if (j.tier) taPaint(j.tier);
     if (j.used == null || j.limit == null) return;   /* an error/limit reply carries no counters */
+    /* 26/11 Richard: the 10 free extras show only once the package's own seats are all used (until then the package box adds guests) */
+    var gc = $('gaddCard'); if (gc) gc.classList.toggle('ga-off', !!(j.tier && j.tier.cap && j.tier.left > 0));
     gaLeft = j.left;
     $('gaddCount').textContent = j.used + ' מתוך ' + j.limit;
     var full = j.left <= 0;
