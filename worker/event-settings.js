@@ -16,6 +16,8 @@
                   window for this event only; it can never widen it.
      gift_on_yes  default true — a guest who confirms gets the gift line
                   on the confirmation message (only when gift links are on).
+     guest_name   default true — false = no guest template carries the guest's
+                  name (26/11, guest-name.js decides inside sendTemplate).
 
    Answers per guest: fqa:<token>:<guest_id> = {shuttle, food, custom, via, at},
    the short form also in the key's metadata so the board reads them with one
@@ -27,6 +29,7 @@
 import { giftActive, giftKey, giftPageUrl } from './gifts.js';
 import { introFor } from './shir.js';
 import { guestIntent, isQuestion } from './whatsapp.js';
+import { forgetGuestName } from './guest-name.js';
 
 /* ── §1 pure ──────────────────────────────────────────────────────────────── */
 
@@ -125,6 +128,7 @@ export function normalizeSettings(input, prev) {
     questions: b.questions !== undefined ? normQuestions(b.questions) : normQuestions(p.questions),
     call_window: b.call_window !== undefined ? normCallWindow(b.call_window) : (p.call_window || null),
     gift_on_yes: b.gift_on_yes !== undefined ? b.gift_on_yes !== false : p.gift_on_yes !== false,
+    guest_name: b.guest_name !== undefined ? b.guest_name !== false : p.guest_name !== false,
   };
   if (out.call_window && out.call_window.error) return { error: out.call_window.error };
   return out;
@@ -221,8 +225,10 @@ export function shirFollowupVars(s) {
 
 /* 26/11 Shalev (Shoham's event): an event with no new settings but the older shuttle question (extraq:<token>, a bus)
    gets the same question from Shir on the phone; WhatsApp keeps the exact wording the client approved. */
+/* 26/11 (guest-name): a record that has no question on (e.g. saved only for the guest-name switch) does not hide the
+   older question, the same as WhatsApp (startFollowups → false → the old extraq question is asked there too). */
 export function legacyShuttleSettings(settings, extraq) {
-  if (settings) return settings;
+  if (settings && enabledSteps(settings).length) return settings;
   const q = extraq && typeof extraq === 'object' ? extraq : null;
   if (!q || q.id !== 'bus') return settings;
   const details = String(q.label || '').replace(/^הסעה\s*/, '').trim().slice(0, 120);
@@ -306,6 +312,7 @@ export async function saveSettings(env, token, input) {
   if (s.error) return s;
   s.at = new Date().toISOString();
   await env.RATE.put('evsettings:' + token, JSON.stringify(s));
+  if (input && input.guest_name !== undefined) forgetGuestName(env);
   if (input && input.parents !== undefined) await syncCallIntro(env, token, s.parents);
   return s;
 }
@@ -440,7 +447,7 @@ export async function handleEventSettings(request, env, origin, deps) {
     if (r.error) return deps.deny(422, r.error, origin);
     s = r;
     await deps.logEvent(env, { area: 'לוח', action: 'הגדרות מתקדמות עודכנו', ok: true, token: tok,
-      detail: `הורים ${parentsText(s.parents) ? 'כן' : 'לא'} · שאלות ${enabledSteps(s).map(k => Q_LABEL[k]).join(', ') || 'אין'} · חלון שיחות ${s.call_window ? s.call_window.start + '–' + s.call_window.end : 'ברירת מחדל'}` }).catch(() => {});
+      detail: `הורים ${parentsText(s.parents) ? 'כן' : 'לא'} · שאלות ${enabledSteps(s).map(k => Q_LABEL[k]).join(', ') || 'אין'} · חלון שיחות ${s.call_window ? s.call_window.start + '–' + s.call_window.end : 'ברירת מחדל'} · שם האורח בהודעות ${s.guest_name === false ? 'לא' : 'כן'}` }).catch(() => {});
   }
   const settings = normalizeSettings({}, s || {});
   return deps.okJson({

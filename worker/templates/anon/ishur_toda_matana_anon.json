@@ -1,0 +1,42 @@
+{
+  "_note": "26/11 guest-name: the no-name copy of ishur_toda_matana (greeting without {{1}}, variables renumbered). NOT submitted. Used only once Meta approves it and /api/guest-name-twins {action:'check'} sets tmplanon:ishur_toda_matana.",
+  "channel": "guests",
+  "method": "POST",
+  "path": "/1378764257421712/message_templates",
+  "payload": {
+    "name": "ishur_toda_matana_anon",
+    "language": "he",
+    "category": "MARKETING",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "היי, תודה שהייתם איתנו ב{{1}} 🤍\nהיה שמח יותר בזכותכם.\n🎁 אם תרצו לתת מתנה לבעלי השמחה, אפשר בביט או בפייבוקס בכפתור למטה.",
+        "example": {
+          "body_text": [
+            [
+              "חתונה של הדר ויצחק"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "נשלח ע\"י ishur.io · הגיע בטעות? השיבו \"טעות\""
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "URL",
+            "text": "מתנה בביט / פייבוקס",
+            "url": "https://go.ishur.io/gift/{{1}}",
+            "example": [
+              "https://go.ishur.io/gift/c1c5fcf5"
+            ]
+          }
+        ]
+      }
+    ],
+    "allow_category_change": false
+  }
+}

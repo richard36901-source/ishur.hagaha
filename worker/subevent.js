@@ -342,6 +342,9 @@ export async function runSubeventSend(env, sub, { dry = true, max = 50, phase = 
       failed++;
       results.push({ ...x, phone: mask(x.phone), result: wa.held ? 'held' : 'failed', error: String(wa.error || '').slice(0, 160) });
       if (wa.held) { heldStop = true; break; }
+      /* 26/11 guest-name.js: the parent event sends without names and this template has no approved no-name form →
+         the same answer for every guest: stop, no failure mark per guest (journal + Slack already said why) */
+      if (wa.error === 'guest-name-hold') { heldStop = true; break; }
       const fk = `${FAIL}:${sub.token}:${x.phone}`;
       await env.RATE.put(fk, String((Number(await env.RATE.get(fk).catch(() => 0)) || 0) + 1), { expirationTtl: 30 * 86400 }).catch(() => {});
     }

@@ -1,0 +1,44 @@
+{
+  "_note": "26/11 guest-name: the no-name copy of ishur_yom_plain_g (greeting without {{1}}, variables renumbered). NOT submitted. Used only once Meta approves it and /api/guest-name-twins {action:'check'} sets tmplanon:ishur_yom_plain_g.",
+  "channel": "guests",
+  "method": "POST",
+  "path": "/1378764257421712/message_templates",
+  "payload": {
+    "name": "ishur_yom_plain_g_anon",
+    "language": "he",
+    "category": "UTILITY",
+    "allow_category_change": false,
+    "components": [
+      {
+        "type": "BODY",
+        "text": "שלום! מחכים לראותכם היום ב{{1}} 🎉\n⏰ שעה: {{2}}\n📍 הכתובת: {{3}}\n🎁 מי שירצה לתת מתנה לבעלי השמחה, אפשר בביט או בפייבוקס בכפתור למטה.\nשמרו את ההודעה, ואפשר להציג אותה בכניסה אם צריך. מאחלים ערב מושלם, נתראה!",
+        "example": {
+          "body_text": [
+            [
+              "חתונה של הדר ויצחק",
+              "19:30",
+              "אולמי Sky Garden, יקנעם"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "נשלח ע\"י ishur.io · הגיע בטעות? השיבו \"טעות\""
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "URL",
+            "text": "מתנה בביט / פייבוקס",
+            "url": "https://go.ishur.io/gift/{{1}}",
+            "example": [
+              "https://go.ishur.io/gift/c1c5fcf5"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

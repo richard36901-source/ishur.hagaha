@@ -1,0 +1,39 @@
+{
+  "_note": "26/11 guest-name: the no-name copy of ishur_shabat_hatan_reminder (greeting without {{1}}, variables renumbered). NOT submitted. Used only once Meta approves it and /api/guest-name-twins {action:'check'} sets tmplanon:ishur_shabat_hatan_reminder.",
+  "channel": "guests",
+  "method": "POST",
+  "path": "/1378764257421712/message_templates",
+  "payload": {
+    "name": "ishur_shabat_hatan_reminder_anon",
+    "language": "he",
+    "category": "UTILITY",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "היי, רק מזכירים 🙂\nנשמח לדעת אם תגיעו לשבת חתן, כדי שנוכל להיערך ללינה.\nאפשר לענות בלחיצה על אחד הכפתורים:"
+      },
+      {
+        "type": "FOOTER",
+        "text": "נשלח ע\"י ishur.io · הגיע בטעות? השיבו \"טעות\""
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "QUICK_REPLY",
+            "text": "מגיע/ה עם לינה"
+          },
+          {
+            "type": "QUICK_REPLY",
+            "text": "מגיע/ה בלי לינה"
+          },
+          {
+            "type": "QUICK_REPLY",
+            "text": "לא מגיע/ה"
+          }
+        ]
+      }
+    ],
+    "allow_category_change": false
+  }
+}
