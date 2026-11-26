@@ -50,3 +50,14 @@ test('missingCharges: a recurring vendor 5+ days past its day with no charge is 
   assert.deepEqual(missingCharges(rec, rows, '2026-11-12'), []);
   assert.equal(rowIls(rows[0], { make: 1 }), Math.round(51.2 * 3.7 * 100) / 100);
 });
+
+test('ledgerRows: maps the HUB Ledger by its header; a Make bill without the ishur org is left out', async () => {
+  const { ledgerRows } = await import('../vendorexp.js');
+  const v = [['hash', 'vendor', 'invoice_number', 'doc_date', 'amount', 'currency', 'vat', 'period', 'doc_type', 'source', 'source_ref', 'file', 'url', 'morning', 'status', 'created', 'notes'],
+    ['h1', 'Telnyx, LLC', 'T-1', '2026-11-24', '50.00', 'USD', '', '', 'receipt', '', '', '', '', '', '', '', ''],
+    ['h2', 'Celonis Inc.', 'M-1', '2026-11-13', '15.06', 'USD', '', '', 'receipt', '', '', '', '', '', '', '', 'org 7008811'],
+    ['h3', 'Celonis Inc.', 'M-2', '2026-11-23', '8.10', 'USD', '', '', 'receipt', '', '', '', '', '', '', '', 'organization ID: 5881669'],
+    ['h4', 'HighLevel', 'G-1', '2026-11-02', '10', 'USD', '', '', 'receipt', '', '', '', '', '', '', '', '']];
+  const r = ledgerRows(v).map((x) => [x.vendor, x.ref, x.amount]);
+  assert.deepEqual(r, [['Telnyx, LLC', 'T-1', 50], ['Celonis Inc.', 'M-2', 8.1], ['HighLevel', 'G-1', 10]]);
+});
