@@ -234,7 +234,7 @@ export function composePlan(inp) {
     else if (r.reminder_started_at) status = 'in_progress';
     else if (day < today || (day === today && Date.parse(at) < now && !sendLaterToday)) { status = 'missed'; reason = 'לא התחיל'; }
     else status = 'waiting';
-    push(day, { id: `subrem:${tok8}`, kind: 'subevent_reminder', event: { tok8, name: nameOf(tok8, r.name) }, label_he: `תזכורת · ${subLabel(r.name || nameOf(tok8))}`, planned_at: at, planned_n: r.reminder_n || (subBy[tok] ? Math.max(0, (Number(subBy[tok].sent) || 0) - (Number(subBy[tok].replied) || 0)) : 0), done_n: r.reminder_sent || 0, failed_n: 0, status, reason_he: reason || (status === 'waiting' ? `לא ענו — יוצאת לבד ב-${hm}` : ''), self_heals: status === 'waiting', deep_link: `#/clients/${tok8}` });
+    push(day, { id: `subrem:${tok8}`, kind: 'subevent_reminder', event: { tok8, name: nameOf(tok8, r.name) }, label_he: `תזכורת · ${subLabel(r.name || nameOf(tok8))}`, planned_at: at, planned_n: r.reminder_n || (subBy[tok] ? Math.max(0, (Number(subBy[tok].sent) || 0) - (Number(subBy[tok].replied) || 0)) : 0), done_n: r.reminder_sent || 0, failed_n: 0, status, reason_he: reason || (status === 'waiting' ? `מתלבטים — יוצאת לבד ב-${hm}` : ''), self_heals: status === 'waiting', deep_link: `#/clients/${tok8}` });
   }
 
   /* ── Shir's call rounds ── */

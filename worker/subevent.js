@@ -22,7 +22,7 @@ import { partyFromText, isQuestion } from './whatsapp.js';
 
 export const SUBEVENT_KINDS = { shabbat: { he: 'שבת חתן', type_he: 'שבת חתן · הודעה אחת' } };
 export const SHABBAT_BUTTONS = ['מגיע/ה עם לינה', 'מגיע/ה בלי לינה', 'לא מגיע/ה'];
-export const STATUS_HE = { with_stay: 'מגיעים עם לינה', no_stay: 'מגיעים בלי לינה', no: 'לא מגיעים', undecided: 'מתלבטים', none: 'לא ענו' };
+export const STATUS_HE = { with_stay: 'מגיעים עם לינה', no_stay: 'מגיעים בלי לינה', no: 'לא מגיעים', undecided: 'אולי', none: 'מתלבטים' };
 export const FALLBACK_NAME = 'אורחים יקרים';
 
 const clean = t => String(t || '').replace(/[‎‏]/g, '').trim();

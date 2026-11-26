@@ -38,7 +38,10 @@ const dm = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''))
 const FLAG_HE = { hold: ['הקפאת שליחות', 'שחרור הקפאת שליחות'], cancel: ['ביטול אירוע', 'החזרת אירוע מביטול'], extrasend: ['הפעלת שליחה נוספת', 'ביטול שליחה נוספת'], postponeok: ['אישור הודעת דחייה', 'ביטול אישור הודעת דחייה'], clearsends: ['ביטול מועדי השליחה', 'החזרת מועדי השליחה'] };
 const SEND_N = { invite: 1, reminder: 2, extra: 3 };
 const SKIP_HE = { 1: 'הזמנה (גל 1)', 2: 'תזכורת (גל 2)', 3: 'שליחה נוספת (גל 3)', daybefore: 'יום-לפני', shulchan: 'הודעת השולחן', toda: 'תודה' };
-const RSVP_HE = { 'מגיע': 'מגיע', 'לא מגיע': 'לא מגיע', 'מתלבט': 'מתלבט' };
+const RSVP_HE = { 'מגיע': 'מגיע', 'לא מגיע': 'לא מגיע', 'מתלבט': 'אולי' };   /* 26/11 Richard: an unsure answer reads 'אולי' */
+/* 26/11 Richard (terminology): the words people read for a stored rsvp. The stored values stay ('' / 'מתלבט' / ...);
+   no answer yet reads 'מתלבט/ת', an unsure answer reads 'אולי'. */
+export function rsvpHe(r) { const v = String(r == null ? '' : r).trim(); return v ? (RSVP_HE[v] || v) : 'מתלבט/ת'; }
 
 /* the routes describe() has words for — the ONLY ones whose request/response are cloned and read after the handler */
 const DESCRIBED = new Set(['/api/answers-log', '/api/guest-rsvp', '/api/guest-edit', '/api/guest-add', '/api/send-date', '/api/event-flag', '/api/skip', '/api/block-phone', '/api/guest-card', '/api/inbox/send']);

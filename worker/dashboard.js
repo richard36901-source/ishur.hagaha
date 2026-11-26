@@ -280,7 +280,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
     return d && d < todayIso ? 'passed' : 'scheduled';
   };
   if (c(39)) sends.push({ key: 'invite', label: 'ההזמנה ואישור ההגעה', date: c(39), status: state(1, c(39)), editable: state(1, c(39)) === 'scheduled', sent_n: cnt(1) });
-  if (c(40)) sends.push({ key: 'reminder', label: 'תזכורת למי שלא ענה', date: c(40), status: state(2, c(40)), editable: state(2, c(40)) === 'scheduled', sent_n: cnt(2) });
+  if (c(40)) sends.push({ key: 'reminder', label: 'תזכורת למתלבטים', date: c(40), status: state(2, c(40)), editable: state(2, c(40)) === 'scheduled', sent_n: cnt(2) });
   /* 04/11: a granted/paid extra send shows even before a date was picked */
   if (c(41) && (sent.extraPaid || sent[3])) sends.push({ key: 'extra', label: 'תזכורת נוספת', date: c(41), status: state(3, c(41)), editable: state(3, c(41)) === 'scheduled', sent_n: cnt(3) });
   else if (sent.extraPaid || sent[3]) sends.push({ key: 'extra', label: 'תזכורת נוספת', date: '', status: sent[3] ? 'sent' : 'scheduled', editable: !sent[3] });
@@ -339,7 +339,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
       const queued1 = ownRounds > 1 ? guests.filter(g => planWaits(g) && g.tries < 1).length : queued;
       const status1 = (ownRounds > 1 && !over && start <= todayIso) ? ((start < todayIso && called) ? 'sent' : queued1 ? 'running' : called ? 'sent' : 'scheduled')
         : (!over && start < todayIso && called && status === 'running') ? 'sent' : status;   /* 25/11: a single-round plan follows the same rule */
-      sends.push({ key: 'calls', label: 'שיחה טלפונית למי שלא ענה' + (ownRounds > 1 ? ' · סבב 1' : ''), date: start, status: status1, auto: true, queued: queued1 });
+      sends.push({ key: 'calls', label: 'שיחה טלפונית למתלבטים' + (ownRounds > 1 ? ' · סבב 1' : ''), date: start, status: status1, auto: true, queued: queued1 });
       let prev = start;
       for (let k = 2; k <= ownRounds; k++) {
         const nd = new Date(prev + 'T12:00:00Z'); nd.setUTCDate(nd.getUTCDate() + 1);
@@ -352,7 +352,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
         /* a round that already dialled cannot carry a day that has not come yet (the first round's day was moved by hand
            after it started: שילת 23/11, rounds 2 and 3 were shown as done on 24/11 and 25/11) */
         const shownDay = reached && dk > todayIso ? todayIso : dk;
-        sends.push({ key: 'calls_r' + k, label: 'שיחה טלפונית למי שלא ענה · סבב ' + k, date: shownDay, status: stK, auto: true, queued: waitingK, round: k, dialed_n: reached });
+        sends.push({ key: 'calls_r' + k, label: 'שיחה טלפונית למתלבטים · סבב ' + k, date: shownDay, status: stK, auto: true, queued: waitingK, round: k, dialed_n: reached });
       }
     }
   }
@@ -365,7 +365,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
     const rang = guests.filter(g => g.tries > planCap);
     const ans = rang.filter(g => /^ענה($| - )/.test(g.call_ans) && (g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided'));
     const stA = at > todayIso ? 'scheduled' : (waitA && at === todayIso) ? 'running' : (rang.length || at < todayIso) ? 'sent' : 'running';
-    sends.push({ key: 'calls2', label: 'סבב שיחות נוסף (למי שלא ענה ולמתלבטים)', date: at, status: at ? stA : 'scheduled', auto: true, queued: stA === 'sent' ? 0 : waitA, addon: true, ...(at ? {} : { pick: true }),
+    sends.push({ key: 'calls2', label: 'סבב שיחות נוסף (למתלבטים ולמי שענה אולי)', date: at, status: at ? stA : 'scheduled', auto: true, queued: stA === 'sent' ? 0 : waitA, addon: true, ...(at ? {} : { pick: true }),
       stats: { dialed: rang.length, answered: ans.length, confirmed: ans.filter(g => g.status === 'confirmed').length, declined: ans.filter(g => g.status === 'declined').length,
         undecided: ans.filter(g => g.status === 'undecided').length, no_answer: rang.length - ans.length, waiting: stA === 'sent' ? 0 : waitA, later: 0, later_confirmed: 0, later_declined: 0, later_undecided: 0 } });
   }
@@ -377,7 +377,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
   if (sent.callRound && sent.callRound.at && !sameDay) {
     const cr = sent.callRound;
     const st = cr.done ? ((queued2(guests) && !(String(cr.at).slice(0, 10) < todayIso)) ? 'running' : 'sent') : (cr.at <= todayIso ? 'running' : 'scheduled');   /* 25/11: an extra round of a past day is done */
-    sends.push({ key: 'calls2', label: 'סבב שיחות נוסף (למי שלא ענה ולמתלבטים)', date: cr.at, status: st, auto: true, queued: cr.n });
+    sends.push({ key: 'calls2', label: 'סבב שיחות נוסף (למתלבטים ולמי שענה אולי)', date: cr.at, status: st, auto: true, queued: cr.n });
   }
   /* the event-day message: 'sent' once the engine stamped it (s5t markers),
      'passed' when the day is behind us without one, otherwise scheduled */

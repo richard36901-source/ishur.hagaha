@@ -5,9 +5,9 @@
    Audience of an added message round / calls round (KV extrasend:<token>,
    callsaddon:<token>, field `scope`):
      all         כולם (messages only; never a guest with a final "לא מגיע")
-     unanswered  לא ענו + מתלבטים   (the value the paid path always wrote, kept)
-     noanswer    רק מי שלא ענה
-     undecided   מתלבטים בלבד
+     unanswered  מתלבטים + אולי   (the value the paid path always wrote, kept)
+     noanswer    רק מתלבטים
+     undecided   אולי בלבד
    A calls round never rings a guest with a final answer, so 'all' on a calls
    round is clamped to 'unanswered'.
 
@@ -20,7 +20,7 @@
 import { planMaxCallTries } from './dashboard.js';
 
 export const AUDIENCES = ['all', 'unanswered', 'noanswer', 'undecided'];
-export const AUDIENCE_HE = { all: 'כולם', unanswered: 'לא ענו + מתלבטים', noanswer: 'רק מי שלא ענה', undecided: 'מתלבטים' };
+export const AUDIENCE_HE = { all: 'כולם', unanswered: 'מתלבטים + אולי', noanswer: 'רק מתלבטים', undecided: 'אולי' };
 
 export function normAudience(v, { calls = false } = {}) {
   const s = AUDIENCES.includes(String(v || '')) ? String(v) : (calls ? 'unanswered' : 'all');

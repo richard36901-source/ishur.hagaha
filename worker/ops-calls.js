@@ -34,7 +34,7 @@ import { dailyCallCap } from './cfg.js';
 import { recordChange } from './changes.js';
 
 export const USD_ILS = 3.7;
-export const OUTCOMES = { coming: 'מגיע', not_coming: 'לא מגיע', maybe: 'מתלבט', callback: 'לחזור אליו', voicemail: 'תא קולי', no_answer: 'לא ענה', answered: 'נענתה בלי תשובה', failed: 'נכשלה', do_not_call: 'ביקש לא להתקשר' };
+export const OUTCOMES = { coming: 'מגיע', not_coming: 'לא מגיע', maybe: 'אולי', callback: 'לחזור אליו', voicemail: 'תא קולי', no_answer: 'לא ענה', answered: 'נענתה בלי תשובה', failed: 'נכשלה', do_not_call: 'ביקש לא להתקשר' };
 export const MANUAL_OUTCOMES = ['מגיע', 'לא מגיע', 'מתלבט', 'לא ענה', 'לחייג שוב', 'לא להתקשר'];
 const ilDayOf = ts => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date(ts));
 const addDays = (iso, n) => new Date(Date.parse(iso + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);

@@ -20,7 +20,7 @@ test('same components as the normal board: kpis, filt chips, gsearch, rows-h, ro
   for (const cls of ['class="kpis"', 'class="kpi hi"', 'class="filters"', 'class="filt on"', 'class="gsearch"', 'class="rows-h"', 'class="row"', 'class="pill yes"', 'class="pill no"', 'class="pill wait"', 'class="row-p"', 'class="row-s"'])
     assert.ok(h.includes(cls), cls);
   assert.ok(!/<table/.test(h));
-  for (const l of ['מגיעים עם לינה', 'מגיעים בלי לינה', 'לא מגיעים', 'מתלבטים', 'לא ענו']) assert.ok(h.includes('<div class="kpi-l">' + l + '</div>'), l);
+  for (const l of ['מגיעים עם לינה', 'מגיעים בלי לינה', 'לא מגיעים', 'אולי', 'מתלבטים']) assert.ok(h.includes('<div class="kpi-l">' + l + '</div>'), l);
   assert.ok(h.includes('<div class="kpi-v">4</div>'));   /* people with lodging */
   assert.ok(h.includes('050-****-001') && !/05\d{8}/.test(h), 'masked phones only');
   assert.ok(h.includes('אבי &lt;b&gt;'), 'escaped');

@@ -15,6 +15,7 @@
    The reads come from the sheet snapshot (answers), KV log:<phone>:<ts> (WhatsApp) and the audit log (calls).
    The only write is 'set', through the same writer every answer uses.
    ========================================================================== */
+import { rsvpHe } from './team-log.js';
 
 export const METHODS = { call: 'שיחת טלפון', wa: 'וואטסאפ', link: 'קישור הרשמה', manual: 'סומן ידנית', unknown: 'לא ידוע', none: '' };
 
@@ -124,7 +125,7 @@ export async function handleAnswersLog(request, env, origin, d) {
     const row = rowOf(g);
     const ok = await d.writeAnswer(env, { guest_id: row.id, token, phone: d.normPhone(row.phone), name: row.name, by_client: true, answer_label: 'תוקן ידנית (צוות)' }, rsvp, party);
     await d.logEvent(env, { area: 'אישורים', action: 'תשובה תוקנה ידנית מלוג האישורים', ok: !!ok, review: !ok, token, phone: d.normPhone(row.phone),
-      detail: `${row.name}: ${row.rsvp || 'ללא תשובה'}${row.party ? ' ' + row.party : ''} → ${rsvp}${party ? ' ' + party : ''} · ${String(b.who || 'צוות').slice(0, 30)}${b.reason ? ' · ' + String(b.reason).slice(0, 120) : ''}` }).catch(() => {});
+      detail: `${row.name}: ${rsvpHe(row.rsvp)}${row.party ? ' ' + row.party : ''} → ${rsvpHe(rsvp)}${party ? ' ' + party : ''} · ${String(b.who || 'צוות').slice(0, 30)}${b.reason ? ' · ' + String(b.reason).slice(0, 120) : ''}` }).catch(() => {});
     return d.okJson({ ok: !!ok, guest_id: row.id, rsvp, party: party || 0 }, origin);
   }
 
