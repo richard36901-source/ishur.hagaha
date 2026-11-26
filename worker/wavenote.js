@@ -30,7 +30,8 @@ export function kindOf({ template, wave }) {
   if (w === 'eventday' || /^ishur_yom_/.test(t)) return { key: 'eventday', he: 'יום האירוע' };
   if (w === 'gift' || /^ishur_matana/.test(t)) return { key: 'gift', he: 'קישור מתנה' };
   if (/^ishur_toda/.test(t)) return { key: 'thanks', he: 'תודה' };
-  if (/^ishur_bitul/.test(t)) return { key: 'cancel', he: 'ביטול' };
+  if (/^ishur_bitul|^ishur_event_cancelled/.test(t)) return { key: 'cancel', he: 'ביטול' };
+  if (/^ishur_event_postponed/.test(t)) return { key: 'postpone', he: 'דחייה' };   /* 26/11 track-cancel */
   if (/hazmana/.test(t)) return { key: 'w1', he: 'גל 1' };
   return null;                                  /* OTPs, probes, unknown: no note */
 }

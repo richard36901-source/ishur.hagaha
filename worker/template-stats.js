@@ -76,8 +76,8 @@ export function msgTypeOf(template, wave) {
   if (/^ishur_yom_haerua/.test(b) || w === 'eventday') return 'eventday';
   if (/^ishur_shulchan/.test(b)) return 'table';
   if (/^ishur_toda_orach/.test(b)) return 'thanks';
-  if (/^ishur_bitul/.test(b)) return 'cancel';
-  if (/^ishur_dchiya/.test(b)) return 'postpone';
+  if (/^ishur_bitul|^ishur_event_cancelled/.test(b)) return 'cancel';   /* 26/11 track-cancel: the client's notice */
+  if (/^ishur_dchiya|^ishur_event_postponed/.test(b)) return 'postpone';
   if (/^ishur_(lo_siyem|tzikoret|doch|syum|tashlum|heshbonit|shidrug|kod)/.test(b)) return 'client';
   return 'other';
 }
