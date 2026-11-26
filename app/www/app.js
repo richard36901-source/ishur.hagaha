@@ -428,6 +428,9 @@
   $('eventsOpen').addEventListener('click', openEvents);
   $('eventsClose').addEventListener('click', function () { $('events').hidden = true; });
   $('pageClose').addEventListener('click', function () { $('page').hidden = true; $('pageFrame').removeAttribute('src'); if (session) loadAccount().then(function () { render(); }); });
+  /* 26/11 Richard: stop or cancel the event from the app's חשבון tab. The board keeps that card (#stopCard) in its
+     account view, so this opens the board there, over the app. */
+  $('stopOpen').addEventListener('click', function () { if (!current) return; T('stop_open'); openPage('עצירת שליחות או ביטול', ENV.board + '?t=' + encodeURIComponent(current) + '&app=1&nav=1&view=account' + LQ + '&theme=' + document.documentElement.getAttribute('data-theme') + '#s=' + encodeURIComponent(session)); });
   $('refOpen').addEventListener('click', function () { if (!current) return; T('ref_open'); openPage('המלצה עלינו', ENV.board + '?t=' + encodeURIComponent(current) + '&app=1&view=account' + LQ + '#s=' + encodeURIComponent(session)); });
   $('pkgTerms').addEventListener('click', function (e) { e.preventDefault(); T('terms_open'); openUrl(ENV.site + '/terms.html?app=1' + LQ); });
   /* after the event: asked when the app opens. "לא עכשיו" is offered once; the next time only "לדרג עכשיו". */
