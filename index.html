@@ -1811,6 +1811,9 @@ body.has-promo #nav{top:var(--promo-h,34px)}
   --sh2:0 4px 12px rgba(0,0,0,.5),0 16px 48px rgba(0,0,0,.45);
 }
 :root[data-theme="dark"]{color-scheme:dark}
+/* 26/11 Richard: the navy previews band clashes in dark mode; it takes the dark brand green instead (light mode keeps navy) */
+:root[data-theme="dark"] #previews{background:var(--pine)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) #previews{background:var(--pine)}}
 :root[data-theme="dark"] #nav{background:rgba(14,21,18,.94)}
 :root[data-theme="dark"] input,:root[data-theme="dark"] select,:root[data-theme="dark"] textarea{background:var(--card);color:var(--ink);border-color:var(--bdr)}
 :root[data-theme="dark"] input::placeholder,:root[data-theme="dark"] textarea::placeholder{color:var(--ink3)}
