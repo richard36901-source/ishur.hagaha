@@ -196,7 +196,7 @@
       var c = info[t].calls; if (!c || c.day !== day.day || !c.n) return;
       if (info[t].date && info[t].date < plan.today) return;
       if (items.some(function (it) { return it.kind === 'call' && it.event && it.event.tok8 === t; })) return;
-      items.push({ id: 'proj:' + t + ':' + day.day, kind: 'call', event: { tok8: t, name: info[t].name }, planned_n: c.n, done_n: 0, answered: 0, status: 'waiting', reason_he: 'סבב שיחות של שיר למי שלא ענה (בערך ' + c.n + ')', _proj: true });
+      items.push({ id: 'proj:' + t + ':' + day.day, kind: 'call', event: { tok8: t, name: info[t].name }, planned_n: c.n, done_n: 0, answered: 0, status: 'waiting', reason_he: 'סבב שיחות של שיר למתלבטים (בערך ' + c.n + ')', _proj: true });
     });
     var happening = {};
     (day.items || []).forEach(function (it) { if (it.kind === 'event' && it.event && it.event.tok8) happening[it.event.tok8] = 1; });
@@ -470,7 +470,7 @@
         '<dt>מצב</dt><dd>' + (d.hold ? '⏸ מוחזק' + (d.holdtill ? ' עד ' + esc(dm(d.holdtill)) : '') : 'פעיל') + (d.order >= 0 ? ' · מקום ' + (d.order + 1) + ' בתור' : '') + (d.prio_share ? ' · עד ' + d.prio_share + ' ביום' : '') + '</dd>' +
         '<dt>מוזמנים</dt><dd>' + num(st.guests) + '</dd>' +
         '<dt>מגיעים</dt><dd>' + num(st.coming) + ' (' + num(st.diners) + ' סועדים)</dd>' +
-        '<dt>לא מגיעים</dt><dd>' + num(st.not) + '</dd><dt>מתלבטים</dt><dd>' + num(st.maybe) + '</dd><dt>לא ענו</dt><dd>' + num(st.none) + '</dd>' +
+        '<dt>לא מגיעים</dt><dd>' + num(st.not) + '</dd><dt>אולי</dt><dd>' + num(st.maybe) + '</dd><dt>מתלבטים</dt><dd>' + num(st.none) + '</dd>' +
         (st.tables ? '<dt>עם שולחן</dt><dd>' + num(st.tables) + '</dd>' : '') +
         '<dt>גלים</dt><dd>' + ['1', '2', '3'].filter(function (k) { return w[k]; }).map(function (k) { return 'גל ' + k + ': ' + dm(w[k]); }).join(' · ') + '</dd></dl>' +
         (d.custom && d.custom.text ? '<div class="wk-h">נוסח ההזמנה האישי · ' + esc(d.custom.status || '') + '</div><div class="wk-msg">' + esc(d.custom.text) + '</div>' : '') +

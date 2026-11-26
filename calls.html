@@ -8,7 +8,7 @@
 <title>מוקד שיחות · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=74"></script>
+<script src="config.js?v=97"></script>
 <script src="assets/ux.js?v=9"></script>
 <script src="assets/adminbar.js?v=28" defer></script>
 <script src="assets/guard.js?v=22"></script>
@@ -151,7 +151,7 @@
   var OUTCOMES = [
     { label: 'מגיע', cls: 'b-yes', gone: true },
     { label: 'לא מגיע', cls: 'b-no', gone: true },
-    { label: 'מתלבט', cls: 'b-maybe', gone: false },
+    { label: 'מתלבט', text: 'אולי', cls: 'b-maybe', gone: false },
     { label: 'לא ענה', cls: 'b-miss', gone: false },
     { label: 'לחייג שוב', cls: 'b-again', gone: false }
   ];
@@ -199,7 +199,7 @@
       OUTCOMES.forEach(function (o) {
         var b = document.createElement('button');
         b.className = 'btn ' + o.cls;
-        b.textContent = o.label;
+        b.textContent = o.text || o.label;
         b.addEventListener('click', function () { mark(g, o, card, btns); });
         btns.appendChild(b);
       });
@@ -232,7 +232,7 @@
         if (g.tries >= MAX_TRIES - 1) t.classList.add('warn');
         var last = card.querySelector('.g-last');
         if (last) last.textContent = 'פעם קודמת: ' + j.answer;
-        toast('נשמר: ' + o.label);
+        toast('נשמר: ' + (o.text || o.label));
         Array.prototype.forEach.call(btns.children, function (b) { b.disabled = false; });
       }
     }).catch(function () {

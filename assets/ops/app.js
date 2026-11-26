@@ -18,7 +18,7 @@ const loadScript = (src) => new Promise((ok, no) => { const s = document.createE
 let liveReady = null;
 function ensureLive() {
   if (MOCK) return Promise.resolve();
-  liveReady = liveReady || loadScript('config.js?v=72').then(() => loadScript('assets/guard.js?v=19')).then(() => {
+  liveReady = liveReady || loadScript('config.js?v=97').then(() => loadScript('assets/guard.js?v=19')).then(() => {
     try { BASE = window.ISHUR_CONFIG.endpoint('status').replace(/\/api\/status$/, ''); } catch (e) { /* keep default */ }
   }).catch(() => {});
   return liveReady;

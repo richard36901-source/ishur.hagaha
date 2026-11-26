@@ -1,7 +1,7 @@
 {
   "name": "ishur · אישורי הגעה",
   "short_name": "ishur",
-  "description": "לוח הבקרה של האירוע: מי אישר, מי עוד לא ענה, ומה יוצא מתי.",
+  "description": "לוח הבקרה של האירוע: מי אישר, מי עדיין מתלבט, ומה יוצא מתי.",
   "lang": "he",
   "dir": "rtl",
   "start_url": "dashboard.html?pwa=1",

@@ -1,7 +1,7 @@
 /* 25/11/2026 track-board · the "add a send / add a calls round" dialog of the clients screens
    (clients.html, next/clients.html). Asks right away:
      (a) when — a day from today on (today only before 19:00 Israel time), or "הלקוח יחליט"
-     (b) for whom — כולם / רק מי שלא ענה / מתלבטים / לא ענו + מתלבטים (a calls round never offers "כולם")
+     (b) for whom — כולם / רק מתלבטים / אולי / מתלבטים + אולי (a calls round never offers "כולם")
    IshurAddRound.ask({kind:'extrasend'|'calls', name}) → Promise<null | {when:'YYYY-MM-DD'|'client', scope}>
    The worker checks the same date rule again (POST /api/grant-addon). Uses the ux.js dialog look. */
 (function () {
@@ -13,7 +13,7 @@
   function plusDay(iso) { var d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); }
   /* the first day that may be chosen: today until 19:00, then tomorrow */
   function minDay() { var n = ilNow(); return n.hm < '19:00' ? n.day : plusDay(n.day); }
-  var AUD = [['all', 'כולם'], ['noanswer', 'רק מי שלא ענה'], ['undecided', 'מתלבטים'], ['unanswered', 'לא ענו + מתלבטים']];
+  var AUD = [['all', 'כולם'], ['noanswer', 'רק מתלבטים'], ['undecided', 'אולי'], ['unanswered', 'מתלבטים + אולי']];
 
   function ask(o) {
     o = o || {};

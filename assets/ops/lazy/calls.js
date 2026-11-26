@@ -9,7 +9,7 @@ import { tiles } from '../screens/calls.js';
 
 export const TABS = [['timeline', 'ציר שיחות'], ['rounds', 'סבבים'], ['manual', 'שיחות ידניות'], ['shir', 'שיר'], ['costs', 'עלויות']];
 export const OUT_TONE = { coming: 'good', not_coming: 'crit', maybe: 'warn', callback: 'info', voicemail: '', no_answer: '', answered: 'info', failed: 'crit', do_not_call: 'serious' };
-const OUT_HE = { coming: 'מגיע', not_coming: 'לא מגיע', maybe: 'מתלבט', callback: 'לחזור אליו', voicemail: 'תא קולי', no_answer: 'לא ענה', answered: 'נענתה בלי תשובה', failed: 'נכשלה', do_not_call: 'ביקש לא להתקשר' };
+const OUT_HE = { coming: 'מגיע', not_coming: 'לא מגיע', maybe: 'אולי', callback: 'לחזור אליו', voicemail: 'תא קולי', no_answer: 'לא ענה', answered: 'נענתה בלי תשובה', failed: 'נכשלה', do_not_call: 'ביקש לא להתקשר' };
 const LS = 'ops:calls';
 const loadSt = () => { try { return JSON.parse(localStorage.getItem(LS) || '{}') || {}; } catch (e) { return {}; } };
 const saveSt = (s) => { try { localStorage.setItem(LS, JSON.stringify({ tab: s.tab, range: s.range })); } catch (e) { /* private mode */ } };

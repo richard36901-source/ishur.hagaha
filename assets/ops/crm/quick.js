@@ -10,8 +10,8 @@ import { PLAN_HE } from './adapt.js';
 
 const loadScript = (src) => new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
 export async function ensurePricing() {
-  if (!globalThis.ISHUR_CONFIG) await loadScript('config.js?v=72');
-  if (!globalThis.IshurPayLinkGen) await loadScript('assets/paylink-gen.js?v=2');
+  if (!globalThis.ISHUR_CONFIG) await loadScript('config.js?v=97');
+  if (!globalThis.IshurPayLinkGen) await loadScript('assets/paylink-gen.js?v=3');
   return { cfg: globalThis.ISHUR_CONFIG, G: globalThis.IshurPayLinkGen };
 }
 const ilHour = (now = Date.now()) => +new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hourCycle: 'h23' }).format(new Date(now));
@@ -51,7 +51,7 @@ ${row('רשומות', Select({ name: 'q_records', value: q.records, options: ts.
 <div class="ck-row static"><span class="lbl">דיילות באירוע</span>${hostSeg}<span class="price num">${inB ? money(pr.bundleTotal) : '—'}</span></div>
 ${pr.note ? `<div class="sub">${esc(pr.note)}</div>` : ''}
 ${tg('design', inB ? 'עיצוב ההזמנה במתנה' : 'עיצוב הזמנה', q.design, inB ? 'כלול' : money(addPrice(q, cfg, G, { design: true })))}
-${tg('calls', 'סבב שיחות AI למי שלא ענה', q.calls, callsP ? money(callsP) : 'כלול בחבילה', !callsP)}
+${tg('calls', 'סבב שיחות AI למתלבטים', q.calls, callsP ? money(callsP) : 'כלול בחבילה', !callsP)}
 ${tg('extra_wave', 'גל תזכורת שלישי', q.extra_wave, money(addPrice(q, cfg, G, { extra_wave: true })))}
 </div></div>
 <div class="qc-total"><span>סה״כ</span><b class="num" data-qc-total>${money(total)}</b></div>

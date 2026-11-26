@@ -7,12 +7,12 @@
 <title>רשימת מוזמנים להדפסה · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=74"></script>
+<script src="config.js?v=97"></script>
 <script>
 /* 22/11 Richard: inside the app the language is chosen in חשבון, not by the button on each page */
 (function () { try { if (/[?&]app=1(&|$)/.test(location.search) || sessionStorage.getItem('ishur_in_app') === '1') { var s = document.createElement('style'); s.textContent = '#langPick{display:none!important}'; document.head.appendChild(s); } } catch (e) {} })();
 </script>
-<script src="assets/i18n.js?v=8" defer></script>
+<script src="assets/i18n.js?v=9" defer></script>
 <script src="assets/guard.js?v=22"></script>
 <style>
   /* Richard 09/11: a check-list the hosts (or the venue's hostesses) print at the entrance — who is coming, how many, which table, a box to tick on arrival.
@@ -36,8 +36,8 @@
   td.n{font-variant-numeric:tabular-nums;text-align:center;width:4.5rem}td.c{width:2.6rem;text-align:center}
   .box{display:inline-block;width:18px;height:18px;border:1.6px solid var(--ink2);border-radius:4px;vertical-align:middle}
   .st{font-size:.74rem;color:var(--ink3)}
-  tr.maybe td{color:var(--ink2)}tr.maybe td.name::after{content:" · מתלבט/ת";font-size:.72rem;color:var(--gold)}
-  tr.none td.name::after{content:" · לא ענה";font-size:.72rem;color:var(--ink3)}
+  tr.maybe td{color:var(--ink2)}tr.maybe td.name::after{content:" · אולי";font-size:.72rem;color:var(--gold)}
+  tr.none td.name::after{content:" · מתלבט/ת";font-size:.72rem;color:var(--ink3)}
   .empty{padding:2rem;text-align:center;color:var(--ink3)}
   .foot{margin-top:1rem;font-size:.72rem;color:var(--ink3);display:flex;justify-content:space-between}
   @media print{
@@ -51,7 +51,7 @@
 <div class="bar">
   <b id="ttl">רשימת מוזמנים להדפסה</b>
   <label><input type="checkbox" id="onlyComing" checked> רק מגיעים</label>
-  <label><input type="checkbox" id="withMaybe"> גם מתלבטים</label>
+  <label><input type="checkbox" id="withMaybe"> גם אולי</label>
   <select id="group"><option value="table">לפי שולחן</option><option value="name">לפי א-ב</option></select>
   <a id="qr" href="#" target="_blank" rel="noopener">📱 ברקוד שולחנות</a>
   <a id="back" href="#">‹ ללוח הבקרה</a>
@@ -84,7 +84,7 @@
     var title = (ev.occasion_label || ev.occasion || 'האירוע') + ' · ' + (ev.name1 || '') + (ev.name2 ? ' ו' + ev.name2 : '');
     $('ttl').textContent = title;
     var h = '<h1>' + esc(title) + '</h1><p class="sub">' + esc(heDate(ev.event_date)) + (ev.reception_time ? ' · קבלת פנים ' + esc(ev.reception_time) : '') + (ev.venue_name ? ' · ' + esc(ev.venue_name) : '') + (ev.venue_city ? ', ' + esc(ev.venue_city) : '') + '</p>';
-    h += '<div class="tot"><span>מגיעים <b>' + coming + '</b></span><span>סועדים <b>' + seats + '</b></span>' + (data.totals ? '<span>לא מגיעים <b>' + (data.totals.declined || 0) + '</b></span><span>לא ענו <b>' + ((data.totals.pending || 0) + (data.totals.awaiting_call || 0)) + '</b></span>' : '') + '<span>הגיעו בפועל: ________</span></div>';
+    h += '<div class="tot"><span>מגיעים <b>' + coming + '</b></span><span>סועדים <b>' + seats + '</b></span>' + (data.totals ? '<span>לא מגיעים <b>' + (data.totals.declined || 0) + '</b></span><span>מתלבטים <b>' + ((data.totals.pending || 0) + (data.totals.awaiting_call || 0)) + '</b></span>' : '') + '<span>הגיעו בפועל: ________</span></div>';
     var row = function (g) {
       var cls = g.status === 'undecided' ? 'maybe' : g.status === 'confirmed' ? '' : 'none';
       return '<tr class="' + cls + '"><td class="c"><span class="box"></span></td><td class="name">' + esc(g.name || '') + '</td><td class="n">' + (g.status === 'confirmed' ? (Number(g.seats) || 1) : '') + '</td>' + (by === 'name' ? '<td class="n">' + esc(g.table || '') + '</td>' : '') + '<td class="c"><span class="box"></span></td></tr>';

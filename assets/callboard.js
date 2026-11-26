@@ -130,7 +130,7 @@
     '.cb-sh pre{white-space:pre-wrap;font:inherit;font-size:.82rem;line-height:1.8;padding:1rem;overflow:auto;margin:0}';
 
   var REACH_HE = { answered: 'ענה', noanswer: 'לא ענה', voicemail: 'תא קולי', dnc: 'לא להתקשר' };
-  var OUT_HE = { coming: 'מגיע', not_coming: 'לא מגיע', redial: 'לחייג שוב', maybe: 'מתלבט', transfer: 'להעביר לריצארד', dnc: 'לא להתקשר' };
+  var OUT_HE = { coming: 'מגיע', not_coming: 'לא מגיע', redial: 'לחייג שוב', maybe: 'אולי', transfer: 'להעביר לריצארד', dnc: 'לא להתקשר' };
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function ph(p) { var d = String(p || '').replace(/\D/g, ''); if (d.indexOf('972') === 0) { var l = '0' + d.slice(3); return l.length === 10 ? l.slice(0, 3) + '-' + l.slice(3, 6) + '-' + l.slice(6) : l; } return d; }
   function when(ts) { return ts ? new Date(ts).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' }) : '—'; }
@@ -145,7 +145,7 @@
       '<div><b>' + q.waiting + '</b><span>בתור</span></div><div><b>' + e.dialed + '</b><span>חויגו</span></div><div><b>' + e.answered + '</b><span>ענו</span></div>' +
       '<div><b>' + e.noanswer + '</b><span>לא ענו</span></div><div><b>' + e.voicemail + '</b><span>תא קולי</span></div><div><b>' + e.dnc + '</b><span>לא להתקשר</span></div></div>' +
       '<div class="cb-chips"><span class="cb-c ok">מגיע ' + o.coming + '</span><span class="cb-c bad">לא מגיע ' + o.not_coming + '</span><span class="cb-c gold">לחייג שוב ' + o.redial + '</span>' +
-      (o.maybe ? '<span class="cb-c gold">מתלבט ' + o.maybe + '</span>' : '') + '<span class="cb-c bad" title="אין תשובה ברורה ו-Retell סימנה needs_review, או שהשיחה הועברה">להעביר לריצארד ' + o.transfer + '</span>' +
+      (o.maybe ? '<span class="cb-c gold">אולי ' + o.maybe + '</span>' : '') + '<span class="cb-c bad" title="אין תשובה ברורה ו-Retell סימנה needs_review, או שהשיחה הועברה">להעביר לריצארד ' + o.transfer + '</span>' +
       (q.capped ? '<span class="cb-c">מיצו מכסה ' + q.capped + '</span>' : '') + (q.blocked ? '<span class="cb-c">חסומים ' + q.blocked + '</span>' : '') + '</div>' +
       '<div class="cb-m">ניסיונות (בתור): ' + e.tries + ' מתוך ' + e.max_tries + ' · שיחה אחרונה ' + when(e.last_at) + ' · משך ממוצע ' + sec(e.avg_duration_s) + ' · עלות היום ' + ils(e.cost_today) + ' · בטווח ' + ils(e.cost_total) + ' · ' + e.guests_dialed + ' אורחים שונים</div>' + warn +
       (e.guests.length ? '<details><summary>' + e.guests.length + ' בתור · ניסיונות לכל אורח</summary>' + e.guests.map(function (g) { return '<div class="cb-call"><div>' + esc(g.name || 'ללא שם') + ' <span class="ph">' + ph(g.phone) + '</span></div><div>' + g.tries + '/' + g.max_tries + ' · ' + ({ waiting: 'בתור', past: 'אירוע עבר', capped: 'מוצה', blocked: 'חסום' }[g.state]) + '</div></div>'; }).join('') + '</details>' : '') +

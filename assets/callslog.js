@@ -81,7 +81,7 @@
       var t = e.target.closest && e.target.closest('[data-guest-card]'); if (!t || window.IshurGuestCard) return;
       e.preventDefault(); e.stopPropagation();
       var load = function (src) { return new Promise(function (ok, no) { var s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); }); };
-      load('/assets/rec-player.js?v=1').then(function () { return load('/assets/guest-card.js?v=1'); }).then(function () {
+      load('/assets/rec-player.js?v=1').then(function () { return load('/assets/guest-card.js?v=2'); }).then(function () {
         window.IshurGuestCard.open({ token: t.getAttribute('data-token'), guest_id: t.getAttribute('data-guest'), name: t.textContent.trim() });
       }).catch(function () {});
     }, true);

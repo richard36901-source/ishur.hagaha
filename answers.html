@@ -7,12 +7,12 @@
 <title>לוג אישורים · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=74"></script>
+<script src="config.js?v=97"></script>
 <script src="assets/ux.js?v=9"></script>
 <script src="assets/adminbar.js?v=28" defer></script>
 <script src="assets/guard.js?v=22"></script>
 <script src="assets/rec-player.js?v=3"></script>
-<script src="assets/guest-card.js?v=1"></script>
+<script src="assets/guest-card.js?v=2"></script>
 <style>
   :root{
     --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A; --gold-pale:rgba(199,174,122,.3);
@@ -127,7 +127,7 @@
     <span>תיקון ידני:</span>
     <input type="number" id="fxN" min="1" max="30" value="1" aria-label="כמות מגיעים">
     <button class="b yes" data-set="מגיע">מגיעים</button>
-    <button class="b maybe" data-set="מתלבט">מתלבטים</button>
+    <button class="b maybe" data-set="מתלבט">אולי</button>
     <button class="b no" data-set="לא מגיע">לא מגיעים</button>
   </div>
 </dialog>
@@ -139,7 +139,7 @@
   var CFG = window.ISHUR_CONFIG;
   var $ = function (id) { return document.getElementById(id); };
   var adminKey = '', token = '', filter = 'all', rows = [], cur = null, qTimer = null;
-  var FILTERS = [['all', 'הכל'], ['confirmed', 'אישרו'], ['declined', 'לא מגיעים'], ['undecided', 'מתלבטים'], ['none', 'לא ענו'], ['call', 'ענו בשיחה'], ['wa', 'ענו בוואטסאפ'], ['manual', 'ידני / לא ידוע']];
+  var FILTERS = [['all', 'הכל'], ['confirmed', 'אישרו'], ['declined', 'לא מגיעים'], ['undecided', 'אולי'], ['none', 'מתלבטים'], ['call', 'ענו בשיחה'], ['wa', 'ענו בוואטסאפ'], ['manual', 'ידני / לא ידוע']];
   try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -156,8 +156,8 @@
   function pill(r) {
     if (r.rsvp === 'מגיע') return '<span class="pill p-yes">מגיעים' + (r.party ? ' · ' + r.party : '') + '</span>';
     if (r.rsvp === 'לא מגיע') return '<span class="pill p-no">לא מגיעים</span>';
-    if (r.rsvp === 'מתלבט') return '<span class="pill p-maybe">מתלבטים</span>';
-    return '<span class="pill p-none">לא ענו</span>';
+    if (r.rsvp === 'מתלבט') return '<span class="pill p-maybe">אולי</span>';
+    return '<span class="pill p-none">מתלבטים</span>';
   }
   function how(r) {
     if (!r.rsvp) return '<span class="how">' + esc(r.call_answer || (r.tries ? 'חויגו ' + r.tries : '')) + '</span>';
@@ -197,13 +197,13 @@
       if (!j || !j.ok || t0 !== token || f0 !== filter) return;
       rows = j.rows || []; paintChips(j.counts); paint();
       var c = j.counts || {};
-      $('sumline').textContent = (j.event ? j.event.name + ' · ' : '') + c.all + ' אורחים · אישרו ' + c.confirmed + ' (' + c.seats + ' מקומות) · לא מגיעים ' + c.declined + ' · מתלבטים ' + c.undecided + ' · לא ענו ' + c.none;
+      $('sumline').textContent = (j.event ? j.event.name + ' · ' : '') + c.all + ' אורחים · אישרו ' + c.confirmed + ' (' + c.seats + ' מקומות) · לא מגיעים ' + c.declined + ' · אולי ' + c.undecided + ' · מתלבטים ' + c.none;
     });
   }
 
   function openProof(r) {
     cur = r;
-    $('dName').innerHTML = esc(r.name) + '<small>' + esc(pretty(r.phone)) + ' · ' + (r.rsvp ? esc(r.rsvp) + (r.party ? ' ' + r.party : '') + ' · ' + esc(r.method_he || 'מקור לא ידוע') : 'לא ענו') + '</small>';
+    $('dName').innerHTML = esc(r.name) + '<small>' + esc(pretty(r.phone)) + ' · ' + (r.rsvp ? esc(r.rsvp === 'מתלבט' ? 'אולי' : r.rsvp) + (r.party ? ' ' + r.party : '') + ' · ' + esc(r.method_he || 'מקור לא ידוע') : 'מתלבטים') + '</small>';
     $('fxN').value = r.party || r.invited || 1;
     $('dBody').innerHTML = '<div class="empty">טוען…</div>';
     if (!$('dlg').open) $('dlg').showModal();

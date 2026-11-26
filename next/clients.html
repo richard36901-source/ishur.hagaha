@@ -8,10 +8,10 @@
 <title>לקוחות · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="/config.js?v=96"></script>
+<script src="/config.js?v=97"></script>
 <script src="/next/assets/batch.js?v=6"></script>
 <script src="/assets/ux.js?v=9"></script>
-<script src="/assets/addround.js?v=1"></script>
+<script src="/assets/addround.js?v=2"></script>
 <script src="/next/assets/adminbar.js?v=21" defer></script>
 <script src="/assets/guard.js?v=22"></script>
 <script src="/next/assets/lite.js?v=4"></script>
@@ -506,7 +506,7 @@
         var gs = d.guests || [], n = gs.length || 1, c = {}; gs.forEach(function (g) { c[g.status] = (c[g.status] || 0) + 1; });
         var seats = gs.filter(function (g) { return g.status === 'confirmed'; }).reduce(function (a, g) { return a + (Number(g.party) || 1); }, 0);
         var pct = function (k) { return Math.round(100 * (c[k] || 0) / n); };
-        var html = '<div class="meta"><b>' + pct('confirmed') + '% מגיעים</b> (' + (c.confirmed || 0) + ' רשומות · ' + seats + ' סועדים) · לא מגיעים ' + (c.declined || 0) + ' · מתלבטים ' + (c.undecided || 0) + ' · לא ענו ' + (c.pending || 0) + ' · סה"כ ' + gs.length + '</div>' +
+        var html = '<div class="meta"><b>' + pct('confirmed') + '% מגיעים</b> (' + (c.confirmed || 0) + ' רשומות · ' + seats + ' סועדים) · לא מגיעים ' + (c.declined || 0) + ' · אולי ' + (c.undecided || 0) + ' · מתלבטים ' + (c.pending || 0) + ' · סה"כ ' + gs.length + '</div>' +
           '<div class="rsvpbar"><i class="y" style="width:' + pct('confirmed') + '%"></i><i class="m" style="width:' + pct('undecided') + '%"></i><i class="n" style="width:' + pct('declined') + '%"></i></div>';
         var sends = d.sends || [];
         html += '<table class="sends">' + sends.map(function (s) {
@@ -779,7 +779,7 @@
       /* 25/11 track-board: when (today-or-later / the client decides) and for whom, asked right away */
       var plan = await IshurAddRound.ask({ kind: act, name: e.name || '' });
       if (!plan) { b.disabled = false; return; }
-      var AUD_HE = { all: 'כולם', noanswer: 'רק מי שלא ענה', undecided: 'מתלבטים', unanswered: 'לא ענו + מתלבטים' };
+      var AUD_HE = { all: 'כולם', noanswer: 'רק מתלבטים', undecided: 'אולי', unanswered: 'מתלבטים + אולי' };
       p = api('grant-addon', { token: t, kind: act, when: plan.when, scope: plan.scope }).then(function (r) { return r.json(); }).then(function (j) {
         if (!j.ok) { toast(j.error === 'too-late-today' ? 'היום כבר אחרי 19:00, בחרו מחר' : j.error === 'date-in-past' ? 'אי אפשר תאריך שעבר' : 'לא הצליח'); return; }
         var dt = j.date && j.date.saved === false ? ' · התאריך לא נשמר (' + (j.date.error || '') + '), הלקוח יוכל לבחור' : '';

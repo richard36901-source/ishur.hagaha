@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=87"></script>
+<script src="config.js?v=97"></script>
 <script src="assets/ux.js?v=9"></script>
 <script src="assets/tracking.js?v=23"></script>
 <script src="assets/guard.js?v=22"></script>
@@ -750,7 +750,7 @@
             <p class="ferr" id="e-sd1" aria-live="polite"></p>
           </div>
           <div class="frow full">
-            <label for="f-sd2">תזכורת למי שלא ענה <span class="fopt">לא חובה</span></label>
+            <label for="f-sd2">תזכורת למתלבטים <span class="fopt">לא חובה</span></label>
             <input type="text" id="f-sd2" data-idate data-placeholder="בחרו תאריך">
             <p class="ferr" id="e-sd2" aria-live="polite"></p>
           </div>
@@ -1599,7 +1599,7 @@
       rows.push({ t: 'ההזמנה ואישור ההגעה', d: firstSend, tag: 'לכל הרשימה' });
     } else {
       if ($('f-sd1').value) rows.push({ t: 'ההזמנה ואישור ההגעה', d: $('f-sd1').value, tag: 'לכל הרשימה' });
-      if ($('f-sd2').value) rows.push({ t: 'תזכורת', d: $('f-sd2').value, tag: 'למי שלא ענה' });
+      if ($('f-sd2').value) rows.push({ t: 'תזכורת', d: $('f-sd2').value, tag: 'למתלבטים' });
       if (extraSend && $('f-sd3').value) rows.push({ t: 'תזכורת נוספת', d: $('f-sd3').value, tag: 'לכל הרשימה' });
     }
 
