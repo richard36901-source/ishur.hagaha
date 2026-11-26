@@ -1,0 +1,35 @@
+{
+  "_note": "26/11 guest-name: the no-name copy of hazmana_ishur (greeting without {{1}}, variables renumbered). NOT submitted. Used only once Meta approves it and /api/guest-name-twins {action:'check'} sets tmplanon:hazmana_ishur.",
+  "channel": "guests",
+  "method": "POST",
+  "path": "/1378764257421712/message_templates",
+  "payload": {
+    "name": "hazmana_ishur_anon",
+    "language": "he",
+    "category": "UTILITY",
+    "allow_category_change": false,
+    "components": [
+      {
+        "type": "BODY",
+        "text": "שלום! הוזמנתם ל{{1}} של {{2}}.\n\n📅 {{3}}\n🕐 קבלת פנים {{4}}\n📍 {{5}}\n\nנשמח לדעת אם תגיעו:"
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "QUICK_REPLY",
+            "text": "מגיע/ה"
+          },
+          {
+            "type": "QUICK_REPLY",
+            "text": "לא מגיע/ה"
+          },
+          {
+            "type": "QUICK_REPLY",
+            "text": "עדיין לא ידוע"
+          }
+        ]
+      }
+    ]
+  }
+}

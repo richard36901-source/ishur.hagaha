@@ -1,0 +1,50 @@
+{
+  "_note": "26/11 guest-name: the no-name copy of hazmana_ishur_serious. NOT submitted. The _img / _vid forms need the same body with an IMAGE / VIDEO header sample (invite-styles.js submitAll pattern).",
+  "channel": "guests",
+  "method": "POST",
+  "path": "/1378764257421712/message_templates",
+  "payload": {
+    "name": "hazmana_ishur_serious_anon",
+    "language": "he",
+    "category": "UTILITY",
+    "allow_category_change": false,
+    "components": [
+      {
+        "type": "BODY",
+        "text": "שלום,\n\nאנו מתכבדים להזמינכם ל{{1}} של {{2}}.\n\n📅 בתאריך {{3}}\n🕐 קבלת פנים בשעה {{4}}\n📍 {{5}}\n\nנודה לכם אם תאשרו את הגעתכם באחת התשובות למטה. ניתן לעדכן בכל שלב:",
+        "example": {
+          "body_text": [
+            [
+              "חתונה",
+              "נועה ויונתן",
+              "12.09.2026",
+              "19:30",
+              "הגן הקסום, רמת גן"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "נשלח ע\"י ishur.io · הגיע בטעות? השיבו \"טעות\""
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "QUICK_REPLY",
+            "text": "מגיע/ה"
+          },
+          {
+            "type": "QUICK_REPLY",
+            "text": "לא מגיע/ה"
+          },
+          {
+            "type": "QUICK_REPLY",
+            "text": "עדיין לא ידוע"
+          }
+        ]
+      }
+    ]
+  }
+}

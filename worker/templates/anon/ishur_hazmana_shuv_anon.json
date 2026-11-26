@@ -1,0 +1,18 @@
+{
+  "_note": "26/11 guest-name: the no-name copy of ishur_hazmana_shuv (greeting without {{1}}, variables renumbered). NOT submitted. Used only once Meta approves it and /api/guest-name-twins {action:'check'} sets tmplanon:ishur_hazmana_shuv.",
+  "channel": "guests",
+  "method": "POST",
+  "path": "/1378764257421712/message_templates",
+  "payload": {
+    "name": "ishur_hazmana_shuv_anon",
+    "language": "he",
+    "category": "MARKETING",
+    "allow_category_change": false,
+    "components": [
+      {
+        "type": "BODY",
+        "text": "היי, שולחים שוב את פרטי ה{{1}} של {{2}} 🎉\n📅 {{3}} בשעה {{4}}\n📍 {{5}}\n\nכבר עדכנתם אותנו: {{6}}. אין צורך לענות שוב, ואם משהו משתנה פשוט כתבו לנו כאן."
+      }
+    ]
+  }
+}
