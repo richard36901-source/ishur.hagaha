@@ -36,12 +36,15 @@ const num = v => Number(String(v ?? '').replace(/[^\d.-]/g, '')) || 0;
 
 /* one Grow IPN pay row → revenue lines by kind. A package payment that also carries hostesses or
    design is split at list price (HOSTESS_PRICE / DESIGN_PRICE): that split is an ESTIMATE. */
+export const NOT_ISHUR = /תמיכה\s*חודשית|ריטיינר|retainer|אוטוסקייל|autoscale/i;
 export function classifyPay(row, { parsePaidDesc = () => null } = {}) {
   if (!row || row.kind !== 'pay') return null;
   const f = (row.data && row.data.ipn) || {};
   const sum = num(f.paymentSum || f.sum || f.amount || f.transactionSum);
   if (!sum) return null;
   const desc = String(f.paymentDesc || f.description || f.productName || '');
+  /* 26/11 Richard: the Grow account also takes AutoScale payments ("תמיכה חודשית" ₪295) — not ishur revenue */
+  if (NOT_ISHUR.test(desc)) return null;
   const ref = String(f.asmachta || f.transactionId || f.transactionCode || row.id || '');
   const phone = String(f.payerPhone || f.phone || row.phone || '').replace(/\D/g, '').replace(/^0/, '972');
   const tokM = desc.match(/·\s*([0-9a-f]{8})\s*$/);

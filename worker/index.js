@@ -117,7 +117,7 @@ import { handleRaffle } from './raffle.js';
 import { handleMondayWebhook, reconcileLeads } from './leads-sync.js';   /* 16/11 leads screen ⇄ monday */
 import { triedReach, leadForId, drainTriedReach, handleMondayReach } from './tried-reach.js';   /* 25/11 "ניסינו להשיג" button (screen + monday) */
 import { makeStore as makeCrmStore } from './store.js';
-import { handleCrm, crmOnPaid, crmTouch } from './crm.js';   /* 03/11 CRM (docs/CRM-API-2026-11-03.md) */
+import { handleCrm, crmOnPaid, crmTouch, mondayNewLeads } from './crm.js';   /* 03/11 CRM (docs/CRM-API-2026-11-03.md) */
 const crmStoreOrNull = env => { try { return (env && (env.RATE || env.OPS_DB)) ? makeCrmStore(env) : null; } catch { return null; } };
 import { runBrain } from './brain.js';   /* 03/11 ops brain: checks + playbooks every 10 min */
 import { withCfg, paceSends, paceSendsMax, dailyCallCap } from './cfg.js';   /* 03/11 edit-in-place settings (cfg:<key>) */
@@ -15598,6 +15598,7 @@ const WORKER = {
             biz.subevents = Object.entries(all).map(([sub, v]) => { try { const r = JSON.parse(v); return r && r.parent ? { token: sub, parent: r.parent, name: r.name, kind: r.kind, kind_he: (SUBEVENT_KINDS[r.kind] || {}).he || '', template: r.template, created: r.created || '' } : null; } catch { return null; } }).filter(Boolean);
           } catch { biz.subevents = []; }
           { const si = snapInfo(raw); if (si && si.stale) biz.stale_since = si.stale_since; }   /* 04/11 Make burn */
+          try { const n = await mondayNewLeads(env); if (n != null) biz.funnel.leads_new = n; } catch {}   /* 26/11 the "לידים חדשים" tile */
           return okJson(biz, origin);
         }
         return okJson(buildCallQueue(raw), origin);
