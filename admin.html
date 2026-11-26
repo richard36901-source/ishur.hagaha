@@ -20,7 +20,7 @@
 <script src="assets/playbook.js?v=5"></script>
 <script src="assets/sendboard.js?v=3"></script>
 <script src="assets/callboard.js?v=2"></script>
-<script src="assets/callslog.js?v=4"></script>
+<script src="assets/callslog.js?v=6"></script>
 <script src="assets/week.js?v=23"></script>
 <style>
   :root{
@@ -3107,7 +3107,7 @@
   function outcomeCell(v) {
     var s = String(v == null ? '' : v).trim();
     if (!s) return '—';
-    return '<span class="oc ' + (OUTCOME_CLS[s] || 'oc-pale') + '">' + esc(s) + '</span>';
+    return '<span class="oc ' + (OUTCOME_CLS[s] || 'oc-pale') + '">' + esc(s.replace(/(^|- )מתלבט(?= -|$)/, '$1אולי')) + '</span>';   /* 26/11: an unsure answer reads 'אולי' (the value stays) */
   }
 
   function countCell(v) {
