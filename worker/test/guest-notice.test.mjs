@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { NOTICE_TEMPLATES, NOTICE_NAMES, slotError, slotOptions, renderNotice, noticeParams, noticeVars, newDateError, invitedGuests,
+import { cancelLocked, NOTICE_TEMPLATES, NOTICE_NAMES, slotError, slotOptions, renderNotice, noticeParams, noticeVars, newDateError, invitedGuests,
   handleNoticePreview, handleNoticeSchedule, handleNoticeCancel, runGuestNotices, publicNotice, isFinal, bodyMatches, INDEX_KEY, TERMS_LINES } from '../guest-notice.js';
 import { validateStop, handleClientStop, handleClientStopLift, publicStop } from '../client-stop.js';
 
@@ -283,7 +283,7 @@ test('cancel: the client (event token) or the team (admin key) cancels a schedul
   assert.equal((await s.json()).error, 'notice-final', 'no edit, no second notice after it started');
 });
 test('lift (resume, team only): refused once guests got the notice; a scheduled one needs cancel_notice:true; no notice = as before', async () => {
-  const lift = async (RATE, b) => { const r = await handleClientStopLift(req({ admin_key: 'K', token: TOK, ...b }), { RATE }, '', { okJson, deny, isAdmin: (e, k) => k === 'K', logEvent: async () => {}, slackSend: async () => {} }); return { status: r.status, j: await r.json() }; };
+  const lift = async (RATE, b, now = NOW) => { const r = await handleClientStopLift(req({ admin_key: 'K', token: TOK, ...b }), { RATE }, '', { okJson, deny, isAdmin: (e, k) => k === 'K', logEvent: async () => {}, slackSend: async () => {}, now: () => now }); return { status: r.status, j: await r.json() }; };
   /* scheduled */
   let RATE = kv({ ['clientstop:' + TOK]: stopRec(), ['hold:' + TOK]: 'x' }); await scheduled(RATE);
   let r = await lift(RATE, {});
@@ -323,4 +323,66 @@ test('wiring: routes, the pacer step, the old event-change refuses during a stop
   assert.doesNotMatch(gw, /ishur_event_/);
   const wa = fs.readFileSync(new URL('../whatsapp.js', import.meta.url), 'utf8');
   assert.match(wa, /\^ishur_event_\(cancelled\|postponed\)/);
+});
+
+/* ── races, the missing date, a tick that reached nobody ── */
+test('lock: cancel and lift close 5 minutes before the slot (a stale read must not undo a notice that is leaving), not while it waits for Meta', async () => {
+  const n = { status: 'scheduled', day: '2026-11-29', hm: '10:00' };
+  assert.equal(cancelLocked(n, { day: '2026-11-29', hm: '09:54' }), false);
+  assert.equal(cancelLocked(n, { day: '2026-11-29', hm: '09:55' }), true);
+  assert.equal(cancelLocked(n, { day: '2026-11-30', hm: '09:00' }), true);
+  assert.equal(cancelLocked({ ...n, wait: 'template' }, { day: '2026-11-30', hm: '09:00' }), false, 'held for approval: still cancellable');
+  assert.equal(cancelLocked({ ...n, wait: 'refused' }, { day: '2026-11-30', hm: '09:00' }), false);
+  const RATE = kv({ ['clientstop:' + TOK]: stopRec(), ['hold:' + TOK]: 'x' }); await scheduled(RATE);
+  const late = () => ({ day: '2026-11-29', hm: '09:57' });
+  const r = await handleNoticeCancel(req({ token: TOK }), { RATE }, '', deps({ now: late }));
+  assert.equal(r.status, 409); assert.equal((await r.json()).error, 'notice-starting');
+  const l = await handleClientStopLift(req({ admin_key: 'K', token: TOK, cancel_notice: true }), { RATE }, '', { okJson, deny, isAdmin: (e, k) => k === 'K', logEvent: async () => {}, slackSend: async () => {}, now: late });
+  assert.equal(l.status, 409); assert.equal((await l.json()).error, 'notice-starting');
+  assert.equal(JSON.parse(RATE.m.get('clientstop:' + TOK)).notice.status, 'scheduled');
+});
+test('race: a cancel or a lift that lands while the notice is leaving is overruled — it stays final, the event stays stopped, Slack P1', async () => {
+  for (const what of ['cancel', 'lift']) {
+    const RATE = kv({ ['clientstop:' + TOK]: stopRec(), ['hold:' + TOK]: 'x', ['callstop:' + TOK]: 'x', ['sendsoff:' + TOK]: 'x' }); await scheduled(RATE);
+    let first = true;
+    const d = sender(RATE, { now: () => ({ day: '2026-11-29', hm: '10:10' }), guestCapacity: async () => ({ remaining: 2 }),
+      sendTemplate: async () => {
+        if (first) { first = false;
+          if (what === 'cancel') { const r = JSON.parse(RATE.m.get('clientstop:' + TOK)); r.notice.status = 'cancelled'; RATE.m.set('clientstop:' + TOK, JSON.stringify(r)); }
+          else for (const k of ['clientstop:', 'hold:', 'callstop:', 'sendsoff:']) RATE.m.delete(k + TOK);
+        }
+        return { ok: true, id: 'w' };
+      } });
+    await runGuestNotices({ RATE }, d);
+    const n = JSON.parse(RATE.m.get('clientstop:' + TOK)).notice;
+    assert.equal(n.status, 'sending', what); assert.equal(n.sent_n, 2);
+    assert.ok(RATE.m.has('hold:' + TOK) && RATE.m.has('callstop:' + TOK), what + ': stopped again');
+    assert.deepEqual(JSON.parse(RATE.m.get(INDEX_KEY)), [TOK], what + ': the rest still goes out');
+    assert.ok(d.slack.some(t => /כבר התחילה לצאת/.test(t)), what);
+  }
+});
+test('no valid event date: nothing to offer, nothing to schedule (the date is in the wording)', async () => {
+  const RATE = kv({ ['clientstop:' + TOK]: stopRec() });
+  const d = deps({ eventFacts: async () => facts({ origDate: '' }) });
+  const p = await (await handleNoticePreview(req({ token: TOK, kind: 'cancel' }), { RATE }, '', d)).json();
+  assert.equal(p.eligible, false); assert.equal(p.why, 'no-event-date');
+  const r = await handleNoticeSchedule(req(SCHED), { RATE }, '', d);
+  assert.equal(r.status, 409); assert.equal((await r.json()).error, 'no-event-date');
+});
+test('a tick that reached nobody (Meta refused the first send) goes back to waiting: not final, still cancellable', async () => {
+  const RATE = kv({ ['clientstop:' + TOK]: stopRec() }); await scheduled(RATE);
+  const d = sender(RATE, { now: () => ({ day: '2026-11-29', hm: '10:10' }), sendTemplate: async () => ({ ok: false, permanent: true, error: 'empty-param:{{3}}' }) });
+  await runGuestNotices({ RATE }, d);
+  const n = JSON.parse(RATE.m.get('clientstop:' + TOK)).notice;
+  assert.equal(n.status, 'scheduled'); assert.equal(n.wait, 'refused'); assert.equal(isFinal(n), false);
+  assert.ok(d.slack.some(t => /מטא סירבה/.test(t)));
+  const c = await handleNoticeCancel(req({ token: TOK }), { RATE }, '', deps({ now: () => ({ day: '2026-11-29', hm: '10:20' }) }));
+  assert.equal(c.status, 200);
+});
+test('the status webhook never reopens a notice guest (no gk on the wamid record): one-shot', async () => {
+  const RATE = kv({ ['clientstop:' + TOK]: stopRec() }); await scheduled(RATE);
+  const notes = [];
+  const d = sender(RATE, { now: () => ({ day: '2026-11-29', hm: '10:10' }), noteGuestSend: async (e, wa, t, wave, ph, gk) => { notes.push({ wave, gk }); } });
+  await runGuestNotices({ RATE }, d);
+  assert.ok(notes.length && notes.every(x => x.gk === '' && x.wave === 'notice_cancel'));
 });

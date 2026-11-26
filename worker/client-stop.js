@@ -133,7 +133,7 @@ export async function handleClientStopLift(request, env, origin, d) {
   const token = String(b.token || '').trim();
   if (!/^[0-9a-f-]{36}$/.test(token) || !env.RATE) return d.deny(400, 'bad-token', origin);
   /* 26/11 track-cancel: the guests were told → never resume; a scheduled notice is cancelled only on purpose */
-  const pre = await prepareLift(env, token, { cancelNotice: b.cancel_notice === true });
+  const pre = await prepareLift(env, token, { cancelNotice: b.cancel_notice === true, ...(d.now ? { now: d.now() } : {}) });
   if (!pre.ok) return d.deny(409, pre.error, origin);
   const before = await liftClientStop(env, token);
   if (before && before.notice) await indexDrop(env, token).catch(() => {});

@@ -154,6 +154,22 @@ export function slotOptions({ now, origDate = '', noContact = () => false, maxDa
   return out;
 }
 
+/* 26/11: KV has no compare-and-swap and a read may be ~60 s stale, so a cancel / lift racing the sender's first
+   message could overwrite 'sending'. Close both from LOCK_MIN minutes before the slot — unless the notice is
+   held for Meta's approval / the wording, or Meta refused the first send (nothing can start before that clears;
+   a residual race there is the accepted price of never locking a client out of cancelling). */
+export const LOCK_MIN = 5;
+export function ilNow(d = new Date()) {
+  const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(d);
+  const g = t => (p.find(x => x.type === t) || {}).value || '';
+  return { day: `${g('year')}-${g('month')}-${g('day')}`, hm: `${g('hour') === '24' ? '00' : g('hour')}:${g('minute')}` };
+}
+export function cancelLocked(n, now) {
+  if (!n || n.status !== 'scheduled' || ['template', 'wording', 'refused'].includes(n.wait)) return false;
+  const t = Date.parse(`${n.day}T${n.hm}:00Z`) - LOCK_MIN * 60000, c = Date.parse(`${now.day}T${now.hm}:00Z`);
+  return !(c < t);
+}
+
 /* FINAL = at least one guest may have it: the record says sending/sent, or counted a send */
 export function isFinal(n) { return !!n && (n.status === 'sending' || n.status === 'sent' || Number(n.sent_n) > 0); }
 export function isPending(n) { return !!n && n.status === 'scheduled' && !isFinal(n); }
@@ -206,13 +222,14 @@ export async function indexDrop(env, token) { const a = await readIndex(env); if
 
 /* the team's lift: refuse when final, refuse a pending notice unless the caller says to cancel it.
    → {ok:true, cancelled:bool} | {ok:false, error} */
-export async function prepareLift(env, token, { cancelNotice = false, by = 'הצוות' } = {}) {
+export async function prepareLift(env, token, { cancelNotice = false, by = 'הצוות', now = ilNow() } = {}) {
   const rec = await readStop(env, token);
   const n = rec && rec.notice;
   if (!n) return { ok: true, cancelled: false };
   if (isFinal(n)) return { ok: false, error: 'notice-sent' };
   if (isPending(n)) {
     if (!cancelNotice) return { ok: false, error: 'notice-scheduled' };
+    if (cancelLocked(n, now)) return { ok: false, error: 'notice-starting' };
     rec.notice = { ...n, status: 'cancelled', cancelled_at: new Date().toISOString(), cancelled_by: by };
     await writeStop(env, token, rec);
     await indexDrop(env, token).catch(() => {});
@@ -227,6 +244,7 @@ async function offerFor(env, token, kind, d, newDate, stop) {
   const f = await d.eventFacts(env, token);
   if (!f) return { ok: false, error: 'event-not-found' };
   const today = d.now().day;
+  if (!DAY_RE.test(String(f.origDate || ''))) return { ok: true, f, today, invited: [], eligible: false, noDate: true, nd: '', vars: noticeVars({ kind, eventName: f.eventName, origDate: '' }) };
   const invited = invitedGuests(f.gRows, token, { normPhone: d.normPhone, sentPhones: f.sentPhones });
   const eligible = noticeEligible({ plan: f.plan, addonPaid: !!(f.addon && f.addon[kind]) });
   const nd = kind === 'postpone' ? String(newDate || (stop && stop.new_date) || '').slice(0, 10) : '';
@@ -254,6 +272,7 @@ export async function handleNoticePreview(request, env, origin, d) {
   const now = d.now();
   const approved = d.templateApproved ? (await Promise.all([NOTICE_TEMPLATES[kind].name, NOTICE_TEMPLATES[kind].nn].map(n => d.templateApproved(env, n).catch(() => false)))).every(Boolean) : null;
   const n = stop && stop.notice;
+  if (o.noDate) return d.okJson({ ok: true, kind, eligible: false, why: 'no-event-date', invited_n: 0, slots: [], terms: { url: TERMS_URL, lines: TERMS_LINES }, confirm_word: CONFIRM_WORD, current: n ? publicNotice(n) : null }, origin);
   return d.okJson({ ok: true, kind, eligible: o.eligible, why: !o.eligible ? 'not-in-package' : !o.invited.length ? 'nobody-invited' : '',
     invited_n: o.invited.length, named_n: o.invited.filter(g => g.name).length,
     text: renderNotice(kind, o.vars, '‹שם האורח›'), text_nn: renderNotice(kind, o.vars, ''), footer: NOTICE_FOOTER,
@@ -280,6 +299,7 @@ export async function handleNoticeSchedule(request, env, origin, d) {
   if (stop.notice && isPending(stop.notice)) return d.deny(409, 'notice-scheduled', origin);
   const o = await offerFor(env, token, kind, d, b.new_date, stop);
   if (!o.ok) return d.deny(404, o.error, origin);
+  if (o.noDate) return d.deny(409, 'no-event-date', origin);
   if (!o.eligible) return d.deny(409, 'not-in-package', origin);
   if (!o.invited.length) return d.deny(409, 'nobody-invited', origin);
   if (kind === 'postpone') { const e = newDateError(o.nd, o.today); if (e) return d.deny(422, e, origin); }
@@ -305,7 +325,7 @@ export async function handleNoticeSchedule(request, env, origin, d) {
 export async function handleNoticeCancel(request, env, origin, d) {
   const b = await body(request); if (!b) return d.deny(400, 'bad-json', origin);
   const token = String(b.token || '').trim();
-  const team = b.admin_key != null;
+  const team = typeof b.admin_key === 'string' && b.admin_key !== '';
   if (team) { if (!(await d.isAdmin(env, b.admin_key))) return d.deny(403, 'bad-admin-key', origin); if (!tokOk(token)) return d.deny(400, 'bad-token', origin); }
   else if (!tokOk(token) || !(await d.tokenRecord(env, token))) return d.deny(404, 'unknown-token', origin);
   if (!env.RATE) return d.deny(503, 'kv-not-bound', origin);
@@ -316,6 +336,7 @@ export async function handleNoticeCancel(request, env, origin, d) {
     if (n && isFinal(n)) return d.deny(409, 'notice-final', origin);
     return d.okJson({ ok: true, already: true, notice: n ? publicNotice(n) : null }, origin);
   }
+  if (cancelLocked(n, d.now())) return d.deny(409, 'notice-starting', origin);
   const who = team ? 'הצוות' : 'הלקוח';
   rec.notice = { ...n, status: 'cancelled', cancelled_at: new Date().toISOString(), cancelled_by: who };
   await writeStop(env, token, rec);
@@ -378,19 +399,21 @@ export async function runGuestNotices(env, d) {
       rec.notice = n; await writeStop(env, token, rec);
       await d.logEvent(env, { area: 'שליחה', action: `הודעת ${KIND_HE[n.kind]} לאורחים התחילה לצאת`, ok: true, token, detail: `${guests.length} מוזמנים` }).catch(() => {});
     }
-    let sent = 0, failed = 0, skipped = 0, cut = false;
+    let sent = 0, failed = 0, skipped = 0, cut = false, open = 0;
     for (const g of guests) {
       const mk = `gn:${token}:${n.kind}:${g.phone}`;
       if (await env.RATE.get(mk)) continue;
       if (left <= 0) { cut = true; break; }
-      if (await d.phoneBlocked(env, g.phone) || await d.wrongNum(env, token, g.phone)) { skipped++; await env.RATE.put(mk, 'skip', { expirationTtl: 120 * 86400 }).catch(() => {}); continue; }
+      open++;   /* reached this guest: done below unless the send leaves no marker */
+      if (await d.phoneBlocked(env, g.phone) || await d.wrongNum(env, token, g.phone)) { open--; skipped++; await env.RATE.put(mk, 'skip', { expirationTtl: 120 * 86400 }).catch(() => {}); continue; }
       const p = noticeParams(n.kind, n.vars, g.name);
       const wa = await d.sendTemplate(env, g.phone, p.template, p.params, '', 'he', 'guests', { token, wave: 'notice_' + n.kind });
       if (wa && wa.held) { cut = true; break; }
       left--;
       if (wa && wa.ok) {
-        sent++; await env.RATE.put(mk, '1', { expirationTtl: 120 * 86400 }).catch(() => {});
-        if (d.noteGuestSend) await d.noteGuestSend(env, wa, token, 'notice_' + n.kind, g.phone, mk).catch(() => {});
+        open--; sent++; await env.RATE.put(mk, '1', { expirationTtl: 120 * 86400 }).catch(() => {});
+        /* no gk: an async delivery failure is logged by the status webhook, never reopened — the notice is one-shot */
+        if (d.noteGuestSend) await d.noteGuestSend(env, wa, token, 'notice_' + n.kind, g.phone, '').catch(() => {});
         if (d.addEvCost && d.msgCost) await d.addEvCost(env, token, d.msgCost(p.template)).catch(() => {});
       } else {
         failed++;
@@ -404,16 +427,25 @@ export async function runGuestNotices(env, d) {
         /* three failed tries for one guest → that guest is given up (counted as failed), the rest go on */
         const sk = `gnf:${token}:${n.kind}:${g.phone}`; const strikes = (Number(await env.RATE.get(sk).catch(() => 0)) || 0) + 1;
         await env.RATE.put(sk, String(strikes), { expirationTtl: 30 * 86400 }).catch(() => {});
-        if (strikes >= 3) await env.RATE.put(mk, 'fail', { expirationTtl: 120 * 86400 }).catch(() => {});
+        if (strikes >= 3) { open--; await env.RATE.put(mk, 'fail', { expirationTtl: 120 * 86400 }).catch(() => {}); }
       }
     }
-    const fresh = (await readStop(env, token)) || rec;
-    const nn = { ...(fresh.notice || n), sent_n: (Number(n.sent_n) || 0) + sent, failed_n: (Number(n.failed_n) || 0) + failed, skipped_n: (Number(n.skipped_n) || 0) + skipped };
-    let pending = 0;
-    if (!cut) for (const g of guests) if (!(await env.RATE.get(`gn:${token}:${nn.kind}:${g.phone}`))) pending++;
-    const done = !cut && pending === 0;
+    const read = await readStop(env, token);
+    const fresh = read || rec;
+    /* the record must never regress under a notice that reached guests: a cancel / lift that raced this tick is overruled */
+    const raced = !read || !read.notice || read.notice.status === 'cancelled';
+    const nn = { ...n, sent_n: (Number(n.sent_n) || 0) + sent, failed_n: (Number(n.failed_n) || 0) + failed, skipped_n: (Number(n.skipped_n) || 0) + skipped };
+    const done = !cut && open <= 0;
     if (done) { nn.status = 'sent'; nn.sent_at = new Date().toISOString(); }
+    /* FINAL means a guest really got it: a tick that reached nobody (held number, Meta refused the first one) goes back to waiting */
+    if (!done && nn.sent_n === 0) { nn.status = 'scheduled'; nn.wait = 'refused'; delete nn.started_at; }
     fresh.notice = nn; await writeStop(env, token, fresh);
+    if (raced && nn.sent_n > 0) {
+      if (!done) await indexAdd(env, token).catch(() => {});
+      /* the guests were told: the event stays stopped */
+      for (const k of ['hold:', 'callstop:', 'sendsoff:']) if (!(await env.RATE.get(k + token).catch(() => null))) await env.RATE.put(k + token, new Date().toISOString(), { expirationTtl: TTL }).catch(() => {});
+      await d.slackSend(env, `🚨 *הודעת ${KIND_HE[nn.kind]} לאורחים כבר התחילה לצאת כשמישהו ביטל אותה או שחרר את העצירה* · ${token.slice(0, 8)}\n\nיצאו ${nn.sent_n}. ההודעה ממשיכה לכולם והשליחות נשארות עצורות.\n\n─── \n✅ *מה לעשות:* לדבר עם הלקוח.`, { key: 'gnotice_race:' + token.slice(0, 8), sev: 'P1' }).catch(() => {});
+    }
     if (done) {
       await indexDrop(env, token).catch(() => {});
       /* the engine's own stage 5 must never send its old ishur_bitul after this (it also skips under hold:, which the stop keeps) */

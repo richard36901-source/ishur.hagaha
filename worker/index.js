@@ -7944,7 +7944,7 @@ async function runPacer(env, run = null, { part = 'all' } = {}) {
   const sendWin = sendWindowState();
   /* 26/11 track-cancel: a client's scheduled cancel / postpone notice to the guests (guest-notice.js) — before the
      waves, inside the window, the cap and this tick's pace; it ignores hold: on purpose (the stop holds everything else) */
-  if (sendWin.open && !(await isOff(env, 'guest_notice'))) out.notices = await step('guest_notice', () => runGuestNotices(env, { ...guestNoticeDeps(env), pace: paceSends(env, PACE_SENDS) })).catch(e => ({ ok: false, error: String((e && e.message) || e) }));
+  if (sendWin.open && !(await isOff(env, 'guest_notice'))) out.notices = await step('guest_notice', () => runGuestNotices(env, { ...guestNoticeDeps(env), pace: Math.min(25, paceSends(env, PACE_SENDS)) })   /* 25 like the sub-event slice: the main pass must not run long */).catch(e => ({ ok: false, error: String((e && e.message) || e) }));
   /* 22/10 Richard: guests whose invitation failed (130472/131049/131026, not
      yet 3 strikes) are retried automatically once per send day; before this
      it only happened when someone ran /api/wave-retry by hand. */

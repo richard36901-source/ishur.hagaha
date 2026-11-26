@@ -2973,8 +2973,15 @@
     postJson('client-notice-cancel', { token: token }).then(function (res) {
       if (res.status === 200 && res.body && res.body.ok) { if (data.stop) data.stop.notice = res.body.notice; try { renderStop(); } catch (e) {} $('live').textContent = 'ההודעה לאורחים בוטלה'; return; }
       if (res.body && res.body.error === 'notice-final') { reloadData(); return; }
-      throw new Error('x');
-    })['catch'](function () { b.disabled = false; b.textContent = 'ביטול ההודעה המתוזמנת'; $('live').textContent = 'לא הצלחנו לבטל כרגע, כתבו לנו בוואטסאפ'; });
+      throw new Error(res.body && res.body.error === 'notice-starting' ? 'starting' : 'x');
+    })['catch'](function (e) {
+      b.disabled = false; b.textContent = 'ביטול ההודעה המתוזמנת';
+      var ns = b.closest('.notice-state'), pe = ns && ns.querySelector('.dpop-err');
+      if (ns && !pe) { pe = document.createElement('p'); pe.className = 'dpop-err'; pe.setAttribute('role', 'alert'); ns.appendChild(pe); }
+      var msg = e && e.message === 'starting' ? 'ההודעה כבר בדרך לצאת, ולכן אי אפשר לבטל אותה עכשיו.' : 'לא הצלחנו לבטל מכאן ברגע זה.';
+      if (pe) pe.innerHTML = msg + ' <a href="' + CFG.waLink('היי, אני רוצה לבטל את ההודעה לאורחים') + '" target="_blank" rel="noopener">כתבו לנו בוואטסאפ</a>';
+      $('live').textContent = msg;
+    });
   }
   function openStop(opts) {
     opts = opts || {};
@@ -3082,8 +3089,13 @@
           data.stop = res.body.stop;
           return postJson('client-notice', { token: token, kind: k, new_date: k === 'postpone' ? (newDate || data.stop.new_date) : undefined, day: pick.day, hm: pick.hm, confirm: 'שלח', terms: true }).then(function (r2) {
             if (r2.status === 200 && r2.body && r2.body.ok) { data.stop.notice = r2.body.notice; stopped(data.stop, 'ההודעה לאורחים תוזמנה'); reloadData(); return; }
-            /* the stop is saved; only the notice did not go in — the stop card offers it again */
-            stopped(data.stop, 'השליחות נעצרו. את ההודעה לאורחים אפשר לתזמן שוב מכרטיס העצירה');
+            /* the stop is saved; only the notice did not go in — say so in the dialog (visible), keep it open to retry */
+            try { renderStop(); } catch (e) {} try { renderSends(); } catch (e) {}
+            var why2 = r2.body && r2.body.error;
+            go.disabled = false; go.textContent = 'אישור ותזמון';
+            er.innerHTML = '<b>השליחות נעצרו.</b> ' + (why2 === 'not-future' || why2 === 'quiet-hours' || why2 === 'friday-hours' || why2 === 'after-event' || why2 === 'shabbat'
+              ? 'המועד שבחרתם כבר לא פנוי. חזרו ובחרו מועד אחר.'
+              : 'את ההודעה לאורחים לא הצלחנו לתזמן כרגע. אפשר לנסות שוב, או <a href="' + CFG.waLink('היי, עצרתי את השליחות ורוצה לשלוח לאורחים הודעה') + '" target="_blank" rel="noopener">לכתוב לנו בוואטסאפ</a>.');
             reloadData();
           });
         })['catch'](function () {
