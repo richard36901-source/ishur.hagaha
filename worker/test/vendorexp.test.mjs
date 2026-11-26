@@ -61,3 +61,13 @@ test('ledgerRows: maps the HUB Ledger by its header; a Make bill without the ish
   const r = ledgerRows(v).map((x) => [x.vendor, x.ref, x.amount]);
   assert.deepEqual(r, [['Telnyx, LLC', 'T-1', 50], ['Celonis Inc.', 'M-2', 8.1], ['HighLevel', 'G-1', 10]]);
 });
+
+test('ledgerRows: ECLTTLZP = ishur Make org; an unnumbered receipt of a numbered invoice and HUB-unsure rows are skipped', async () => {
+  const { ledgerRows } = await import('../vendorexp.js');
+  const H = ['hash', 'vendor', 'invoice_number', 'doc_date', 'amount', 'currency', 'vat', 'period', 'doc_type', 'source', 'source_ref', 'file', 'url', 'morning', 'status', 'created', 'notes'];
+  const row = (h, v, ref, d, a, notes = '') => [h, v, ref, d, a, 'USD', '', '', 'invoice', '', '', '', '', '', '', '', notes];
+  const r = ledgerRows([H, row('1', 'Celonis Inc. (Make.com)', 'ECLTTLZP-0048', '2026-11-24', '8.10'), row('2', 'Celonis Inc. (Make.com)', 'TEOQQBQV-0016', '2026-11-13', '15.06'),
+    row('3', 'Retell AI', 'AGOLUBXB-0015', '2026-11-24', '11.00'), row('4', 'Retell AI', '', '2026-11-24', '11.00'), row('5', 'Telnyx LLC', 'b19', '2026-11-24', '20.00', 'המודל לא בטוח שזה מסמך חיוב')]);
+  assert.deepEqual(r.map((x) => x.ref), ['ECLTTLZP-0048', 'AGOLUBXB-0015']);
+  assert.equal(r[0].org, '5881669');
+});

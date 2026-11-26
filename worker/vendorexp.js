@@ -147,7 +147,13 @@ export async function vendorExpenseIngest(env, request, body) {
   /* the HUB's Ledger sheet as it is (header row first): vendor, invoice_number, doc_date, amount, currency, notes … */
   if (Array.isArray(body.ledger)) {
     const rows = ledgerRows(body.ledger);
-    const out = body.dry ? { ok: true, dry: true, parsed: rows.length } : await saveRows(env, rows);
+    let out;
+    if (body.dry) {   /* what a real run would add, without writing */
+      const months = [...new Set(rows.map((x) => String(x.date).slice(0, 7)).filter((m) => /^\d{4}-\d{2}$/.test(m)))];
+      const cur = await loadVexp(env, months), before = new Set(Object.values(cur).flat().map((r) => r.ref));
+      mergeRows(cur, rows);
+      out = { ok: true, dry: true, would_add: Object.values(cur).flat().filter((r) => !before.has(r.ref)).map((r) => [r.day, r.vendor, r.amount, r.currency, r.ref]) };
+    } else out = await saveRows(env, rows);
     const sample = body.ledger.slice(0, 1).concat(body.ledger.slice(-25));
     if (env.RATE) await env.RATE.put('vexp:lastingest', JSON.stringify({ at: new Date().toISOString(), rows: body.ledger.length, costed: rows.length, ...out, sample }), { expirationTtl: 30 * 86400 }).catch(() => {});
     return { status: 200, body: { ...out, rows: body.ledger.length, costed: rows.length } };
@@ -161,14 +167,19 @@ export function ledgerRows(values) {
   const col = (names) => names.map((n) => head.indexOf(n)).find((i) => i >= 0);
   const c = { vendor: col(['vendor', 'ספק']), ref: col(['invoice_number', 'מספר מסמך', 'invoice']), date: col(['doc_date', 'תאריך', 'date']), amount: col(['amount', 'סכום']),
     currency: col(['currency', 'מטבע']), notes: col(['notes', 'הערות']), period: col(['period', 'תקופה']), hash: col(['hash']), type: col(['doc_type', 'סוג']) };
-  const out = [];
-  for (const r of values.slice(1)) {
-    const g = (k) => (c[k] == null ? '' : String(r[c[k]] ?? '').trim());
+  const out = [], numbered = new Set();
+  const rows = values.slice(1).map((r) => { const g = (k) => (c[k] == null ? '' : String(r[c[k]] ?? '').trim()); return { g, key: [vendorKey(g('vendor')), g('date').slice(0, 10), Number(String(g('amount')).replace(/[^\d.]/g, ''))].join('|') }; });
+  for (const { g, key } of rows) if (g('ref')) numbered.add(key);
+  for (const { g, key } of rows) {
     if (/credit|זיכוי/i.test(g('type'))) continue;
-    const vendor = g('vendor'), text = [vendor, g('notes'), g('period')].join(' ');
-    if (/\bmake\b|celonis/i.test(vendor) && !/5881669|richard main/i.test(text)) continue;   /* a client organisation's Make bill is not ishur's */
+    if (/לא בטוח/.test(g('notes'))) continue;                       /* the HUB itself wasn't sure it is a charge */
+    if (!g('ref') && numbered.has(key)) continue;                     /* the receipt of an invoice already in the sheet */
+    const vendor = g('vendor'), text = [vendor, g('notes'), g('period'), g('ref')].join(' ');
+    /* Make: only the "Richard Main" organisation is ishur's — its invoices are numbered ECLTTLZP-…; client orgs have their own prefixes */
+    const mine = /5881669|richard main/i.test(text) || /^ECLTTLZP-/i.test(g('ref'));
+    if (/\bmake\b|celonis/i.test(vendor) && !mine) continue;
     out.push({ date: g('date').slice(0, 10), vendor, amount: Number(String(g('amount')).replace(/[^\d.]/g, '')), currency: g('currency') || 'USD',
-      ref: g('ref') || g('hash'), desc: (g('notes') || g('period')).slice(0, 140), org: /5881669/.test(text) ? '5881669' : undefined, source: 'ledger' });
+      ref: g('ref') || g('hash'), desc: (g('notes') || g('period')).slice(0, 140), org: mine && /\bmake\b|celonis/i.test(vendor) ? ISHUR_MAKE_ORG : undefined, source: 'ledger' });
   }
   return out;
 }
