@@ -71,3 +71,10 @@ test('ledgerRows: ECLTTLZP = ishur Make org; an unnumbered receipt of a numbered
   assert.deepEqual(r.map((x) => x.ref), ['ECLTTLZP-0048', 'AGOLUBXB-0015']);
   assert.equal(r[0].org, '5881669');
 });
+
+test('chargeLabel: short Hebrew labels', async () => {
+  const { chargeLabel } = await import('../vendorexp.js');
+  assert.equal(chargeLabel({ vendor: 'make', desc: 'Make - 1,000 extra credits (organization ID: 5881669)' }), 'Make · קרדיטים נוספים');
+  assert.equal(chargeLabel({ vendor: 'make', desc: 'Nov 8–Dec 8 | Make Core plan (80000 credits / month)' }), 'Make · מנוי');
+  assert.equal(chargeLabel({ vendor: 'cloudflare', desc: '2026/11-12' }), 'Cloudflare · חשבון חודשי');
+});
