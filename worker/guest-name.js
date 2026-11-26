@@ -155,7 +155,8 @@ async function reportHold(env, token, name) {
 /* The hook sendTemplate calls first. → { name, params, ctx } to go on with, or { hold: result } to return as is. */
 export async function applyGuestName(env, { name, params, channel, ctx }) {
   const p = Array.isArray(params) ? params : [];
-  if (channel !== 'guests' || !ctx || !ctx.token || ctx.gnDone || ctx.langTried || ctx.probe || !p.length) return { name, params: p, ctx };
+  /* ctx.noGuestName: the caller's params are the event's, never a guest's name (the hand-set event-day job) */
+  if (channel !== 'guests' || !ctx || !ctx.token || ctx.gnDone || ctx.langTried || ctx.probe || ctx.noGuestName || !p.length) return { name, params: p, ctx };
   const token = String(ctx.token);
   const on = await guestNameOn(env, token);
   const next = { ...ctx, gnDone: 1 };

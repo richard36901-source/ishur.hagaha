@@ -201,3 +201,46 @@ test('routes: the team toggle needs the admin key and writes evsettings; the twi
   assert.equal(env.RATE.m.has('tmplanon:ishur_yom_lifnei'), false, 'a twin that is not approved (any more) is switched off');
   assert.equal((await GN.handleGuestNameTwins(req({ admin_key: 'no' }), env, '', deps(env))).status, 403);
 });
+
+/* ── the route the board's preview calls: /api/preview-messages, through the Worker ─────────────────────── */
+import worker from '../index.js';
+test('/api/preview-messages: switch on → "דנה"; off → "אורח יקר" (no twin) or the no-name copy\'s text (twin approved), and the mode for the invitation bubble', async () => {
+  const TOK = 'abcd1234-1111-4111-8111-111111111111';
+  const ev = new Array(50).fill(''); ev[1] = TOK; ev[5] = 'חתונה'; ev[6] = '2026-12-20'; ev[34] = 'הדר ויצחק'; ev[36] = '19:30'; ev[37] = 'יקנעם'; ev[38] = 'אולמי סקיי';
+  const snapshot = { events: { values: [ev] }, guests: { values: [] } };
+  const bodies = { ishur_yom_lifnei_anon: 'היי, תזכורת קטנה: מחר חוגגים את {{1}}!' };
+  const asked = [];
+  globalThis.fetch = async (url) => {
+    const u = String(url), json = o => new Response(JSON.stringify(o), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    if (u === 'https://hook.test/status') return json(snapshot);
+    if (/message_templates/.test(u)) {
+      const name = decodeURIComponent((u.match(/name=([^&]+)/) || [])[1] || ''); asked.push(name);
+      const text = bodies[name] || (/^ishur_yom_combo|^ishur_yom_plain/.test(name) ? 'שלום {{1}}! מחכים לראותכם היום ב{{2}}' : 'היי {{1}}, תזכורת קטנה: מחר חוגגים את {{2}}!');
+      return json({ data: [{ name, status: /_combo_|_plain_/.test(name) ? 'PENDING' : 'APPROVED', category: 'UTILITY', components: [{ type: 'BODY', text }] }] });
+    }
+    return json({});
+  };
+  const call = async store => {
+    const e = { RATE: kv({ ['token:' + TOK]: JSON.stringify({ token: TOK }), ...store }), HOOK_STATUS: 'https://hook.test/status', HOOK_EVENTS: 'https://hook.test/events', WA_PHONE_ID_GUESTS: 'A', WA_TOKEN_GUESTS: 't', WA_TOKEN: 'tc', WA_PHONE_ID: 'C', ADMIN_KEY: 'k' };
+    const r = await worker.fetch(new Request('https://go.ishur.io/api/preview-messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: TOK }) }), e, { waitUntil() {}, passThroughOnException() {} });
+    return r.json();
+  };
+  const on = await call({});
+  assert.equal(on.ok, true); assert.equal(on.name_mode, 'name'); assert.equal(on.guest_name, true);
+  const db = m => (m.messages || []).find(x => x.key === 'daybefore');
+  assert.ok(db(on), 'a day-before bubble'); assert.match(db(on).text, /^היי דנה,/);
+  const offNeutral = await call({ ['evsettings:' + TOK]: JSON.stringify({ guest_name: false }) });
+  assert.equal(offNeutral.name_mode, 'neutral'); assert.equal(offNeutral.guest, '');
+  assert.match(db(offNeutral).text, /^היי אורח יקר,/); assert.ok(!/דנה/.test(JSON.stringify(offNeutral.messages)));
+  const offTwin = await call({ ['evsettings:' + TOK]: JSON.stringify({ guest_name: false }), 'tmplanon:ishur_yom_lifnei': 'ishur_yom_lifnei_anon', invitetmpl: 'hazmana_ishur_v2', 'tmplanon:hazmana_ishur_v2': 'hazmana_ishur_v2_anon' });
+  assert.equal(offTwin.name_mode, 'twin');
+  assert.match(db(offTwin).text, /^היי, תזכורת קטנה: מחר חוגגים את חתונה של הדר ויצחק!/);
+  assert.ok(asked.includes('ishur_yom_lifnei_anon'), 'the copy\'s own text is what the preview shows');
+});
+
+test('the hand-set event-day job (params = the event\'s time / what / address / nav) is never held, whatever its template', async () => {
+  const env = envWith(OFF);
+  const r = await sendTemplate(env, '0501234567', 'some_fallback_template', ['19:30', 'החתונה', 'אולם', 'https://waze.com/x'], '', 'he', 'guests', { wave: 'eventday', token: TOKEN, noGuestName: true });
+  assert.equal(r.ok, true); assert.deepEqual(body(posts[0]), ['19:30', 'החתונה', 'אולם', 'https://waze.com/x']);
+  assert.match(readFileSync(new URL('../index.js', import.meta.url), 'utf8'), /sendTemplate\(env, p\.phone, job\.template, params, '', 'he', 'guests', \{ wave: 'eventday', token, noGuestName: true \}\)/);
+});

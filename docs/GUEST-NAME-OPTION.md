@@ -40,6 +40,8 @@ Richard 26/11: a switch per event in the client's message settings, on or off, t
 
 - **Case 2, guest language:** for an event whose messages go out in another language, the neutral word is used instead of the copy. The copies have no translations, and `guest-lang.js` already translates "אורח יקר" (for example, "dear guest").
 - **Case 4, unregistered templates:** this means a hand-picked sub-event or event-day template, or a new family nobody registered. The sender gets `{ok:false, error:'guest-name-hold', permanent:true}`. The wave stops and stays open, the same as an empty variable, and no sent mark is written. The journal and Slack get one line per event and template per day.
+- **Exempt from the hold:** the hand-set event-day job passes `ctx.noGuestName` and is never held. Its parameters are the event's (time, what, address, nav), never a guest's.
+- **Sub-events:** a sub-event that hits a hold stops its round with no per-guest failure mark.
 - **The name never goes out when the client said no.**
 
 **Fallback chosen per family:** every name family in use opens with `שלום {{1}}` / `היי {{1}}` / `שלום רב {{1}}`. A generic value reads naturally in all of them ("שלום אורח יקר! הוזמנתם ל…", "היי אורח יקר, תזכורת קטנה…"), so all of them fall back to **אורח יקר** (case 3), and none is held today. Only unregistered templates are held.
@@ -110,7 +112,7 @@ Richard 26/11: a switch per event in the client's message settings, on or off, t
 | יום האירוע (ישן) | `ishur_yom_haerua(_matana)` | not needed | – | אין שם בהודעה | נשלח כמו שהוא |
 | נוסח אישי של הלקוח | `ishur_c_<tok8>_<n>` | not needed | – | אין משתנים | נשלח כמו שהוא |
 
-**About the template guard:** when the guard replaced a live template with a reworded `_r<n>` copy (KV `tmplalt:` today: `ishur_hazmana_shuv`, 7 day-before and 4 event-day names), build that family's no-name copy from the `_r<n>` wording, not from the repo record above. `tmplalt:` is looked up after the guest-name decision, so an approved `_anon` copy goes out as is.
+**About the template guard:** when the guard replaced a live template with a reworded `_r<n>` copy (KV `tmplalt:` today: `ishur_hazmana_shuv`, 8 day-before and 4 event-day names, 13 in all), build that family's no-name copy from the `_r<n>` wording, not from the repo record above. `tmplalt:` is looked up after the guest-name decision, so an approved `_anon` copy goes out as is.
 
 ## Templates to submit to Meta (not submitted)
 

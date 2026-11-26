@@ -5865,8 +5865,8 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
       const wa = msg.kind === 'combo'
         ? await sendTemplate(env, p.phone, msg.template, msg.params, '', 'he', 'guests', { wave: 'eventday', token, components: msg.components })
         : edGift
-        ? await sendTemplate(env, p.phone, edGift, params, '', 'he', 'guests', { wave: 'eventday', token, components: [giftButtonComponent(token)] })
-        : await sendTemplate(env, p.phone, job.template, params, '', 'he', 'guests', { wave: 'eventday', token });
+        ? await sendTemplate(env, p.phone, edGift, params, '', 'he', 'guests', { wave: 'eventday', token, noGuestName: true, components: [giftButtonComponent(token)] })
+        : await sendTemplate(env, p.phone, job.template, params, '', 'he', 'guests', { wave: 'eventday', token, noGuestName: true });   /* 26/11: the job's params are the event's (time, what, address, nav), never a guest's name */
       if (!wa.ok) await env.RATE.delete(edk).catch(() => {});
       if (wa.held || wa.permanent) { failed++; break; }   /* 02/11 audit: budget out / empty job field → stop, retry next tick */
       if (wa.ok) {
