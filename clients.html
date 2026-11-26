@@ -526,6 +526,24 @@
       else toast(j && j.error === 'bad-phone' ? 'מספר לא תקין' : 'הטלפון לא הוחלף');
     }).catch(function () { b.disabled = false; toast('הטלפון לא הוחלף'); });
   });
+  /* 26/11: the event's guest-name switch on the client card */
+  function gnText(on) { return on ? 'ההודעות פונות לאורח בשמו' : 'ההודעות יוצאות בלי שם האורח'; }
+  function loadGn(t) {
+    var ck = document.querySelector('#pop [data-gn]'), st = document.getElementById('popGn'); if (!ck || !st) return;
+    api('guest-name', { token: t }).then(function (r) { return r.json(); }).then(function (j) {
+      var pop = document.querySelector('#pop .pop'); if (!pop || pop.dataset.t !== t) return;
+      if (j && j.ok) { ck.checked = !!j.on; ck.disabled = false; st.textContent = gnText(j.on); } else st.textContent = 'לא נטען';
+    }).catch(function () { st.textContent = 'לא נטען'; });
+  }
+  document.addEventListener('change', function (ev) {
+    var ck = ev.target.closest && ev.target.closest('#pop [data-gn]'); if (!ck) return;
+    var pop = document.querySelector('#pop .pop'), st = document.getElementById('popGn'); if (!pop) return;
+    var want = ck.checked; ck.disabled = true; st.textContent = 'שומר…';
+    api('guest-name', { token: pop.dataset.t, on: want }).then(function (r) { return r.json(); }).then(function (j) {
+      ck.disabled = false;
+      if (j && j.ok) { ck.checked = !!j.on; st.textContent = gnText(j.on) + ' ✓'; } else { ck.checked = !want; st.textContent = 'לא נשמר'; }
+    }).catch(function () { ck.disabled = false; ck.checked = !want; st.textContent = 'לא נשמר'; });
+  });
   function loadMail(t) {
     var inp = document.getElementById('popMail'); if (!inp) return;
     api('client-contact', { token: t }).then(function (r) { return r.json(); }).then(function (j) {
@@ -612,6 +630,8 @@
         (fl.client_stop ? '<button class="btn d" data-act="client-stop-lift">שחרור עצירת לקוח</button>' : '<button class="btn" data-act="freeze">' + (fl.hold ? 'שחרור הקפאת שליחות' : 'הקפאת שליחות') + '</button>') +
         '<button class="btn d" data-act="clear-sends">ביטול מועדי שליחה</button>' +
         '<button class="btn' + (fl.hold ? '' : ' d') + '" data-act="hold">' + (fl.hold ? 'חידוש הלקוח' : 'ביטול לקוח') + '</button></div></div>' +
+      /* 26/11 Richard: "לשלוח עם שם האורח" for every message to this event's guests (Worker /api/guest-name, guest-name.js) */
+      '<div class="sec"><h3>שם האורח בהודעות</h3><div class="acts" style="align-items:center"><label class="meta" style="display:flex;gap:.4rem;align-items:center;cursor:pointer"><input type="checkbox" data-gn disabled style="width:1.05rem;height:1.05rem"> לשלוח עם שם האורח</label><span class="meta" id="popGn">טוען…</span></div></div>' +
       '</div></div>';
     $('list').insertAdjacentHTML('beforeend', html);
     var bg = document.getElementById('pop');
@@ -627,6 +647,7 @@
     });
     document.addEventListener('keydown', function esc1(ev) { if (ev.key === 'Escape') { bg.remove(); document.removeEventListener('keydown', esc1); } });
     loadMail(t);   /* 18/11: the client email, when one is on file */
+    loadGn(t);
   }
   $('list').addEventListener('click', async function (ev) {
     if (ev.target.closest('button[data-ract]')) { refAct(ev); return; }

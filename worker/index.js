@@ -47,6 +47,7 @@ import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseIn
 import { isAppAutoReply, chaseStopReason, leadAlertHeader, lastInboundTs } from './inbound.js';
 import { isTableQuestion, tableFor, tableReply } from './seating.js';
 import { guestLangApi } from './guest-lang.js';
+import { handleGuestName, handleGuestNameTwins, guestNameOn, anonTwin, decideGuestName, previewMode } from './guest-name.js';   /* 26/11 "לשלוח עם שם האורח" */
 import { startFollowups, handleFollowupReply, yesGift, introNow, whoIsText, callWindowGate, getSettings as evSettings, saveSettings as evSettingsSave, shirFollowupVars, legacyShuttleSettings, saveRetellFollowups, rsvpishText, listAnswers as fqList, enabledSteps as fqSteps, handleEventSettings, Q_LABEL as FQ_LABEL, questionMessage, FOOD_OPTIONS, GIFT_YES_LINE } from './event-settings.js';   /* 25/11 הגדרות מתקדמות */
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
 import { logEvent, flushEventLog, readLogTail, OWNER_PHONE, stream } from './evlog.js';
@@ -13067,7 +13068,10 @@ const WORKER = {
       const hasImg = env.RATE ? ((await env.RATE.list({ prefix: 'img:' + tok, limit: 1 }).catch(() => ({ keys: [] }))).keys || []).length > 0 : false;
       const image = /^https:\/\//.test(c(44)) ? c(44) : hasImg ? 'https://go.ishur.io/img/' + ((await pubIdOf(env, tok).catch(() => '')) || tok) : '';
       const out = [];
+      /* 26/11: the preview follows "לשלוח עם שם האורח" the way sendTemplate will (guest-name.js) */
+      const gnOn = await guestNameOn(env, tok);
       const add = async (key, title, when, name, params, withImage) => {
+        if (name && !gnOn) { const d = decideGuestName({ name, params, on: false, twin: await anonTwin(env, name) }); if (d.action === 'hold') return; name = d.name; params = d.params; }
         const t = name ? await tmplText(name) : null; if (!t || !t.body) return;
         out.push({ key, title, when, text: fill(t.body, params), buttons: t.buttons || [], footer: t.footer || '', image: withImage && image ? image : '' });
       };
@@ -13080,7 +13084,9 @@ const WORKER = {
         const ed = await eventDayMessage(env, ev, guest);
         if (ed && ed.kind === 'combo') await add('eventday', 'יום האירוע', 'יוצאת בבוקר האירוע רק למי שלא קיבל את הפרטים יום לפני, או כשנוסף שולחן, ניווט או מתנה', ed.template, ed.params, false);
       } catch {}
-      return okJson({ ok: true, guest: 'דנה', seated, messages: out }, origin);
+      const liveInvite = (env.RATE && await env.RATE.get('invitetmpl').catch(() => null)) || 'hazmana_ishur';
+      const nameMode = previewMode(gnOn, !gnOn && !!(await anonTwin(env, liveInvite)));
+      return okJson({ ok: true, guest: gnOn ? 'דנה' : '', guest_name: gnOn, name_mode: nameMode, neutral: 'אורח יקר', seated, messages: out }, origin);
     }
     /* 18/11 Richard: a written price quote in Morning (חשבונית ירוקה) with the order's special terms in its remarks.
        POST {admin_key, action: 'types' | 'preview' | 'create', type, name, phone, email?, price (incl. VAT), description, remarks}.
@@ -14355,6 +14361,9 @@ const WORKER = {
     if (url.pathname === '/api/event-settings' && request.method === 'POST') {
       return handleEventSettings(request, env, origin, { okJson, deny, tokenRecord, overBudget, logEvent });
     }
+    /* 26/11 "לשלוח עם שם האורח" (guest-name.js): the team's client card, and the no-name copies' status */
+    if (url.pathname === '/api/guest-name' && request.method === 'POST') return handleGuestName(request, env, origin, { okJson, deny, isAdmin, tokenRecord, logEvent, saveSettings: evSettingsSave });
+    if (url.pathname === '/api/guest-name-twins' && request.method === 'POST') return handleGuestNameTwins(request, env, origin, { okJson, deny, isAdmin, logEvent });
     if (url.pathname === '/api/giftlinks' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }

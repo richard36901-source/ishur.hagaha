@@ -21,6 +21,7 @@ import { isStaging, isAllowedPhone, BLOCKED as STAGING_BLOCKED } from './staging
 import { noteDailySend } from './wavenote.js';
 import { putLog } from './calendar-log.js';   /* 25/11 every log entry carries the calendar's metadata */
 import { toHebrewReply, trySendInGuestLang } from './guest-lang.js';
+import { applyGuestName } from './guest-name.js';   /* 26/11 the per-event guest-name switch */
 /* index.js registers the event-name resolver (it owns the sheet snapshot); whatsapp.js stays import-free of index.js */
 export const waveNoteDeps = { eventName: null };
 import { capacity, numberState, rollingUsed, nextFreeAt, readHourBuckets, bumpHourBucket, cachedTiers, tierLimit, epochHour } from './budget.js';
@@ -679,6 +680,11 @@ export async function sendTemplate(env, to, name, params = [], imageUrl = '', la
   /* 26/09: on the ishur.io portfolio the client templates live under new
      names (<name>_n, footer built in) because Meta locks a deleted name for
      30 days. Portfolio + client channel → _n, and the _f switch is skipped. */
+  /* 26/11 (Richard): "לשלוח עם שם האורח" off for this event → the no-name copy, the neutral 'אורח יקר', or held
+     (guest-name.js). First, so the translated copies below get the neutral word too. */
+  const gn = await applyGuestName(env, { name, params, channel, ctx });
+  if (gn.hold) return gn.hold;
+  name = gn.name; params = gn.params; ctx = gn.ctx;
   /* 22/11 round 7 Part B: the event's guest language (guest-lang.js); off unless GUEST_LANG=on, Hebrew on any doubt */
   const inLang = await trySendInGuestLang(env, { name, params, channel, ctx }, v => sendTemplate(env, to, v.name, v.params, imageUrl, v.lang, channel, { ...ctx, langTried: 1 }));
   if (inLang) return inLang;

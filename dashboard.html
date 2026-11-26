@@ -1003,6 +1003,12 @@
   <section class="card" id="advCard" hidden>
     <div class="card-h">⚙️ הגדרות מתקדמות</div>
     <div class="card-b">
+      <!-- 26/11 Richard: per event, for EVERY message to the guests (guest-name.js decides inside the Worker) -->
+      <div class="adv-g">
+        <p class="adv-t">שם האורח בהודעות</p>
+        <label class="adv-ck"><input type="checkbox" id="advGuestName"> לשלוח עם שם האורח</label>
+        <p class="adv-n" id="advGuestNameNote">ההזמנה, התזכורות, הודעת יום לפני, הודעת יום האירוע, התודה והמתנה פונות לכל אורח בשם שלו כמו שהוא שמור ברשימה.</p>
+      </div>
       <div class="adv-g">
         <p class="adv-t">שמות ההורים</p>
         <p class="adv-n">לא מופיע בהודעות. אם אורח שואל של מי האירוע, שיר (בטלפון) והתשובה בוואטסאפ יזכירו גם את ההורים.</p>
@@ -1580,19 +1586,29 @@
         (m.buttons && m.buttons.length ? '<div style="max-width:22rem;margin-top:.25rem;display:flex;flex-direction:column;gap:.2rem">' + m.buttons.map(function (x) { return '<div style="background:#fff;color:#0A7CFF;text-align:center;font-size:.84rem;font-weight:600;padding:.42rem;border-radius:8px;box-shadow:0 1px 1px rgba(0,0,0,.12)">' + esc(x) + '</div>'; }).join('') + '</div>' : '') +
       '</div>';
     };
+    /* 26/11 "לשלוח עם שם האורח": off → the greeting without the name, the way the Worker will send it
+       ('neutral' = "אורח יקר" until the no-name copy is approved, 'twin' = the greeting with no name at all) */
+    var nameText = function (txt, mode) {
+      if (mode === 'twin') return String(txt).replace(/ ?\{שם האורח\}/, '');
+      if (mode === 'neutral') return String(txt).replace(/\{שם האורח\}/, 'אורח יקר');
+      return txt;
+    };
     pb.addEventListener('click', function () {
-      var md = (data && data.media) || {}, txt = ($('ctText') || {}).textContent || '';
+      var md = (data && data.media) || {}, txt0 = ($('ctText') || {}).textContent || '';
+      var mode = window.__ishurGuestName === false ? 'neutral' : 'name';
       var inviteBtns = ['מגיע', 'לא מגיע', 'עדיין לא ידוע'];
-      var first = [
+      var firstOf = function (m) { var txt = nameText(txt0, m); return [
         { title: 'ההזמנה', when: 'ההודעה הראשונה, לכל הרשימה', text: txt, buttons: inviteBtns, footer: 'נשלח ע"י ishur.io · הגיע בטעות? השיבו "טעות"', image: md.video_url ? '' : (md.image_url || md.url || ''), video: md.video_url || '' },
         { title: 'תזכורת למי שלא ענה', when: 'אותה הודעה שוב, רק למי שעוד לא ענה', text: txt, buttons: inviteBtns, footer: 'נשלח ע"י ishur.io · הגיע בטעות? השיבו "טעות"' }
-      ];
+      ]; };
+      var who = function (m) { return m === 'name' ? 'הדמיה עם פרטי האירוע שלכם ואורחת לדוגמה בשם דנה. שום דבר לא נשלח מכאן.' : 'הדמיה עם פרטי האירוע שלכם. ההודעות יוצאות בלי שם האורח, כמו שבחרתם בהגדרות המתקדמות. שום דבר לא נשלח מכאן.'; };
+      var first = firstOf(mode);
       var box = document.createElement('div');
       box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:90;padding:1rem';
       box.innerHTML = '<div class="dpop" role="dialog" aria-modal="true" style="background:var(--card,#fff);border-radius:8px;padding:1rem;width:100%;max-width:460px;max-height:88vh;overflow:auto">' +
         '<h3 style="margin:0 0 .2rem">כך זה נראה למוזמנים</h3>' +
-        '<p style="margin:0 0 .8rem;font-size:.8rem;color:var(--ink2)">הדמיה עם פרטי האירוע שלכם ואורחת לדוגמה בשם דנה. שום דבר לא נשלח מכאן.</p>' +
-        '<div id="pvList" style="background:#ECE5DD;border-radius:8px;padding:.8rem">' + first.map(bubble).join('') + '<div id="pvMore" style="font-size:.8rem;color:#555">טוענים את הודעות יום לפני ויום האירוע…</div></div>' +
+        '<p id="pvWho" style="margin:0 0 .8rem;font-size:.8rem;color:var(--ink2)">' + esc(who(mode)) + '</p>' +
+        '<div id="pvList" style="background:#ECE5DD;border-radius:8px;padding:.8rem"><div id="pvFirst">' + first.map(bubble).join('') + '</div><div id="pvMore" style="font-size:.8rem;color:#555">טוענים את הודעות יום לפני ויום האירוע…</div></div>' +
         '<button type="button" class="btn" id="pvX" style="width:100%;margin-top:.7rem">סגירה</button></div>';
       document.body.appendChild(box);
       box.querySelector('#pvX').addEventListener('click', function () { box.remove(); });
@@ -1601,6 +1617,11 @@
       fetch(CFG.endpoint('preview-messages'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token }) })
         .then(function (r) { return r.json(); }).then(function (j) {
           var more = box.querySelector('#pvMore'); if (!more) return;
+          if (j && j.ok && j.name_mode && j.name_mode !== mode) {
+            mode = j.name_mode;
+            var pf = box.querySelector('#pvFirst'); if (pf) pf.innerHTML = firstOf(mode).map(bubble).join('');
+            var pw = box.querySelector('#pvWho'); if (pw) pw.textContent = who(mode);
+          }
           more.outerHTML = j && j.ok && j.messages && j.messages.length ? j.messages.map(bubble).join('') : '<div style="font-size:.8rem;color:#555">הודעות יום לפני ויום האירוע יוצגו כאן אחרי שתמלאו תאריך, שעה וכתובת.</div>';
         }).catch(function () { var more = box.querySelector('#pvMore'); if (more) more.textContent = ''; });
     });
@@ -3873,7 +3894,15 @@
     $('advFri').checked = !w || w.fri !== false;
     $('advWinNote').textContent = 'ימים א׳–ה׳ בין ' + L.start + ' ל-' + L.end + ', ושישי עד ' + L.fri_end + '. אפשר לצמצם, לא להרחיב.';
     $('advGift').checked = s.gift_on_yes !== false;
+    $('advGuestName').checked = s.guest_name !== false;
+    window.__ishurGuestName = s.guest_name !== false;
+    gnNote();
     subs();
+  }
+  function gnNote() {
+    $('advGuestNameNote').textContent = $('advGuestName').checked
+      ? 'ההזמנה, התזכורות, הודעת יום לפני, הודעת יום האירוע, התודה והמתנה פונות לכל אורח בשם שלו כמו שהוא שמור ברשימה.'
+      : 'ההודעות יפנו בלי השם, למשל "שלום אורח יקר" במקום "שלום דנה". מתאים כשחלק מהשמות ברשימה הם כינויים כמו "דודה של הכלה".';
   }
   function collect() {
     var wed = !$('advCouple').hidden;
@@ -3885,13 +3914,15 @@
         custom: { on: $('advCustom').checked, q: $('advCustomTxt').value.trim() }
       },
       call_window: { start: $('advStart').value, end: $('advEnd').value, fri: $('advFri').checked, fri_end: $('advFriEnd').value },
-      gift_on_yes: $('advGift').checked
+      gift_on_yes: $('advGift').checked,
+      guest_name: $('advGuestName').checked
     };
   }
   function start() {
     var card = $('advCard'); if (!card) return;
     paintOcc(); document.addEventListener('ishur:event', paintOcc);
     ['advShuttle', 'advFood', 'advCustom', 'advFri'].forEach(function (id) { $(id).addEventListener('change', function () { subs(); $('advMsg').textContent = ''; }); });
+    $('advGuestName').addEventListener('change', function () { gnNote(); $('advMsg').textContent = ''; });
     call({ token: tok }).then(function (d) { if (!d || !d.ok) return; card.hidden = false; paint(d); }).catch(function () {});
     $('advSave').addEventListener('click', function () {
       var body = collect();
