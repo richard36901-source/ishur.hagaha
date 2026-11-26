@@ -275,7 +275,9 @@ test('setup step: the surnames are kept (not sent to Make), and the Make field l
 
 test('client pages: the settings card is its own card on the board (not in the setup flow); the setup step only gains the surnames', () => {
   const dash = fs.readFileSync(new URL('../../dashboard.html', import.meta.url), 'utf8');
-  assert.ok(dash.includes('<section class="card" id="advCard" hidden>'));
+  /* 26/11 Richard: the advanced settings moved INTO the links card ("קישורים והגדרות"); still hidden until the Worker answers */
+  const share = dash.slice(dash.indexOf('<section class="card" id="shareCard">'), dash.indexOf('</section>', dash.indexOf('<section class="card" id="shareCard">')));
+  assert.ok(share.includes('<div id="advCard" hidden') && !dash.includes('<section class="card" id="advCard"'));
   assert.ok(dash.includes(".replace(/\\/api\\/status$/, '/api/event-settings')"), 'reached through the status URL, so a stale cached config.js still finds it');
   assert.ok(dash.includes("id=\"exportCsv\"") && dash.includes("a.download = 'מוזמנים.csv'"));
   assert.ok(dash.includes("else if (/^fq-/.test(filter)) { if (!fqMatch(g, filter)) return false; }"));
