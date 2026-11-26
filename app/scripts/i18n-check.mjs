@@ -72,7 +72,7 @@ try {
       const f = p.frames().find(x => /dashboard/.test(x.url()));
       if (f && t !== 'account') { r.frameLang = /[?&]lang=([a-z]{2})/.exec(f.url())?.[1]; note('board:' + t, await leftovers(f, lang), await layout(f)); }
     }
-    await p.click('#eventsOpen'); await p.waitForTimeout(800); note('app:events', await leftovers(p, lang), await layout(p)); await p.click('#eventsClose');
+    await p.click('#eventsOpen'); await p.waitForTimeout(800); note('app:events', await leftovers(p, lang), await layout(p)); await p.$eval('#eventsClose', b => b.click()); /* 26/11: off-screen, VoiceOver-only close (Richard: no close button up top) */
     await p.screenshot({ path: path.join(ROOT, 'app', 'test', 'shots', `lang-${lang}-account.png`) });
     await ctx.close();
     /* the board pages, opened the way the app opens them */

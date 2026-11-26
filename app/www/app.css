@@ -1,6 +1,5 @@
 /* ishur client app. Brand: pine, green, gold on cream. Light by default, dark by the device setting.
-   26/11 Richard: Apple's current design in full (rounded corners, capsules, a floating glass tab bar); the old 8px corner
-   rule is lifted (round 9 block at the end). System font (San Francisco / Roboto) so text follows the device's text size. */
+   26/11 Richard: "Ours, Apple feel": our design language (corners up to 8px) with Apple's behaviour (round 9 block). System font (San Francisco / Roboto) so text follows the device's text size. */
 :root{
   --pine:#0F2E22;--green:#0F4C35;--gold:#A8853C;--gold-soft:#C7AE7A;
   --bg:#FAF8F1;--card:#FFFFFF;--ink:#16211B;--ink2:#4A554E;--ink3:#78827B;--line:#E6E1D3;
@@ -342,31 +341,32 @@ html[data-theme=dark] .btn.idbtn.apple{background:#fff;color:#000}
 
 /* ══ 26/11 round 9: Apple's current iPhone design (Richard: "make sure all uses the latest apple design", "full Apple";
    "the bar at the bottom like Instagram's floating bar"; no web scroll line; close buttons as Apple's round X) ══════ */
-:root{--r:22px;--tabh:62px;--tabgap:10px}
+/* 26/11 later: Richard chose "Ours, Apple feel": our look (pine, gold, our type, corners up to 8px) with Apple's behaviour (floating bar, sliding marker, swipes, drag to close) */
+:root{--r:8px;--tabh:62px;--tabgap:10px}
 /* no scroll line on the side: iPhone apps show none at rest */
 html{scrollbar-width:none;touch-action:manipulation}::-webkit-scrollbar{display:none;width:0;height:0}
 /* concentric, continuous corners: big surfaces round more than what sits inside them */
-.card,.list,.evrow,.scene,.sk-hero,.sk-rows{border-radius:26px}
-.kpi,.sc-tile,.sc-row,.sc-app,.sc-day,.sc-field,.sc-goal{border-radius:18px}
+.card,.list,.evrow,.scene,.sk-hero,.sk-rows{border-radius:8px}
+.kpi,.sc-tile,.sc-row,.sc-app,.sc-day,.sc-field,.sc-goal{border-radius:8px}
 .card{padding:1.1rem 1.1rem}
-input[type=tel],input[type=text]{border-radius:14px;min-height:50px}
-input[type=search]{border-radius:999px}
-.otp-box{border-radius:16px}
+input[type=tel],input[type=text]{border-radius:8px;min-height:50px}
+input[type=search]{border-radius:8px}
+.otp-box{border-radius:8px}
 /* buttons, chips, status pills and the event switch are capsules */
-.btn,.filters button,.evswitch,.pill,.sc-pill,.sc-link,.btn.idbtn{border-radius:999px}
+.btn,.filters button,.evswitch,.pill,.sc-pill,.sc-link,.btn.idbtn{border-radius:8px}
 .btn{min-height:52px}
-.seg{border-radius:999px;padding:3px}.seg button{border-radius:999px;padding:.35rem .8rem}
+.seg{border-radius:8px;padding:3px}.seg button{border-radius:8px;padding:.35rem .8rem}
 /* the system switch is a capsule with a round knob */
-.switch input{border-radius:999px}.switch input::after{border-radius:50%}
+.switch input{border-radius:8px}.switch input::after{border-radius:6px}
 .nav .navlogo{border-radius:7px}
 /* sheets: rounder top corners like iOS sheets */
-.sheetbox{border-radius:34px 34px 0 0}
+.sheetbox{border-radius:8px 8px 0 0}
 /* the tab bar floats: a glass capsule above the content, which scrolls on beneath it (Instagram, Apple's own apps) */
-.tabs{inset-inline:14px;bottom:calc(env(safe-area-inset-bottom) + var(--tabgap));max-width:460px;margin:0 auto;padding:5px;border-radius:999px;border-top:0;
+.tabs{inset-inline:14px;bottom:calc(env(safe-area-inset-bottom) + var(--tabgap));max-width:460px;margin:0 auto;padding:5px;border-radius:8px;border-top:0;
   background:color-mix(in srgb,var(--card) 72%,transparent);-webkit-backdrop-filter:blur(24px) saturate(190%);backdrop-filter:blur(24px) saturate(190%);
   box-shadow:0 10px 30px rgba(15,46,34,.16),0 1px 3px rgba(0,0,0,.08),0 0 0 .5px var(--hair),inset 0 1px 0 rgba(255,255,255,.55)}
 html[data-theme=dark] .tabs{box-shadow:0 10px 30px rgba(0,0,0,.5),0 0 0 .5px var(--hair),inset 0 1px 0 rgba(255,255,255,.12)}
-.tabs button{height:52px;border-radius:999px;gap:2px;transition:background .2s,color .2s}
+.tabs button{height:52px;border-radius:8px;gap:2px;transition:background .2s,color .2s}
 .tabs button.on{background:var(--fill);color:var(--green)}
 .view{padding-bottom:calc(var(--tabh) + var(--tabgap) + env(safe-area-inset-bottom) + 1.4rem)}
 /* the board runs to the bottom of the screen, under the floating bar (the board pads its own end in app mode) */
@@ -403,6 +403,6 @@ html[data-theme=dark] .tabs{box-shadow:0 10px 30px rgba(0,0,0,.5),0 0 0 .5px var
 .view{padding-bottom:calc(var(--tabh) + max(6px,calc(env(safe-area-inset-bottom) - 14px)) + 1.4rem)}
 .tabs{position:fixed}.tabs button{position:relative;z-index:1}
 .tabs button.on{background:none}
-.tabpill{position:absolute;top:5px;bottom:5px;left:0;width:0;border-radius:999px;background:var(--fill);z-index:0;pointer-events:none;
+.tabpill{position:absolute;top:5px;bottom:5px;left:0;width:0;border-radius:8px;background:var(--fill);z-index:0;pointer-events:none;
   transition:transform .45s cubic-bezier(.2,.9,.25,1.12),width .45s cubic-bezier(.2,.9,.25,1.12)}
 @media (prefers-reduced-motion:reduce){.tabpill{transition:none}}
