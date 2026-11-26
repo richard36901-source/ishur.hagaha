@@ -107,7 +107,8 @@ import { handleSubeventCreate, handleSubeventSend, handleSubeventRemind, handleS
 import { cleanParam } from './whatsapp.js';   /* 02/11 audit: links that reach guests */
 import { withRun, isOff } from './ops-run.js';   /* 03/11 ops center: runs ledger + kill switches */
 import { recordChange, recordDeploy } from './changes.js';   /* 03/11 change log (שינויים) */
-import { fixedCostAction, buildIncomeDays, editEventCosts } from './ops-money.js';   /* 03/11 recurring fixed costs */
+import { fixedCostAction, buildIncomeDays, editEventCosts, loadFixed, fixedForMonth } from './ops-money.js';
+import { loadVexp, loadShare, applyToSeries, monthFixedItems, isCallVendor, vendorExpenseAction, vendorExpenseIngest, missingCharges } from './vendorexp.js';   /* 26/11 real vendor charges */   /* 03/11 recurring fixed costs */
 import BUILD_INFO from './build-info.json' with { type: 'json' };   /* written by scripts/build-info.mjs at deploy */
 import { handleOps, brainFns, buildCapacity, buildSendLive, planFns } from './ops.js';
 import { readLogValues, plannedMarks, putLog, logMeta, listLogKeys } from './calendar-log.js';   /* 21/11 the calendar's read of the message log, old days kept */
@@ -7924,6 +7925,12 @@ async function runPacer(env, run = null, { part = 'all' } = {}) {
        instead so the night queue never piles up. */
     if (await isOff(env, 'slack_digest')) await flushSlackQueue(env).catch(() => {});
     else await step('slack_digest', () => slackDigest(env, { post: t => slackSend(env, t, { oneoff: true, urgent: true, digest: true }), plan: () => digestPlan(env) })).catch(() => {});   /* oneoff: the one daily digest */
+    /* 26/11 Richard "שהrecurring expenses תמיד מדוייק": a monthly vendor whose charge is 5+ days late and not in the ledger → one Slack line a month */
+    await step('vexp_missing', async () => {
+      const m = today.slice(0, 7), [rec, vx] = await Promise.all([loadFixed(env, m), loadVexp(env, [m])]);
+      const miss = missingCharges(fixedForMonth(rec, m).items.filter((x) => !x.unknown), vx[m], today);
+      if (miss.length && !(await seenOnce(env, 'vexpmiss:' + m + ':' + miss.join(',')))) await alert(env, 'הוצאות', `לא נמצא חיוב החודש: ${miss.join(', ')} — הסכום בדוחות הוא הערכה עד שתגיע קבלה`, m, { key: 'vexp_missing:' + m });
+    }).catch(() => {});
   }
   /* ads health, once an hour inside Slack hours (the alert itself is
      urgent, so quiet hours are respected by not asking at night) */
@@ -8834,6 +8841,7 @@ async function handleCostLog(request, env, origin) {
     row.wa_cost_usd_cents += Math.round((Number(st.tmpl) || 0) * 0.53 * 100) / 100;
   }
   for (const [d, v] of Object.entries(shirDays)) day(d).shir_cost_usd_cents += Number(v) || 0;
+  await vexpSeries(env, days, day);   /* 26/11: Retell/Telnyx top-ups on the day they were charged */
   /* 25/10: ₪ truth per day from the message log (wacost:<day>, written by the
      cost rebuild) replaces the flat 0.53 estimate. Kept in the old field as
      USD cents so every board formula (×USD_ILS/100) still lands on ₪. */
@@ -9950,6 +9958,16 @@ async function handleResend(request, env, origin) {
    twice costs nothing and fixes gaps.
    ─────────────────────────────────────────────────────────────────────────── */
 const USD_ILS = 3.7;
+/* 26/11: the last n months 'YYYY-MM' up to the month of `today` */
+function lastMonths(today, n) { const out = []; let [y, m] = today.slice(0, 7).split('-').map(Number); for (let i = 0; i < n; i++) { out.unshift(`${y}-${String(m).padStart(2, '0')}`); if (--m === 0) { m = 12; y--; } } return out; }
+/* 26/11: put the call top-ups (Retell, Telnyx) into a {date→row} series: a month with top-ups is costed by them */
+async function vexpSeries(env, days, day) {
+  try {
+    const months = lastMonths(ilDate(), 6), [vx, share] = await Promise.all([loadVexp(env, months), loadShare(env)]);
+    for (const rows of Object.values(vx)) for (const r of rows) if (isCallVendor(r.vendor)) day(r.day);
+    applyToSeries(Object.values(days), vx, share);
+  } catch {}
+}
 
 async function syncCallCosts(env, limit = 100) {
   if (!env.RETELL_KEY || !env.RATE) return { ok: false, why: 'not-configured' };
@@ -11009,6 +11027,7 @@ async function handleOpsStats(request, env, origin) {
   for (const [d, v] of Object.entries(shirDays)) {
     day(d).shir_cost_usd_cents += Number(v) || 0;
   }
+  await vexpSeries(env, days, day);   /* 26/11 */
 
   /* lead sources */
   const utm = {};
@@ -11044,6 +11063,11 @@ async function handleOpsStats(request, env, origin) {
   for (const [k, v] of Object.entries(await kvPrefix(env, 'fixedcost:'))) {
     try { fixedcost[k] = JSON.parse(v) || []; } catch { fixedcost[k] = []; }
   }
+  /* 26/11: the months the periodic reports read — the recurring list with each vendor's real charges in its place */
+  try {
+    const months = lastMonths(ilDate(), 6), [vx, share, rec] = await Promise.all([loadVexp(env, months), loadShare(env), loadFixed(env, ilDate().slice(0, 7))]);
+    for (const m of months) fixedcost[m] = monthFixedItems([...fixedForMonth(rec, m).items.filter((x) => !x.unknown && x.ils > 0), ...(fixedcost[m] || [])], vx[m], share).filter((x) => x.ils > 0);
+  } catch {}
 
   /* ── CAC, the premortem's headline rule ──────────────────────────────────
      Budget decisions ride on cost-per-CUSTOMER from the sheet, never CPL from
@@ -14505,6 +14529,17 @@ const WORKER = {
     }
     if (url.pathname === '/api/fixedcost' && request.method === 'POST') {
       return handleFixedCost(request, env, origin);
+    }
+    /* 26/11 the real vendor charges: admin list/add/remove/share, and Make's receipt scan (x-ingest-key) */
+    if (url.pathname === '/api/vendor-expense' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      return okJson(await vendorExpenseAction(env, b), origin);
+    }
+    if (url.pathname === '/api/vendor-expense/ingest' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const r = await vendorExpenseIngest(env, request, b);
+      return new Response(JSON.stringify(r.body), { status: r.status, headers: { 'Content-Type': 'application/json' } });
     }
     if (url.pathname === '/api/cost-log' && request.method === 'POST') {
       return handleCostLog(request, env, origin);
