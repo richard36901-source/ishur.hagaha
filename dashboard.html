@@ -960,7 +960,7 @@
 
   <!-- the public RSVP link for group chats + the navigation link (Richard 17/09) -->
   <section class="card" id="shareCard">
-    <div class="card-h">קישור לקבוצה</div>
+    <div class="card-h">קישורים והגדרות</div>
     <div class="card-b">
       <p style="font-size:.85rem;color:var(--ink2);margin:0 0 .6rem">שלחו לקבוצת הוואטסאפ של המשפחה. מי שלוחץ "מגיע/ה" נכנס לרשימה ולסידור ההושבה. הודעות ותזכורות אליהם נפתחות בתוספת אחת קטנה.</p>
       <textarea id="shareTxt" readonly style="width:100%;min-height:7.5rem;font:inherit;font-size:.9rem;padding:.6rem .7rem;border:1.5px solid var(--bdr);border-radius:10px;background:var(--bg2);color:var(--ink);resize:vertical"></textarea>
@@ -996,13 +996,10 @@
           </span>
         </div>
       </div>
-    </div>
-  </section>
 
-  <!-- 25/11 הגדרות מתקדמות: separate from the event setup (that flow stays short). Worker: POST /api/event-settings -->
-  <section class="card" id="advCard" hidden>
-    <div class="card-h">⚙️ הגדרות מתקדמות</div>
-    <div class="card-b">
+      <!-- 26/11 Richard: advanced settings live inside the links card -->
+      <div id="advCard" hidden style="margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--bdr)">
+        <p class="adv-t" style="font-size:.95rem;margin:0 0 .6rem">⚙️ הגדרות מתקדמות</p>
       <div class="adv-g">
         <p class="adv-t">שמות ההורים</p>
         <p class="adv-n">לא מופיע בהודעות. אם אורח שואל של מי האירוע, שיר (בטלפון) והתשובה בוואטסאפ יזכירו גם את ההורים.</p>
@@ -1032,9 +1029,10 @@
       <div class="adv-g">
         <p class="adv-t">מתנה</p>
         <label class="adv-ck"><input type="checkbox" id="advGift"> לצרף את קישור המתנה להודעת התודה למי שאישר הגעה</label>
-        <p class="adv-n">רק כשיש קישור מתנה פעיל (למעלה, ב"קישור לקבוצה"). פעם אחת לכל אורח.</p>
+        <p class="adv-n">רק כשיש קישור מתנה פעיל (למעלה, ב"קישור למתנה"). פעם אחת לכל אורח.</p>
       </div>
       <div class="adv-row" style="justify-content:flex-end"><span id="advMsg" style="font-size:.8rem;color:var(--ink3)"></span><button type="button" class="buy" id="advSave">שמירה</button></div>
+      </div>
     </div>
   </section>
 
