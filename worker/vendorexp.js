@@ -61,6 +61,13 @@ export function mergeRows(byMonth, rows) {
   return changed;
 }
 
+/* a short Hebrew label: "Make · קרדיטים נוספים", "Make · מנוי", "Cloudflare · חשבון חודשי" */
+export function chargeLabel(r) {
+  const v = (VENDORS.find((x) => x.key === r.vendor) || {}).name || r.vendor, d = String(r.desc || '');
+  const what = /extra (credits|operations)|קרדיט/i.test(d) ? 'קרדיטים נוספים' : /plan|subscription|מנוי|ultra|max/i.test(d) ? 'מנוי' : /prepaid|usage/i.test(d) ? 'שימוש נוסף'
+    : r.vendor === 'cloudflare' ? 'חשבון חודשי' : isCallVendor(r.vendor) ? 'טעינת יתרה' : 'חיוב';
+  return `${v} · ${what}`;
+}
 /* the month's non-call costs as the money page lists them: [{name, ils, day, actual?, approx?}] */
 export function monthFixedItems(recurring, rows, share = DEFAULT_SHARE) {
   const real = (rows || []).filter((r) => !isCallVendor(r.vendor));
@@ -74,7 +81,7 @@ export function monthFixedItems(recurring, rows, share = DEFAULT_SHARE) {
   }
   for (const r of real) {
     const ils = rowIls(r, share); if (!(ils > 0)) continue;
-    out.push({ name: (VENDORS.find((v) => v.key === r.vendor) || {}).name + (r.desc ? ' · ' + r.desc.slice(0, 40) : ''), ils, day: Number(r.day.slice(8, 10)), actual: true, ref: r.ref });
+    out.push({ name: chargeLabel(r), ils, day: Number(r.day.slice(8, 10)), actual: true, ref: r.ref });
   }
   return out;
 }
