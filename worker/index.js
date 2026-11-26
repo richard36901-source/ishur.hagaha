@@ -55,7 +55,7 @@ import { slackQuietHours, slackSend, flushSlackQueue, slackPost, slackResolve, a
 import { slackDigest } from './slack-gate.js';   /* 04/11 the 09:00 morning digest (registry: slack_digest) */
 import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex, memOver, memCount, makeWriterBody, guestNameKey } from './lib.js';
 import { authGate, handleAuth, isSessionToken, readSession, getUser } from './auth.js';
-import { quietRead, teamActionAfter, describedPath } from './team-log.js';
+import { quietRead, teamActionAfter, describedPath, rsvpHe } from './team-log.js';
 import { alertDateSet, hostessReminders, arrivalOf } from './hostess-alerts.js';
 import { swrHook, swrBust, OVERVIEW } from './swr.js';
 import { clientFlags } from './speed.js';   /* 26/11 track-speed: + the overview reads, swrBust on an admin change */
@@ -1868,8 +1868,8 @@ async function addonQuote(env, token) {
   const R = ADDON_RATES, up = x => Math.ceil(x);
   const items = {
     extrasend_all:        { label: 'שליחה נוספת לכולם',   n: total,      price: total ? up(R.msg * total + R.base) : 0 },
-    extrasend_unanswered: { label: 'שליחה נוספת ללא ענו', n: unanswered, price: unanswered ? up(R.msg * unanswered + R.base) : 0 },
-    calls:                { label: 'סבב שיחות AI ללא ענו', n: unanswered, price: unanswered ? up(R.call * unanswered + R.base) : 0 },
+    extrasend_unanswered: { label: 'שליחה נוספת למתלבטים', n: unanswered, price: unanswered ? up(R.msg * unanswered + R.base) : 0 },
+    calls:                { label: 'סבב שיחות AI למתלבטים', n: unanswered, price: unanswered ? up(R.call * unanswered + R.base) : 0 },
     postpone:             { label: 'הודעת דחייה/עדכון',   n: total,      price: total ? up(R.msg * total + R.base) : 0 },   /* 12/11 Richard: priced like an extra send */
     cancel:               { label: 'הודעת ביטול',          n: total,      price: total ? up(R.msg * total + R.base) : 0 },
     selfreg:              { label: 'הפעלת הודעות לנרשמים מהקישור', n: selfCount, price: selfCount ? up(R.msg * selfCount * 3 + R.base) : 0 },
@@ -1892,7 +1892,7 @@ function parseAddonDesc(desc) {
     const m = d.match(/ל-(\d{2,4})\s*מוזמנים\s*(בסיס|פרמיום|הכל כלול)/);
     if (m) return { kind: 'upgrade', tier: parseInt(m[1], 10), plan: m[2] === 'בסיס' ? 'basic' : m[2] === 'פרמיום' ? 'pro' : 'premium', tok8, desc: d.slice(0, 80) };
   }
-  if (/שליחה נוספת|גל נוסף|גל שלישי|extra.?send/i.test(d)) return { kind: 'extrasend', scope: /ללא ענו/.test(d) ? 'unanswered' : 'all', tok8, desc: d.slice(0, 80) };
+  if (/שליחה נוספת|גל נוסף|גל שלישי|extra.?send/i.test(d)) return { kind: 'extrasend', scope: /ללא ענו|למתלבטים/.test(d) ? 'unanswered' : 'all', tok8, desc: d.slice(0, 80) };
   if (!parsePaidDesc_isAddon(d)) return null;
   const m = d.match(/(\d{1,4})\s*מוזמנים/);
   if (!m) return null;
@@ -2995,7 +2995,7 @@ async function processRetellEvent(env, body) {
     const who0 = (gName0 ? gName0 + ' · ' : '') + String(c0.to_number || '').replace('+', '').replace(/^972/, '0');
     const outcome0 = action.result ? (action.result.answer || action.result.rsvp || '') : '';
     const no0 = /dial_no_answer|dial_busy|voicemail/.test(String(c0.disconnection_reason || ''));
-    stream(env, { kind: 'call', area: meta0.kind === 'lead' ? 'נועה' : 'שיר', action: '📞 ' + (meta0.kind === 'lead' ? 'נועה' : 'שיר') + ' → ' + who0 + (evName0 ? ' · ' + evName0 : '') + (dur0 != null ? ' · ' + dur0 + ' שנ׳' : '') + ' · ' + (outcome0 && outcome0 !== '__keep__' ? outcome0 : no0 ? 'לא ענה' : 'ללא תוצאה'), ok: true, phone: String(c0.to_number || '').replace('+', ''), token: String(meta0.token || ''), detail: String(c0.transcript || ca0.call_summary || '').slice(0, 2000), data: { call_id: action.call_id, guest_name: gName0, guest_id: String(meta0.guest_id || ''), event_name: evName0, outcome: action.result ? action.result.rsvp : '', answer: action.result ? action.result.answer : '', sentiment: ca0.user_sentiment || '', summary: String(ca0.call_summary || '').slice(0, 400), duration_s: dur0, recording: kept && kept.has_recording ? '/rec/' + action.call_id : '', recording_name: kept ? kept.name : '', agent: meta0.kind === 'lead' ? 'נועה' : 'שיר', disconnection: c0.disconnection_reason || '' }, cost: action.cost_cents ? Math.round(action.cost_cents * 3.7) / 100 : 0 }).catch(() => {});
+    stream(env, { kind: 'call', area: meta0.kind === 'lead' ? 'נועה' : 'שיר', action: '📞 ' + (meta0.kind === 'lead' ? 'נועה' : 'שיר') + ' → ' + who0 + (evName0 ? ' · ' + evName0 : '') + (dur0 != null ? ' · ' + dur0 + ' שנ׳' : '') + ' · ' + (outcome0 && outcome0 !== '__keep__' ? String(outcome0).replace(/(^|- )מתלבט(?= -|$)/, '$1אולי') : no0 ? 'לא ענה' : 'ללא תוצאה'), ok: true, phone: String(c0.to_number || '').replace('+', ''), token: String(meta0.token || ''), detail: String(c0.transcript || ca0.call_summary || '').slice(0, 2000), data: { call_id: action.call_id, guest_name: gName0, guest_id: String(meta0.guest_id || ''), event_name: evName0, outcome: action.result ? action.result.rsvp : '', answer: action.result ? action.result.answer : '', sentiment: ca0.user_sentiment || '', summary: String(ca0.call_summary || '').slice(0, 400), duration_s: dur0, recording: kept && kept.has_recording ? '/rec/' + action.call_id : '', recording_name: kept ? kept.name : '', agent: meta0.kind === 'lead' ? 'נועה' : 'שיר', disconnection: c0.disconnection_reason || '' }, cost: action.cost_cents ? Math.round(action.cost_cents * 3.7) / 100 : 0 }).catch(() => {});
     if ((meta0.kind === 'guest' || !meta0.kind) && !String(c0.direction || '').includes('inbound')) {
       const disc = String(c0.disconnection_reason || '');
       const notconn = /^telephony_provider_|^error_|concurrency/.test(disc), vm = disc === 'voicemail_reached', noans = /dial_no_answer|dial_busy|dial_failed/.test(disc);
@@ -3033,9 +3033,9 @@ async function processRetellEvent(env, body) {
             netWrote = !!(await writeCallResult(env, meta0.guest_id, res0, ta.rsvp === 'מגיע' ? await guardCallParty(env, body, meta0.guest_id, ta.party, 'נקרא מהתמליל') : undefined).catch(() => false));
             if (netWrote && action.call_id && env.RATE) await env.RATE.put('shirtool:' + action.call_id, 'net', { expirationTtl: 3 * 86400 }).catch(() => {});
             stream(env, { kind: 'call', area: 'בקרה', action: 'נרשם מהתמליל (שיר לא הפעילה את הכלי)', ok: netWrote, review: !netWrote, token: meta0.token || '',
-              detail: `${gName0 || meta0.guest_id}${evName0 ? ' · ' + evName0 : ''} · ${ta.rsvp}${ta.party ? ' · ' + ta.party : ''}${inb0 ? ' · שיחה נכנסת' : ''}`,
+              detail: `${gName0 || meta0.guest_id}${evName0 ? ' · ' + evName0 : ''} · ${rsvpHe(ta.rsvp)}${ta.party ? ' · ' + ta.party : ''}${inb0 ? ' · שיחה נכנסת' : ''}`,
               data: { call_id: String(c0.call_id || ''), guest_id: meta0.guest_id, rsvp: ta.rsvp, party: ta.party || null, inbound: inb0 } }).catch(() => {});
-            await slackPost(env, `🧾 *נרשם מהתמליל* · ${gName0 || meta0.guest_id}${evName0 ? ' · ' + evName0 : ''}: ${ta.rsvp}${ta.party ? ' · ' + ta.party : ''} (שיר אמרה שרשמה ולא הפעילה את הכלי)`, { quiet: true, oneoff: true }).catch(() => {});
+            await slackPost(env, `🧾 *נרשם מהתמליל* · ${gName0 || meta0.guest_id}${evName0 ? ' · ' + evName0 : ''}: ${rsvpHe(ta.rsvp)}${ta.party ? ' · ' + ta.party : ''} (שיר אמרה שרשמה ולא הפעילה את הכלי)`, { quiet: true, oneoff: true }).catch(() => {});
           }
         }
       }
@@ -4586,7 +4586,7 @@ async function guestFreeText(env, raw, guest, from, text, say, sendCh = 'guests'
     const saved = await writeGuestReply(env, guest, 'מתלבט');
     if (env.RATE) await env.RATE.delete('awaitparty:' + guest.guest_id).catch(() => {});
     await say(saved ? 'אין לחץ, אפשר לעדכן כאן בכל רגע 🙂' : 'קיבלנו, רגע רושמים 🙂');
-    await log('אורח עדיין לא יודע, סומן מתלבט', `${guest.rsvp || 'לא ענה'} → מתלבט`); return true;
+    await log('אורח עדיין לא יודע, סומן אולי', `${rsvpHe(guest.rsvp)} → אולי`); return true;
   }
   if (saysNo) {
     const saved = await writeGuestReply(env, guest, 'לא מגיע');
@@ -4641,7 +4641,7 @@ async function guestFreeText(env, raw, guest, from, text, say, sendCh = 'guests'
   /* Richard 22/10: no more Linear issue per guest question (30 of them clogged
      triage); Slack + the live log carry it. Set GUEST_Q_LINEAR=on to restore. */
   const li = String(env.GUEST_Q_LINEAR || '') !== 'on' ? { ok: false, why: 'off' } : await linearTriageIssue(env, `שאלת אורח · ${guest.name || from} · ${evName}`,
-    `**אורח:** ${guest.name || ''} · ${from.replace(/^972/, '0')}\n**אירוע:** ${evName} (${c(5)}, ${heDate(c(6))})\n**לקוח:** ${c(2)} · ${String(ev[3] || '').replace(/^972/, '0')}\n**מצב אורח:** ${guest.rsvp || 'לא ענה'}${guest.party ? ' · ' + guest.party : ''}\n\n**ההודעה:**\n> ${t.slice(0, 1000)}\n\nלענות לאורח מהאינבוקס: https://ishur.io/inbox.html`);
+    `**אורח:** ${guest.name || ''} · ${from.replace(/^972/, '0')}\n**אירוע:** ${evName} (${c(5)}, ${heDate(c(6))})\n**לקוח:** ${c(2)} · ${String(ev[3] || '').replace(/^972/, '0')}\n**מצב אורח:** ${rsvpHe(guest.rsvp)}${guest.party ? ' · ' + guest.party : ''}\n\n**ההודעה:**\n> ${t.slice(0, 1000)}\n\nלענות לאורח מהאינבוקס: https://ishur.io/inbox.html`);
   await slackPost(env, `💬 *שאלת אורח לבעלי השמחה* <@${env.SLACK_RICHARD || 'U0BTHU91Z3N'}> <@${env.SLACK_SHALEV || 'U0C33AKDF24'}>\n*אורח:* ${guest.name || from} (${from.replace(/^972/, '0')})\n*אירוע:* ${evName}\n*הודעה:* "${t.slice(0, 300)}"${li.ok ? `\n*לינאר:* <${li.url}|${li.identifier}>` : li.why === 'no-key' ? '\n_(לינאר: אין עדיין מפתח API)_' : ''}`, { oneoff: true }).catch(() => {});   /* oneoff: a guest asked a question */
   await logEvent(env, { area: 'ווצאפ', action: 'הודעת אורח הועברה לבעלי השמחה', ok: true, review: true, phone: from, token: guest.token, detail: t.slice(0, 200) }).catch(() => {});
   return true;
@@ -6230,7 +6230,7 @@ function guestFlow() {
     { when: 'לא ענה כמה · אחרי שעתיים', msgs: [{ text: PARTY_NUDGES[0].text }] },
     { when: 'עדיין לא ענה · אחרי 6 שעות', note: 'תזכורת אחרונה, אחריה לא שואלים שוב', msgs: [{ text: PARTY_NUDGES[1].text }] },
     { when: 'האורח לוחץ "לא מגיע"', msgs: [{ text: GUEST_REPLY.declined }] },
-    { when: 'האורח מתלבט ("אולי")', msgs: [{ text: GUEST_REPLY.maybe }] },
+    { when: 'האורח ענה "אולי"', msgs: [{ text: GUEST_REPLY.maybe }] },
     /* 25/11 הגדרות מתקדמות: only when the event switched them on */
     { when: 'אחרי שאישר הגעה · אם הופעלה שאלת הסעה', note: 'מהגדרות מתקדמות', msgs: [{ text: questionMessage('shuttle', { questions: { shuttle: { on: true } } }).text, buttons: ['כן, נצטרף', 'לא צריך'] }] },
     { when: 'אחרי שאישר הגעה · אם הופעלה שאלת אוכל', note: 'מהגדרות מתקדמות', msgs: [{ text: questionMessage('food', {}).text, buttons: FOOD_OPTIONS }] },
@@ -11632,7 +11632,7 @@ function opsJob(env, name, fn, extra = {}) { return withRun(env, JOB_TO_ID[name]
    each, after the handler answered OK (and only when it was not a dry run). The handler itself is
    untouched; the body is read from a clone. revert: only the global pause flips back from here. */
 const tok8 = t => String(t || '').slice(0, 8);
-export { parsePaidDesc as _parsePaidDesc, referralVerify as _referralVerify };
+export { parsePaidDesc as _parsePaidDesc, referralVerify as _referralVerify, parseAddonDesc as _parseAddonDesc };
 export const CHANGE_ROUTES = {
   '/api/pause': { kind: 'pause', when: b => typeof b.paused === 'boolean', summary: b => (b.paused ? 'עצירה כללית הופעלה: כל השליחות הושהו' : 'עצירה כללית בוטלה: השליחות חזרו'),
     details: b => ({ paused: b.paused }), revert: b => ({ possible: true, how: 'toggle', payload: { pause: !b.paused } }) },
@@ -13004,7 +13004,7 @@ const WORKER = {
         const planR = { row: hit.i + 2, name: String(hit.r[3] || '').trim(), rsvp_was: rsvp };
         if (b.dry) return okJson({ ok: true, dry: true, by_request: true, ...planR }, origin);
         const okR = await sheetBatchWrite(env, [{ range: `אורחים!AC${hit.i + 2}`, values: [['removed-req:' + tok.slice(0, 8)]] }, { range: `אורחים!V${hit.i + 2}`, values: [['']] }]);
-        await logEvent(env, { area: 'לקוחות', action: 'מוזמן הוסר מהאירוע לבקשת הלקוח', ok: !!okR, review: true, token: tok, detail: `שורה ${hit.i + 2} · ${planR.name}${rsvp ? ' · היה: ' + rsvp : ''} · ${why}` }).catch(() => {});
+        await logEvent(env, { area: 'לקוחות', action: 'מוזמן הוסר מהאירוע לבקשת הלקוח', ok: !!okR, review: true, token: tok, detail: `שורה ${hit.i + 2} · ${planR.name}${rsvp ? ' · היה: ' + rsvpHe(rsvp) : ''} · ${why}` }).catch(() => {});
         return okR ? okJson({ ok: true, by_request: true, ...planR }, origin) : deny(502, 'sheet-write-failed', origin);
       }
       if (rsvp) return deny(409, 'row-has-an-answer', origin);

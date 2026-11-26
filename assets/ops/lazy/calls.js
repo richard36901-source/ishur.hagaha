@@ -9,7 +9,7 @@ import { tiles } from '../screens/calls.js';
 
 export const TABS = [['timeline', 'ציר שיחות'], ['rounds', 'סבבים'], ['manual', 'שיחות ידניות'], ['shir', 'שיר'], ['costs', 'עלויות']];
 export const OUT_TONE = { coming: 'good', not_coming: 'crit', maybe: 'warn', callback: 'info', voicemail: '', no_answer: '', answered: 'info', failed: 'crit', do_not_call: 'serious' };
-const OUT_HE = { coming: 'מגיע', not_coming: 'לא מגיע', maybe: 'מתלבט', callback: 'לחזור אליו', voicemail: 'תא קולי', no_answer: 'לא ענה', answered: 'נענתה בלי תשובה', failed: 'נכשלה', do_not_call: 'ביקש לא להתקשר' };
+const OUT_HE = { coming: 'מגיע', not_coming: 'לא מגיע', maybe: 'אולי', callback: 'לחזור אליו', voicemail: 'תא קולי', no_answer: 'לא ענה', answered: 'נענתה בלי תשובה', failed: 'נכשלה', do_not_call: 'ביקש לא להתקשר' };
 const LS = 'ops:calls';
 const loadSt = () => { try { return JSON.parse(localStorage.getItem(LS) || '{}') || {}; } catch (e) { return {}; } };
 const saveSt = (s) => { try { localStorage.setItem(LS, JSON.stringify({ tab: s.tab, range: s.range })); } catch (e) { /* private mode */ } };
@@ -103,7 +103,7 @@ export function manual(d, view = 'open') {
   let last = null;
   return seg + rows.map((g) => { const h = g.token !== last ? `<h3 class="h2" style="margin:8px 4px 0">${esc(g.event || g.tok8)} <span class="sub">${esc(g.event_date ? fmtDate(g.event_date + 'T12:00:00Z') : '')}${g.venue ? ' · ' + esc(g.venue) : ''}</span></h3>` : ''; last = g.token;
     return `${h}<section class="card cc-mc" data-mc="${esc(g.guest_id)}"><div class="cc-t"><span class="cc-n">${esc(g.name)}</span>${g.party ? `<span class="badge">${esc(g.party)} מוזמנים</span>` : ''}<span class="badge ${g.tries >= (g.max_tries || 3) - 1 ? 'warn' : ''}">ניסיון ${fmtN((g.tries || 0) + 1)} מתוך ${fmtN(g.max_tries || 3)}</span></div>
-<a class="btn sm" href="tel:+${esc(g.phone)}" dir="ltr" style="justify-self:start;min-height:40px">${esc(phone(g.phone))}</a>${g.last_answer ? `<div class="sub">פעם קודמת: ${esc(g.last_answer)}</div>` : ''}
+<a class="btn sm" href="tel:+${esc(g.phone)}" dir="ltr" style="justify-self:start;min-height:40px">${esc(phone(g.phone))}</a>${g.last_answer ? `<div class="sub">פעם קודמת: ${esc(String(g.last_answer).replace(/(^|- )מתלבט(?= -|$)/, '$1אולי'))}</div>` : ''}
 <div class="cc-note"><input class="in" data-mc-note="${esc(g.guest_id)}" value="${esc((g.note && g.note.text) || '')}" placeholder="הערה" aria-label="הערה ל${esc(g.name)}">${Button('שמירה', { size: 'sm', act: 'cc-note', attr: { 'data-gid': g.guest_id } })}</div>${g.note ? `<div class="sub">${esc(fmtDT(g.note.at))}${g.note.by ? ' · ' + esc(g.note.by) : ''}</div>` : ''}
 ${view === 'open' ? `<div class="btns">${(d.outcomes || []).map((o) => Button(o, { size: 'sm', variant: o === 'מגיע' ? 'primary' : '', act: 'cc-done', attr: { 'data-gid': g.guest_id, 'data-o': o, 'data-tries': g.tries || 0 } })).join('')}</div>` : ''}</section>`; }).join('');
 }

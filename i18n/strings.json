@@ -6,7 +6,7 @@
    "dashboard.html"
   ]
  },
- "לא ענו": {
+ "מתלבטים": {
   "n": 463,
   "where": [
    "app/www/index.html",
@@ -73,15 +73,15 @@
    "dashboard"
   ]
  },
- "לא בטוחים": {
-  "n": 127,
+ "אולי": {
+  "n": 129,
   "where": [
-   "app/www/index.html",
+   "app",
    "app/www/app.js",
    "app/www/help.js",
-   "dashboard.html",
-   "app",
-   "dashboard"
+   "app/www/index.html",
+   "dashboard",
+   "dashboard.html"
   ]
  },
  "יוסי לוי": {
@@ -359,7 +359,7 @@
    "dashboard"
   ]
  },
- "תזכורת למי שלא ענה": {
+ "תזכורת למתלבטים": {
   "n": 29,
   "where": [
    "dashboard.html",
@@ -513,7 +513,7 @@
    "app"
   ]
  },
- "שיחה טלפונית למי שלא ענה": {
+ "שיחה טלפונית למתלבטים": {
   "n": 19,
   "where": [
    "dashboard.html",
@@ -748,13 +748,13 @@
    "app"
   ]
  },
- "2 מקומות · לא ענו": {
+ "2 מקומות · מתלבטים": {
   "n": 14,
   "where": [
    "seating.html"
   ]
  },
- "4 מקומות · לא ענו": {
+ "4 מקומות · מתלבטים": {
   "n": 14,
   "where": [
    "seating.html"
@@ -1909,13 +1909,13 @@
    "seating.html"
   ]
  },
- "3 מקומות · לא ענו": {
+ "3 מקומות · מתלבטים": {
   "n": 9,
   "where": [
    "seating.html"
   ]
  },
- "1 מקום · לא ענו": {
+ "1 מקום · מתלבטים": {
   "n": 9,
   "where": [
    "seating.html"
@@ -1943,7 +1943,7 @@
    "app"
   ]
  },
- "2 הודעות אישורי הגעה (הזמנה + תזכורת למי שלא ענה)": {
+ "2 הודעות אישורי הגעה (הזמנה + תזכורת למתלבטים)": {
   "n": 8,
   "where": [
    "app"
@@ -3127,14 +3127,14 @@
    "dashboard.html"
   ]
  },
- "לא בטוחים · 0": {
+ "אולי · 0": {
   "n": 5,
   "where": [
    "dashboard",
    "dashboard.html"
   ]
  },
- "לא ענו · 36": {
+ "מתלבטים · 36": {
   "n": 5,
   "where": [
    "dashboard",
@@ -3218,7 +3218,7 @@
    "dashboard.html"
   ]
  },
- "נציג מתקשר למי שלא הגיב ומאשר בשמו · 36 מוזמנים עדיין לא ענו": {
+ "נציג מתקשר למי שלא הגיב ומאשר בשמו · 36 מוזמנים עדיין מתלבטים": {
   "n": 5,
   "where": [
    "dashboard",
@@ -3281,14 +3281,14 @@
    "dashboard.html"
   ]
  },
- "לא בטוחים · 10": {
+ "אולי · 10": {
   "n": 5,
   "where": [
    "dashboard",
    "dashboard.html"
   ]
  },
- "לא ענו · 10": {
+ "מתלבטים · 10": {
   "n": 5,
   "where": [
    "dashboard",
@@ -3365,7 +3365,7 @@
    "dashboard.html"
   ]
  },
- "נציג מתקשר למי שלא הגיב ומאשר בשמו · 10 מוזמנים עדיין לא ענו": {
+ "נציג מתקשר למי שלא הגיב ומאשר בשמו · 10 מוזמנים עדיין מתלבטים": {
   "n": 5,
   "where": [
    "dashboard",
@@ -3528,7 +3528,7 @@
    "app"
   ]
  },
- "סבב שיחות מסוכן AI למי שלא ענה ולמתלבטים": {
+ "סבב שיחות מסוכן AI למתלבטים ולמי שענה אולי": {
   "n": 4,
   "where": [
    "app"
@@ -3778,9 +3778,10 @@
    "dashboard.html"
   ]
  },
- "· מתלבטים": {
-  "n": 3,
+ "· אולי": {
+  "n": 4,
   "where": [
+   "checklist.html",
    "dashboard.html"
   ]
  },
@@ -4190,7 +4191,7 @@
    "checklist.html"
   ]
  },
- "גם מתלבטים": {
+ "גם אולי": {
   "n": 3,
   "where": [
    "checklist.html"
@@ -4611,12 +4612,6 @@
   ]
  },
  "השעה": {
-  "n": 2,
-  "where": [
-   "dashboard.html"
-  ]
- },
- "מתלבטים": {
   "n": 2,
   "where": [
    "dashboard.html"
@@ -5331,7 +5326,7 @@
    "app/www/help.js"
   ]
  },
- "מתחתיו רואים כמה אישרו, כמה לא בטוחים, כמה עוד לא ענו וכמה לא מגיעים.": {
+ "מתחתיו רואים כמה אישרו, כמה ענו אולי, כמה עדיין מתלבטים וכמה לא מגיעים.": {
   "n": 1,
   "where": [
    "app/www/help.js"
@@ -5925,7 +5920,7 @@
    "dashboard.html"
   ]
  },
- "אותה הודעה שוב, רק למי שעוד לא ענה": {
+ "אותה הודעה שוב, רק למתלבטים ולמי שענה אולי": {
   "n": 1,
   "where": [
    "dashboard.html"
@@ -6075,7 +6070,7 @@
    "dashboard.html"
   ]
  },
- "המספרים האלה מתעדכנים בזמן אמת: כמה אישרו, כמה מגיעים בפועל, כמה סירבו ומי עוד לא ענה.": {
+ "המספרים האלה מתעדכנים בזמן אמת: כמה אישרו, כמה מגיעים בפועל, כמה סירבו ומי עדיין מתלבט.": {
   "n": 1,
   "where": [
    "dashboard.html"
@@ -6087,7 +6082,7 @@
    "dashboard.html"
   ]
  },
- "הרשימה המלאה, עם סטטוס לכל אחד. לוחצים על שם כדי לערוך, ומסננים לפי מי שאישר או עוד לא ענה.": {
+ "הרשימה המלאה, עם סטטוס לכל אחד. לוחצים על שם כדי לערוך, ומסננים לפי מי שאישר או מי שעדיין מתלבט.": {
   "n": 1,
   "where": [
    "dashboard.html"
@@ -6837,7 +6832,7 @@
    "dashboard.html"
   ]
  },
- "מוזמנים עדיין לא ענו": {
+ "מוזמנים עדיין מתלבטים": {
   "n": 1,
   "where": [
    "dashboard.html"
@@ -7227,13 +7222,13 @@
    "dashboard.html"
   ]
  },
- "' + k((c.with_stay || {}).people || 0, 'מגיעים עם לינה', ((c.with_stay || {}).guests || 0) + ' רשומות', true) + k((c.no_stay || {}).people || 0, 'מגיעים בלי לינה', ((c.no_stay || {}).guests || 0) + ' רשומות') + k((c.no || {}).guests || 0, 'לא מגיעים', 'רשומות') + k((c.undecided || {}).guests || 0, 'מתלבטים', 'רשומות') + k((c.no_reply || {}).guests || 0, 'לא ענו', 'מתוך ' + (c.total || 0)) + '": {
+ "' + k((c.with_stay || {}).people || 0, 'מגיעים עם לינה', ((c.with_stay || {}).guests || 0) + ' רשומות', true) + k((c.no_stay || {}).people || 0, 'מגיעים בלי לינה', ((c.no_stay || {}).guests || 0) + ' רשומות') + k((c.no || {}).guests || 0, 'לא מגיעים', 'רשומות') + k((c.undecided || {}).guests || 0, 'אולי', 'רשומות') + k((c.no_reply || {}).guests || 0, 'מתלבטים', 'מתוך ' + (c.total || 0)) + '": {
   "n": 1,
   "where": [
    "dashboard.html"
   ]
  },
- "'; var rl = subevReminderLine(sv.reminder); var n = function (key) { return all.filter(function (g) { return key === 'all' || g.status === key; }).length; }; var opts = [['all', 'הכל'], ['with_stay', 'עם לינה'], ['no_stay', 'בלי לינה'], ['undecided', 'מתלבטים'], ['none', 'לא ענו'], ['no', 'לא מגיעים']]; var chips = '": {
+ "'; var rl = subevReminderLine(sv.reminder); var n = function (key) { return all.filter(function (g) { return key === 'all' || g.status === key; }).length; }; var opts = [['all', 'הכל'], ['with_stay', 'עם לינה'], ['no_stay', 'בלי לינה'], ['undecided', 'אולי'], ['none', 'מתלבטים'], ['no', 'לא מגיעים']]; var chips = '": {
   "n": 1,
   "where": [
    "dashboard.html"
@@ -7257,7 +7252,7 @@
    "dashboard.html"
   ]
  },
- "' + e(g.status_he || 'לא ענו') + '": {
+ "' + e(g.status_he || 'מתלבטים') + '": {
   "n": 1,
   "where": [
    "dashboard.html"
@@ -7647,7 +7642,7 @@
    "dashboard.html"
   ]
  },
- "רק למי שלא ענה · ' + un.n + ' · ₪' + un.price + '": {
+ "רק למתלבטים · ' + un.n + ' · ₪' + un.price + '": {
   "n": 1,
   "where": [
    "dashboard.html"
@@ -8139,7 +8134,7 @@
    "upload.html"
   ]
  },
- "למי שלא ענה": {
+ "למתלבטים": {
   "n": 1,
   "where": [
    "upload.html"
@@ -8854,12 +8849,6 @@
   ]
  },
  "· מתלבט/ת": {
-  "n": 1,
-  "where": [
-   "checklist.html"
-  ]
- },
- "· לא ענה": {
   "n": 1,
   "where": [
    "checklist.html"

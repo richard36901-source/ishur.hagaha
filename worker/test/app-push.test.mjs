@@ -96,7 +96,7 @@ test('morningRun: once a day, only in the 09:00 hour, one summary per client wit
   assert.equal((await P.morningRun(env, d, { now: at(8, 50), send })).ran, false);
   const r = await P.morningRun(env, d, { now: at(9, 0), send });
   assert.equal(r.ran, true); assert.equal(r.sent, 1);
-  assert.match(sent[0].payload.body, /תשובה חדשה אחת · 41 מגיעים · 12 עוד לא ענו/);
+  assert.match(sent[0].payload.body, /תשובה חדשה אחת · 41 מגיעים · 12 עדיין מתלבטים/);
   assert.doesNotMatch(JSON.stringify(sent[0].payload), /\d{7,}/);
   assert.equal((await P.morningRun(env, d, { now: at(9, 10), send })).ran, false);
   assert.equal(sent.length, 1);

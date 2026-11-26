@@ -76,7 +76,7 @@ test('23/11 הכל כלול: three call rows, a day apart, each with its own sta
   const prem = evRow.slice(); prem[31] = 'פרמיום';
   const d3 = buildDashboard('TOK3', { events: { values: [Array(45).fill('h'), prem] }, guests: { values: [Array(35).fill('h'), ...guests] } }, 0, {});
   const r3 = d3.sends.filter(s => /^calls/.test(s.key));
-  assert.equal(r3.length, 1); assert.equal(r3[0].label, 'שיחה טלפונית למי שלא ענה');
+  assert.equal(r3.length, 1); assert.equal(r3[0].label, 'שיחה טלפונית למתלבטים');
 });
 test('23/11 a call round that already dialled never shows a day in the future', (t) => {
   /* 26/11 (Richard OK'd clock pins): the test's day() is UTC and the board's day is Israel's, so it failed 00:00–02:00; fixed weekday 11:00 Israel time, assertions unchanged */

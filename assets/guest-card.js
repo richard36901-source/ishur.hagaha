@@ -65,7 +65,7 @@
   var LABELS = { 'no-planned-send': 'אין שליחה מתוכננת לבטל', 'already-closed': 'השליחה הזאת כבר נסגרה', 'no-planned-call': 'אין שיחה מתוכננת לבטל', 'not-skipped': 'אין מה להחזיר' };
   function paint(j) {
     var g = j.guest || {}, ev = j.event || {}, pl = j.planned || {}, st = j.stops || {};
-    $q('#gcName').innerHTML = esc(g.name || cur.name || 'אורח') + '<small>' + esc(pretty(g.phone)) + ' · ' + esc(g.rsvp ? g.rsvp + (g.party ? ' ' + g.party : '') : 'לא ענו') + (g.table ? ' · שולחן ' + esc(g.table) : '') + ' · ' + esc(ev.name || '') + (ev.date ? ' · ' + dm(ev.date) : '') + '</small>';
+    $q('#gcName').innerHTML = esc(g.name || cur.name || 'אורח') + '<small>' + esc(pretty(g.phone)) + ' · ' + esc(g.rsvp ? (g.rsvp === 'מתלבט' ? 'אולי' : g.rsvp) + (g.party ? ' ' + g.party : '') : 'מתלבטים') + (g.table ? ' · שולחן ' + esc(g.table) : '') + ' · ' + esc(ev.name || '') + (ev.date ? ' · ' + dm(ev.date) : '') + '</small>';
     var h = '';
     if (st.block) h += '<div class="stop">חסום לכל ההודעות והשיחות, בכל האירועים</div>';
     else if (st.wrong) h += '<div class="stop">לא שולחים ולא מתקשרים לאורח הזה באירוע הזה</div>';

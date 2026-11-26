@@ -81,7 +81,7 @@
       var t = e.target.closest && e.target.closest('[data-guest-card]'); if (!t || window.IshurGuestCard) return;
       e.preventDefault(); e.stopPropagation();
       var load = function (src) { return new Promise(function (ok, no) { var s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); }); };
-      load('/assets/rec-player.js?v=1').then(function () { return load('/assets/guest-card.js?v=1'); }).then(function () {
+      load('/assets/rec-player.js?v=1').then(function () { return load('/assets/guest-card.js?v=2'); }).then(function () {
         window.IshurGuestCard.open({ token: t.getAttribute('data-token'), guest_id: t.getAttribute('data-guest'), name: t.textContent.trim() });
       }).catch(function () {});
     }, true);
@@ -123,11 +123,11 @@
   function rowHtml(p, i) {
     var q = p.queue, c = p.last;
     var tries = q && q.max_tries != null ? (q.tries || 0) + '/' + q.max_tries : (p.calls.length === 1 ? 'שיחה אחת' : p.calls.length ? p.calls.length + ' שיחות' : '—');
-    var outc = c ? (c.outcome || c.answer || (c.voicemail ? 'תא קולי' : STATE_HE[c.state])) : '';
+    var outc = c ? String(c.outcome || c.answer || (c.voicemail ? 'תא קולי' : STATE_HE[c.state]) || '').replace(/(^|- )מתלבט(?= -|$)/, '$1אולי') : '';   /* 26/11: an unsure answer reads 'אולי' */
     var lc = c ? '<div class="lc">' + when(c.ts) + ' · ' + sec(c.duration_s) + (outc ? ' · ' + esc(outc) : '') +
       (c.recording ? '<button type="button" data-play="' + i + '">▶</button>' : '') + ((c.transcript || c.summary) ? '<button type="button" data-tr="' + i + '">תמלול</button>' : '') +
       (p.calls.length > 1 ? '<small>' + p.calls.length + ' שיחות בטווח</small>' : '') + '</div>' : '<span class="lc">—</span>';
-    var note = (c && c.summary) || (q && q.last_answer) || (c && c.disconnection) || '';
+    var note = String((c && c.summary) || (q && q.last_answer) || (c && c.disconnection) || '').replace(/(^|- )מתלבט(?= -|$)/, '$1אולי');
     var next = q ? (q.next_he || (q.next_at ? when(q.next_at) : '—')) : '—';
     return '<tr><td data-l="סוכנת">' + esc(p.agent) + ' <small style="color:var(--x-mute)">' + esc(KIND_HE[p.kind] || '') + '</small></td>' +
       '<td data-l="שם">' + gcName(p) + '</td>' +

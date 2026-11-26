@@ -51,7 +51,7 @@
   function haptic() { var h = plugin('Haptics'); if (h) h.impact({ style: 'LIGHT' }).catch(function () {}); }
 
   /* ── guests: the same rules the web board uses ── */
-  var STATUS = { confirmed: ['אישרו', 'yes'], declined: ['לא מגיעים', 'no'], undecided: ['לא בטוחים', 'maybe'], pending: ['לא ענו', 'wait'] };
+  var STATUS = { confirmed: ['אישרו', 'yes'], declined: ['לא מגיעים', 'no'], undecided: ['אולי', 'maybe'], pending: ['מתלבטים', 'wait'] };
   function inviteWentOut() { return ((data && data.sends) || []).some(function (x) { return x.key === 'invite' && (x.status === 'sent' || x.status === 'passed'); }); }
   function notReached(g) {
     if (!g || g.status !== 'pending') return '';

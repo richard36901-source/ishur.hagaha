@@ -64,11 +64,11 @@ export function buildPush(kind, x = {}, lang = 'he') {
     title = ev || 'תשובה חדשה';
     const n = Number(x.seats) || 1;
     body = x.status === 'confirmed' ? `${first} אישר/ה הגעה, ${n === 1 ? 'מגיע/ה אחד/ת' : n + ' מגיעים'}`
-      : x.status === 'declined' ? `${first} לא יגיע/ו` : `${first} עדיין לא בטוח/ה`;
+      : x.status === 'declined' ? `${first} לא יגיע/ו` : `${first} ענה/תה אולי`;
   } else if (kind === 'daily') {
     title = ev ? 'סיכום יומי · ' + ev : 'סיכום יומי';
     const a = Number(x.answered) || 0;
-    body = [a ? (a === 1 ? 'תשובה חדשה אחת' : a + ' תשובות חדשות') : '', x.confirmed != null ? Number(x.confirmed) + ' מגיעים' : '', x.pending != null ? Number(x.pending) + ' עוד לא ענו' : ''].filter(Boolean).join(' · ') || 'אין שינוי מאתמול';
+    body = [a ? (a === 1 ? 'תשובה חדשה אחת' : a + ' תשובות חדשות') : '', x.confirmed != null ? Number(x.confirmed) + ' מגיעים' : '', x.pending != null ? Number(x.pending) + ' עדיין מתלבטים' : ''].filter(Boolean).join(' · ') || 'אין שינוי מאתמול';
   } else if (kind === 'failed') {
     title = ev || 'ההזמנות נשלחו';
     body = `ההזמנה לא הגיעה ל-${Number(x.failed) || 0} מוזמנים. אפשר לראות למי בלשונית מוזמנים.`;

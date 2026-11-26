@@ -7,12 +7,12 @@
 <title>מה מתוכנן · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="/config.js?v=72"></script>
+<script src="/config.js?v=97"></script>
 <script src="/assets/ux.js?v=9"></script>
 <script src="/next/assets/adminbar.js?v=21" defer></script>
 <script src="/assets/guard.js?v=22"></script>
 <script src="/assets/rec-player.js?v=3"></script>
-<script src="/assets/guest-card.js?v=1"></script>
+<script src="/assets/guest-card.js?v=2"></script>
 <script>(function(){try{var t=localStorage.getItem('ishur_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <style>
   /* 25/11 Richard: the log of what is ABOUT to happen (every planned send round and call, from the same projection the
@@ -137,7 +137,7 @@
       return '<div class="crow"><div class="h"><b>' + esc(c.event || c.tok8) + '</b><span class="s">' + esc(c.date ? 'אירוע ' + dm(c.date) : '') + '</span>' +
         (c.queued ? '<span class="s">' + c.queued + ' בתור לשיחה' + (c.capped ? ' · ' + c.capped + ' מיצו ניסיונות' : '') + '</span>' : '') + '</div>' +
         (c.queued ? (c.next_at ? '<div class="s">הסבב הבא: ' + esc(c.next_he) + '</div>' : '<div class="s w">לא יחויג: ' + esc(c.blocked_he || 'חלון החיוג סגור') + '</div>') : '') +
-        (c.round_day ? '<div class="s">סבב שיחות מתוכנן ' + esc(dayHe(c.round_day)) + ' · עד ' + esc(c.round_n) + ' אורחים שלא ענו</div>' : '') +
+        (c.round_day ? '<div class="s">סבב שיחות מתוכנן ' + esc(dayHe(c.round_day)) + ' · עד ' + esc(c.round_n) + ' אורחים מתלבטים</div>' : '') +
         ((c.guests || []).length ? '<details><summary>מי בתור (' + c.guests.length + ')</summary><div class="gl">' + c.guests.map(function (g) {
           return '<button type="button" class="gbtn" data-guest-card data-token="' + esc(c.token) + '" data-guest="' + esc(g.guest_id) + '">' + esc(g.name) + ' · ' + esc((Number(g.tries) || 0) + 1) + '/' + esc(g.max_tries) + '</button>';
         }).join('') + '</div></details>' : '') + '</div>';

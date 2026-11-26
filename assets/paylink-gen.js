@@ -47,7 +47,7 @@
     if (h && hp[h]) lines.push({ label: h === 1 ? 'דיילת אחת' : h + ' דיילות', price: hp[h] });
     if (s.travel && h) lines.push({ label: 'נסיעות דיילות', price: travelFor(cfg, h) });
     if (s.extra_wave) lines.push({ label: 'גל תזכורת שלישי', price: wave });
-    if (s.calls && !CALLS_INCLUDED[s.plan]) lines.push({ label: 'שיחות AI למי שלא ענה', price: Math.ceil(RATES.call * s.records + RATES.base) });
+    if (s.calls && !CALLS_INCLUDED[s.plan]) lines.push({ label: 'שיחות AI למתלבטים', price: Math.ceil(RATES.call * s.records + RATES.base) });
     return { lines: lines, total: lines.reduce(function (a, l) { return a + l.price; }, 0), plan: s.plan, hostesses: h, note: co.note };
   }
   function phoneOk(p) { var d = String(p || '').replace(/\D/g, ''); return /^05\d{8}$/.test(d) || /^9725\d{8}$/.test(d); }

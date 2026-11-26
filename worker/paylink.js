@@ -127,7 +127,7 @@ export function priceQuote(b) {
   /* wording avoids "שליחה נוספת" / "סבב שיחות": parseAddonDesc would read
      those as an add-on to an existing event */
   if (extra_wave) lines.push({ key: 'wave', label: 'גל תזכורת שלישי', price: Math.ceil(RATES.msg * records + RATES.base) });
-  if (calls) lines.push({ key: 'calls', label: 'שיחות AI למי שלא ענה', price: Math.ceil(RATES.call * records + RATES.base) });
+  if (calls) lines.push({ key: 'calls', label: 'שיחות AI למתלבטים', price: Math.ceil(RATES.call * records + RATES.base) });
   const sum = lines.reduce((s, l) => s + l.price, 0);
   const description = lines.map(l => l.label).join(' + ');
   const code = buildCode({ plan, records, design, hostesses, travel, extra_wave, calls });

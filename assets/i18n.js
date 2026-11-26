@@ -97,8 +97,8 @@
     ['{n} רשומות', '{n} records', '{n} fiches', '{n} registros', '{n} רשימות', '{n} سجلًا', 'Записей: {n}'],
     ['אישרו', 'Confirmed', 'Confirmés', 'Confirmados', 'באַשטעטיקט', 'أكّدوا', 'Придут'],
     ['לא מגיעים', 'Not coming', 'Absents', 'No asisten', 'קומען נישט', 'لن يحضروا', 'Не придут'],
-    ['לא בטוחים', 'Not sure', 'Indécis', 'Indecisos', 'נישט זיכער', 'غير متأكدين', 'Не уверены'],
-    ['לא ענו', 'No answer', 'Sans réponse', 'Sin respuesta', 'נישט געענטפֿערט', 'لم يجيبوا', 'Не ответили'],
+    ['אולי', 'Not sure', 'Indécis', 'Indecisos', 'נישט זיכער', 'غير متأكدين', 'Не уверены'],
+    ['מתלבטים', 'No answer', 'Sans réponse', 'Sin respuesta', 'נישט געענטפֿערט', 'لم يجيبوا', 'Не ответили'],
     ['נכשלו', 'Not delivered', 'Non remis', 'No entregados', 'נישט אָנגעקומען', 'لم تصلهم', 'Не доставлено'],
     ['הוספה', 'Add', 'Ajouter', 'Añadir', 'צולייגן', 'إضافة', 'Добавить'],
     ['התחייבות לאולם', 'Commitment to the venue', 'Engagement auprès de la salle', 'Compromiso con el salón', 'התחייבֿות צום זאַל', 'الالتزام للقاعة', 'Гарантия для зала'],
@@ -117,8 +117,8 @@
     /* ── the list ── */
     ['הכל · {n}', 'All · {n}', 'Tous · {n}', 'Todos · {n}', 'אַלע · {n}', 'الكل · {n}', 'Все · {n}'],
     ['אישרו · {n}', 'Confirmed · {n}', 'Confirmés · {n}', 'Confirmados · {n}', 'באַשטעטיקט · {n}', 'أكّدوا · {n}', 'Придут · {n}'],
-    ['לא בטוחים · {n}', 'Not sure · {n}', 'Indécis · {n}', 'Indecisos · {n}', 'נישט זיכער · {n}', 'غير متأكدين · {n}', 'Не уверены · {n}'],
-    ['לא ענו · {n}', 'No answer · {n}', 'Sans réponse · {n}', 'Sin respuesta · {n}', 'נישט געענטפֿערט · {n}', 'لم يجيبوا · {n}', 'Не ответили · {n}'],
+    ['אולי · {n}', 'Not sure · {n}', 'Indécis · {n}', 'Indecisos · {n}', 'נישט זיכער · {n}', 'غير متأكدين · {n}', 'Не уверены · {n}'],
+    ['מתלבטים · {n}', 'No answer · {n}', 'Sans réponse · {n}', 'Sin respuesta · {n}', 'נישט געענטפֿערט · {n}', 'لم يجيبوا · {n}', 'Не ответили · {n}'],
     ['לא מגיעים · {n}', 'Not coming · {n}', 'Absents · {n}', 'No asisten · {n}', 'קומען נישט · {n}', 'لن يحضروا · {n}', 'Не придут · {n}'],
     ['נכשלו · {n}', 'Not delivered · {n}', 'Non remis · {n}', 'No entregados · {n}', 'נישט אָנגעקומען · {n}', 'لم تصلهم · {n}', 'Не доставлено · {n}'],
     ['{n} רשומות · {n} מוזמנים', '{n} records · {n} guests', '{n} fiches · {n} invités', '{n} registros · {n} invitados', '{n} רשימות · {n} געסט', '{n} سجلًا · {n} مدعوًّا', 'Записей: {n} · гостей: {n}'],
@@ -156,8 +156,8 @@
     ['שכחתם מישהו? עד {n} מוזמנים נוספים בחינם. ממלאים שם, טלפון וכמה מגיעים, ולוחצים שליחה. אם ההזמנות כבר יצאו, ההזמנה נשלחת אליהם מיד.', 'Forgot someone? Up to {n} extra guests free. Fill in a name, a phone and how many are coming, and press Send. If the invitations already went out, theirs is sent right away.', 'Vous avez oublié quelqu’un ? Jusqu’à {n} invités supplémentaires offerts. Indiquez le nom, le téléphone et le nombre de personnes, puis appuyez sur Envoyer. Si les invitations sont déjà parties, la leur est envoyée aussitôt.', '¿Olvidó a alguien? Hasta {n} invitados adicionales gratis. Indique nombre, teléfono y cuántos vienen, y pulse Enviar. Si las invitaciones ya salieron, la suya se envía de inmediato.', 'פֿאַרגעסן עמעצן? ביז {n} נאָך געסט בחינם. מען פֿילט אויס נאָמען, טעלעפֿאָן און וויפֿל קומען, און מען דריקט שיקן. אויב די אײַנלאַדונגען זענען שוין אַרויס, ווערט זייערע געשיקט באַלד.', 'نسيتم أحدًا؟ حتى {n} مدعوين إضافيين مجانًا. اكتبوا الاسم والهاتف وعدد الحضور ثم اضغطوا إرسال. إن كانت الدعوات قد أُرسلت، تُرسل دعوتهم فورًا.', 'Кого-то забыли? До {n} дополнительных гостей бесплатно. Укажите имя, телефон и сколько человек придёт, затем нажмите «Отправить». Если приглашения уже ушли, им отправят сразу.'],
     /* ── the send schedule ── */
     ['ההזמנה ואישור ההגעה', 'The invitation and RSVP', 'L’invitation et la confirmation de présence', 'La invitación y la confirmación de asistencia', 'די אײַנלאַדונג און באַשטעטיקונג פֿון קומען', 'الدعوة وتأكيد الحضور', 'Приглашение и подтверждение'],
-    ['תזכורת למי שלא ענה', 'Reminder to those who didn’t answer', 'Rappel à ceux qui n’ont pas répondu', 'Recordatorio a quienes no respondieron', 'דערמאָנונג פֿאַר די וואָס האָבן נישט געענטפֿערט', 'تذكير لمن لم يجيبوا', 'Напоминание тем, кто не ответил'],
-    ['שיחה טלפונית למי שלא ענה', 'Phone call to those who didn’t answer', 'Appel téléphonique à ceux qui n’ont pas répondu', 'Llamada a quienes no respondieron', 'טעלעפֿאָן־רוף פֿאַר די וואָס האָבן נישט געענטפֿערט', 'اتصال هاتفي بمن لم يجيبوا', 'Звонок тем, кто не ответил'],
+    ['תזכורת למתלבטים', 'Reminder to those who didn’t answer', 'Rappel à ceux qui n’ont pas répondu', 'Recordatorio a quienes no respondieron', 'דערמאָנונג פֿאַר די וואָס האָבן נישט געענטפֿערט', 'تذكير لمن لم يجيبوا', 'Напоминание тем, кто не ответил'],
+    ['שיחה טלפונית למתלבטים', 'Phone call to those who didn’t answer', 'Appel téléphonique à ceux qui n’ont pas répondu', 'Llamada a quienes no respondieron', 'טעלעפֿאָן־רוף פֿאַר די וואָס האָבן נישט געענטפֿערט', 'اتصال هاتفي بمن لم يجيبوا', 'Звонок тем, кто не ответил'],
     ['תזכורת עם הכתובת', 'Reminder with the address', 'Rappel avec l’adresse', 'Recordatorio con la dirección', 'דערמאָנונג מיטן אַדרעס', 'تذكير مع العنوان', 'Напоминание с адресом'],
     ['הודעת תודה לאורחים', 'Thank-you message to guests', 'Message de remerciement aux invités', 'Mensaje de agradecimiento a los invitados', 'דאַנק־מעלדונג פֿאַר די געסט', 'رسالة شكر للضيوف', 'Благодарность гостям'],
     ['עבר', 'Done', 'Passé', 'Pasado', 'פֿאַרבײַ', 'انتهى', 'Прошло'],
@@ -221,7 +221,7 @@
     ['הוספה · ₪{n}', 'Add · ₪{n}', 'Ajouter · {n} ₪', 'Añadir · ₪{n}', 'צולייגן · ₪{n}', 'إضافة · ₪{n}', 'Добавить · ₪{n}'],
     ['סבב נוסף · ₪{n}', 'Another round · ₪{n}', 'Série supplémentaire · {n} ₪', 'Otra ronda · ₪{n}', 'נאָך אַ רונדע · ₪{n}', 'جولة إضافية · ₪{n}', 'Ещё раунд · ₪{n}'],
     ['סבב שיחות מסוכן AI', 'A round of calls by an AI agent', 'Série d’appels par un agent IA', 'Ronda de llamadas con un agente de IA', 'אַ רונדע רופֿן פֿון אַן AI־אַגענט', 'جولة اتصالات من وكيل ذكاء اصطناعي', 'Обзвон ИИ-агентом'],
-    ['נציג מתקשר למי שלא הגיב ומאשר בשמו · {n} מוזמנים עדיין לא ענו', 'An agent calls those who didn’t respond and confirms for them · {n} guests have not answered yet', 'Un agent appelle ceux qui n’ont pas répondu et confirme pour eux · {n} invités n’ont pas encore répondu', 'Un agente llama a quienes no respondieron y confirma por ellos · {n} invitados aún no han respondido', 'אַן אַגענט רופֿט אָן די וואָס האָבן נישט רעאַגירט און באַשטעטיקט אין זייער נאָמען · {n} געסט האָבן נאָך נישט געענטפֿערט', 'يتصل مندوب بمن لم يرد ويؤكّد عنه · {n} مدعوًّا لم يجيبوا بعد', 'Агент звонит тем, кто не ответил, и подтверждает за них · пока не ответили {n} гостей'],
+    ['נציג מתקשר למי שלא הגיב ומאשר בשמו · {n} מוזמנים עדיין מתלבטים', 'An agent calls those who didn’t respond and confirms for them · {n} guests have not answered yet', 'Un agent appelle ceux qui n’ont pas répondu et confirme pour eux · {n} invités n’ont pas encore répondu', 'Un agente llama a quienes no respondieron y confirma por ellos · {n} invitados aún no han respondido', 'אַן אַגענט רופֿט אָן די וואָס האָבן נישט רעאַגירט און באַשטעטיקט אין זייער נאָמען · {n} געסט האָבן נאָך נישט געענטפֿערט', 'يتصل مندوب بمن لم يرد ويؤكّد عنه · {n} مدعوًّا لم يجيبوا بعد', 'Агент звонит тем, кто не ответил, и подтверждает за них · пока не ответили {n} гостей'],
     ['הפעלת הודעות לנרשמים מהקישור', 'Turn on messages for those who joined through the link', 'Activer les messages pour les inscrits via le lien', 'Activar mensajes para quienes se apuntaron por el enlace', 'אָנצינדן מעלדונגען פֿאַר די וואָס האָבן זיך פֿאַרשריבן דורכן לינק', 'تفعيل الرسائل للمسجّلين عبر الرابط', 'Включить сообщения для записавшихся по ссылке'],
     ['מי שאישר דרך הקישור הציבורי יקבל גם תזכורת, יום-לפני ושולחן', 'Whoever confirmed through the public link also gets the reminder, the day-before message and their table', 'Ceux qui ont confirmé via le lien public recevront aussi le rappel, le message de la veille et leur table', 'Quien confirmó por el enlace público recibirá también el recordatorio, el mensaje del día anterior y su mesa', 'ווער ס׳האָט באַשטעטיקט דורכן עפֿנטלעכן לינק וועט אויך באַקומען אַ דערמאָנונג, דעם טאָג־פֿריִער און דעם טיש', 'من أكّد عبر الرابط العام يستلم أيضًا التذكير ورسالة اليوم السابق ورقم الطاولة', 'Подтвердившие по общей ссылке тоже получат напоминание, сообщение накануне и номер стола'],
     ['עדיין אין נרשמים מהקישור', 'Nobody has joined through the link yet', 'Personne ne s’est encore inscrit via le lien', 'Aún nadie se ha apuntado por el enlace', 'נאָך קיינער האָט זיך נישט פֿאַרשריבן דורכן לינק', 'لا يوجد مسجّلون عبر الرابط بعد', 'По ссылке пока никто не записался'],
@@ -245,7 +245,7 @@
     ['רק הכרחי', 'Essential only', 'Essentiels uniquement', 'Solo lo esencial', 'נאָר דאָס נייטיקע', 'الضروري فقط', 'Только необходимые'],
     ['עוגיות', 'Cookies', 'Cookies', 'Cookies', 'קיכלעך', 'ملفات تعريف الارتباط', 'Cookie'],
     ['שלב {n} מתוך {n}', 'Step {n} of {n}', 'Étape {n} sur {n}', 'Paso {n} de {n}', 'שריט {n} פֿון {n}', 'الخطوة {n} من {n}', 'Шаг {n} из {n}'],
-    ['המספרים האלה מתעדכנים בזמן אמת: כמה אישרו, כמה מגיעים בפועל, כמה סירבו ומי עוד לא ענה.', 'These numbers update in real time: how many confirmed, how many are actually coming, how many declined and who has not answered yet.', 'Ces chiffres se mettent à jour en temps réel : combien ont confirmé, combien viennent réellement, combien ont décliné et qui n’a pas encore répondu.', 'Estas cifras se actualizan en tiempo real: cuántos confirmaron, cuántos vienen realmente, cuántos declinaron y quién aún no ha respondido.', 'די צאָלן ווערן דערהײַנטיקט אין עכטער צײַט: וויפֿל האָבן באַשטעטיקט, וויפֿל קומען טאַקע, וויפֿל האָבן אָפּגעזאָגט און ווער ס׳האָט נאָך נישט געענטפֿערט.', 'هذه الأرقام تتحدّث لحظيًا: كم أكّدوا، كم سيحضرون فعلًا، كم اعتذروا ومن لم يجب بعد.', 'Эти цифры обновляются в реальном времени: сколько подтвердили, сколько реально придёт, сколько отказались и кто ещё не ответил.'],
+    ['המספרים האלה מתעדכנים בזמן אמת: כמה אישרו, כמה מגיעים בפועל, כמה סירבו ומי עדיין מתלבט.', 'These numbers update in real time: how many confirmed, how many are actually coming, how many declined and who has not answered yet.', 'Ces chiffres se mettent à jour en temps réel : combien ont confirmé, combien viennent réellement, combien ont décliné et qui n’a pas encore répondu.', 'Estas cifras se actualizan en tiempo real: cuántos confirmaron, cuántos vienen realmente, cuántos declinaron y quién aún no ha respondido.', 'די צאָלן ווערן דערהײַנטיקט אין עכטער צײַט: וויפֿל האָבן באַשטעטיקט, וויפֿל קומען טאַקע, וויפֿל האָבן אָפּגעזאָגט און ווער ס׳האָט נאָך נישט געענטפֿערט.', 'هذه الأرقام تتحدّث لحظيًا: كم أكّدوا، كم سيحضرون فعلًا، كم اعتذروا ومن لم يجب بعد.', 'Эти цифры обновляются в реальном времени: сколько подтвердили, сколько реально придёт, сколько отказались и кто ещё не ответил.'],
     ['הבא', 'Next', 'Suivant', 'Siguiente', 'ווײַטער', 'التالي', 'Далее'],
     ['דלגו על הכל', 'Skip all', 'Tout passer', 'Omitir todo', 'איבערהיפּן אַלץ', 'تخطي الكل', 'Пропустить всё'],
     ['מצב תצוגה', 'Display mode', 'Mode d’affichage', 'Modo de visualización', 'אויסזען־מאָדוס', 'وضع العرض', 'Режим отображения'],
@@ -302,7 +302,7 @@
      { Hebrew: translation }. They are fetched once, when the language is chosen. ROWS above stays the first word on
      the board's own texts; the file covers everything else. A number inside a text is lifted out here too, so
      "3 מגיעים" in the file also answers "7 מגיעים". */
-  var DICT_V = '20261122b';
+  var DICT_V = '20261126t';
   var BASE = (function () { try { var cs = document.currentScript && document.currentScript.src; return cs ? cs.replace(/i18n\.js(\?.*)?$/, 'i18n/') : 'assets/i18n/'; } catch (e) { return 'assets/i18n/'; } })();
   var EXTRA = Object.create(null), LOADING = Object.create(null);
   function indexFile(obj) {

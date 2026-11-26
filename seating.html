@@ -8,8 +8,8 @@
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="config.js?v=74"></script>
-<script src="assets/i18n.js?v=8" defer></script>
+<script src="config.js?v=97"></script>
+<script src="assets/i18n.js?v=9" defer></script>
 <script src="assets/ux.js?v=9"></script>
 <script src="assets/guard.js?v=22"></script>
 <style>
@@ -187,7 +187,7 @@
     <div class="hd">
       <input type="search" id="q" placeholder="חיפוש אורח">
       <div class="cnt" id="cnt"></div>
-      <div style="display:flex;gap:.3rem;margin-top:.4rem" id="flt"><button class="btn" data-f="all" style="padding:.15rem .6rem;font-size:.72rem;background:var(--green);color:#fff;border-color:transparent">הכל</button><button class="btn" data-f="confirmed" style="padding:.15rem .6rem;font-size:.72rem">אישרו</button><button class="btn" data-f="pending" style="padding:.15rem .6rem;font-size:.72rem">לא ענו</button></div>
+      <div style="display:flex;gap:.3rem;margin-top:.4rem" id="flt"><button class="btn" data-f="all" style="padding:.15rem .6rem;font-size:.72rem;background:var(--green);color:#fff;border-color:transparent">הכל</button><button class="btn" data-f="confirmed" style="padding:.15rem .6rem;font-size:.72rem">אישרו</button><button class="btn" data-f="pending" style="padding:.15rem .6rem;font-size:.72rem">מתלבטים</button></div>
     </div>
     <div class="grps" id="grps"></div>
     <div class="list" id="list">
@@ -213,7 +213,7 @@
   var token = new URLSearchParams(location.search).get('t') || '';
   var guests = [];   /* {id, name, party, status, table} from /api/status */
   var flt = 'all';
-  var STL = { confirmed: 'אישרו', pending: 'לא ענו', awaiting_call: 'לא ענו', declined: 'סירבו' };
+  var STL = { confirmed: 'אישרו', pending: 'מתלבטים', awaiting_call: 'מתלבטים', declined: 'סירבו' };
   var tables = [];   /* {id, name, x, y, w, h, shape, cap} */
   var groups = {};   /* guest id → label (משפחה, חברים, עבודה…) */
   var DEFAULT_GROUPS = ['משפחה', 'חברים', 'עבודה', 'שכנים'];

@@ -1,6 +1,6 @@
 # ishur.io · אישורי הגעה
 
-> שירות ישראלי לאישורי הגעה לאירועים דרך וואטסאפ. שולחים את ההזמנה לרשימת המוזמנים, אוספים אישורי הגעה אוטומטית, שולחים תזכורות למי שלא ענה, מתקשרים למי שעדיין לא הגיב, ומרכזים את כל התשובות בלוח בקרה חי לבעלי האירוע. תשלום חד-פעמי לאירוע, החל מ-50 ₪, ללא מנוי.
+> שירות ישראלי לאישורי הגעה לאירועים דרך וואטסאפ. שולחים את ההזמנה לרשימת המוזמנים, אוספים אישורי הגעה אוטומטית, שולחים תזכורות למתלבטים, מתקשרים למי שעדיין לא הגיב, ומרכזים את כל התשובות בלוח בקרה חי לבעלי האירוע. תשלום חד-פעמי לאירוע, החל מ-50 ₪, ללא מנוי.
 
 ishur.io is an Israeli WhatsApp RSVP service for events (weddings, bar/bat
 mitzvahs, brits, business events). It sends the invitation with the host's
@@ -16,7 +16,7 @@ One-time payment per event starting at ₪50, no subscription. Hebrew-first.
 - הלקוח בוחר חבילה לפי כמות רשומות (50 עד 900, מעל 900 בהצעה אישית) ומשלם תשלום אחד לאירוע
 - מעלים קובץ אקסל של המוזמנים (שם + טלפון + כמות) ותמונת הזמנה
 - המערכת שולחת הזמנות, תזכורות ותזכורת יום-לפני עם ניווט לאולם בוואטסאפ, בעברית
-- מי שלא ענה מקבל שיחת מעקב מסוכנת AI (בחבילות פרמיום והכל כלול)
+- המתלבטים מקבלים שיחת מעקב מסוכנת AI (בחבילות פרמיום והכל כלול)
 - בעלי האירוע רואים הכל בלוח בקרה: מי מגיע, כמה סועדים, מי טרם ענה
 
 ## Packages and prices (ILS, VAT included, one-time per event)
@@ -45,7 +45,7 @@ Machine-readable prices and offers: https://ishur.io/offers.json
 
 - [דף הבית ומחירון](https://ishur.io/): what the service does, style samples, full price table by number of records and package
 - [שאלות נפוצות](https://ishur.io/faq.html): pricing, process, file format, send windows, follow-up flow — quotable Q&A
-- [השוואת שירותים ומחירים](https://ishur.io/hashvaa.html): ishur.io מול Lunsoul, Guini, WiWi, Attending: מודל תשלום, מחירים, שיחות למי שלא ענה, הושבה. דוגמאות מחיר ל-150/350/900 מוזמנים
+- [השוואת שירותים ומחירים](https://ishur.io/hashvaa.html): ishur.io מול Lunsoul, Guini, WiWi, Attending: מודל תשלום, מחירים, שיחות למתלבטים, הושבה. דוגמאות מחיר ל-150/350/900 מוזמנים
 - [אישורי הגעה לחתונה](https://ishur.io/hatuna.html) · [בר/בת מצווה](https://ishur.io/bar-mitzvah.html)
 - [דיילות לאירוע](https://ishur.io/dayalot.html): hostesses who check guests in at the entrance with the live list
 - [סידורי הושבה](https://ishur.io/sidurei-hoshava.html): drag-and-drop seating plan fed by the RSVP answers, table number sent to each guest

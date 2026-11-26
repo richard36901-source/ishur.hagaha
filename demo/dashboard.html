@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=72demo"></script>
+<script src="config.js?v=73demo"></script>
 <script src="assets/ux.js?v=3"></script>
 <script src="assets/tracking.js?v=22"></script>
 <script src="assets/guard.js?v=19"></script>
@@ -774,8 +774,8 @@
   var STATUS = {
     confirmed: { label: 'אישרו', pill: 'yes' },
     declined:  { label: 'לא מגיעים', pill: 'no' },
-    undecided: { label: 'לא בטוחים', pill: 'maybe' },
-    pending:   { label: 'לא ענו', pill: 'wait' }
+    undecided: { label: 'אולי', pill: 'maybe' },
+    pending:   { label: 'מתלבטים', pill: 'wait' }
   };
 
   /* awaiting_call is not a status of its own: whoever waits for a call has
@@ -867,7 +867,7 @@
       totals: totals,
       sends: [
         { key: 'invite', label: 'ההזמנה ואישור ההגעה', date: iso(new Date(ev - 30 * 864e5)), status: 'sent' },
-        wave('reminder', 'תזכורת למי שלא ענה', new Date(ev - 7 * 864e5)),
+        wave('reminder', 'תזכורת למתלבטים', new Date(ev - 7 * 864e5)),
         { key: 'event_day', label: 'תזכורת עם הכתובת',   date: iso(ev), status: 'scheduled', auto: true },
         { key: 'day_after', label: 'הודעת תודה',         date: iso(new Date(+ev + 864e5)), status: 'scheduled', auto: true }
       ],
@@ -1021,8 +1021,8 @@
       kpi(recs, 'רשומות', '') +
       kpi(t.confirmed_seats, 'אישרו', '', true) +
       kpi(dv, 'לא מגיעים', '') +
-      kpi(uv, 'לא בטוחים', '') +
-      kpi(pv, 'לא ענו', '');
+      kpi(uv, 'אולי', '') +
+      kpi(pv, 'מתלבטים', '');
 
     if (totalPeople) {
       $('prog').hidden = false;
@@ -1138,8 +1138,8 @@
     var opts = [
       { k: 'all', l: 'הכל', n: recs('all', t.records) },
       { k: 'confirmed', l: 'אישרו', n: recs('confirmed', t.confirmed) },
-      { k: 'undecided', l: 'לא בטוחים', n: recs('undecided', t.undecided) },
-      { k: 'pending', l: 'לא ענו', n: recs('pending', t.pending) },
+      { k: 'undecided', l: 'אולי', n: recs('undecided', t.undecided) },
+      { k: 'pending', l: 'מתלבטים', n: recs('pending', t.pending) },
       { k: 'declined', l: 'לא מגיעים', n: recs('declined', t.declined) }
     ];
 
@@ -1679,7 +1679,7 @@
          so the value is visible before the button is pressed */
       var extra = '';
       if (k === 'calls' && t.pending) {
-        extra = ' · ' + t.pending + ' מוזמנים עדיין לא ענו';
+        extra = ' · ' + t.pending + ' מוזמנים עדיין מתלבטים';
       }
 
       var mark, action, cls = '';
@@ -1778,7 +1778,7 @@
     box.innerHTML = '<div class="dpop" style="max-width:360px"><h3 style="margin:0 0 .4rem">שליחה נוספת</h3>' +
       '<p style="margin:0 0 .8rem;color:var(--ink2);font-size:.9rem">למי לשלוח את הסבב הנוסף?</p>' +
       '<button type="button" class="buy" data-scope="all" style="width:100%;margin-bottom:.5rem">לכולם · ' + all.n + ' מוזמנים · ₪' + all.price + '</button>' +
-      (un.n ? '<button type="button" class="buy" data-scope="unanswered" style="width:100%;margin-bottom:.5rem">רק למי שלא ענה · ' + un.n + ' · ₪' + un.price + '</button>' : '') +
+      (un.n ? '<button type="button" class="buy" data-scope="unanswered" style="width:100%;margin-bottom:.5rem">רק למתלבטים · ' + un.n + ' · ₪' + un.price + '</button>' : '') +
       '<button type="button" class="btn" data-scope="x" style="width:100%">ביטול</button></div>';
     box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:90;padding:1rem';
     box.querySelector('.dpop').style.cssText = 'background:var(--card,#fff);border-radius:14px;padding:1.1rem;width:100%';

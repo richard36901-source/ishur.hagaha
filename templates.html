@@ -7,7 +7,7 @@
 <title>ביצועי תבניות · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=74"></script>
+<script src="config.js?v=97"></script>
 <script src="assets/adminbar.js?v=28" defer></script>
 <style>
   :root{
@@ -113,7 +113,7 @@
     <details class="rule">
       <summary>איך נקבעת ההמלצה</summary>
       <ol id="ruleList"></ol>
-      <p class="muted" style="margin-top:.5rem">מקור: יומן הביקורת (הודעות יוצאות, דיווחי מסירה של מטא, הודעות נכנסות). תשובה נזקפת לתבנית האחרונה שנשלחה לאותו מספר, אם הגיעה תוך 72 שעות. "לחיצה" = תשובה שהיא מגיע / לא מגיע / מתלבט / מספר אורחים — ביומן אין הבדל בין לחיצת כפתור להקלדה של אותה מילה. הפירוט המלא: docs/SPEC-ab-testing.md.</p>
+      <p class="muted" style="margin-top:.5rem">מקור: יומן הביקורת (הודעות יוצאות, דיווחי מסירה של מטא, הודעות נכנסות). תשובה נזקפת לתבנית האחרונה שנשלחה לאותו מספר, אם הגיעה תוך 72 שעות. "לחיצה" = תשובה שהיא מגיע / לא מגיע / אולי / מספר אורחים — ביומן אין הבדל בין לחיצת כפתור להקלדה של אותה מילה. הפירוט המלא: docs/SPEC-ab-testing.md.</p>
     </details>
   </main>
 </div>
@@ -239,7 +239,7 @@
         '<div><span>עלות</span><b>' + ils(r.cost) + '</b></div>' +
       '</div>' +
       '<div class="chips">' +
-        '<span class="chip">מגיע ' + num(rs['מגיע']) + '</span><span class="chip">לא מגיע ' + num(rs['לא מגיע']) + '</span><span class="chip">מתלבט ' + num(rs['מתלבט']) + '</span>' +
+        '<span class="chip">מגיע ' + num(rs['מגיע']) + '</span><span class="chip">לא מגיע ' + num(rs['לא מגיע']) + '</span><span class="chip">אולי ' + num(rs['מתלבט']) + '</span>' +
         '<span class="chip' + ((r.mistake + r.optout) ? ' bad' : '') + '">טעות ' + num(r.mistake) + ' · הסר ' + num(r.optout) + '</span>' +
         (r.rejected ? '<span class="chip bad">נדחו בשליחה ' + num(r.rejected) + '</span>' : '') +
         fails +
