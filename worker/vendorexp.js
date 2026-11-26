@@ -144,8 +144,33 @@ export async function vendorExpenseAction(env, b) {
 export async function vendorExpenseIngest(env, request, body) {
   const want = env.RATE ? await env.RATE.get('cfg:vexp_ingest').catch(() => null) : null;
   if (!want || request.headers.get('x-ingest-key') !== want) return { status: 403, body: { ok: false, error: 'bad-key' } };
+  /* the HUB's Ledger sheet as it is (header row first): vendor, invoice_number, doc_date, amount, currency, notes … */
+  if (Array.isArray(body.ledger)) {
+    const rows = ledgerRows(body.ledger);
+    const out = body.dry ? { ok: true, dry: true, parsed: rows.length } : await saveRows(env, rows);
+    const sample = body.ledger.slice(0, 1).concat(body.ledger.slice(-25));
+    if (env.RATE) await env.RATE.put('vexp:lastingest', JSON.stringify({ at: new Date().toISOString(), rows: body.ledger.length, costed: rows.length, ...out, sample }), { expirationTtl: 30 * 86400 }).catch(() => {});
+    return { status: 200, body: { ...out, rows: body.ledger.length, costed: rows.length } };
+  }
   const rows = Array.isArray(body.rows) ? body.rows : [body];
   return { status: 200, body: await saveRows(env, rows.slice(0, 50)) };
+}
+/* Ledger values → receipt rows (only vendors we cost survive normRow; a Make row needs the ishur org in its text) */
+export function ledgerRows(values) {
+  const head = (values[0] || []).map((h) => String(h || '').trim().toLowerCase());
+  const col = (names) => names.map((n) => head.indexOf(n)).find((i) => i >= 0);
+  const c = { vendor: col(['vendor', 'ספק']), ref: col(['invoice_number', 'מספר מסמך', 'invoice']), date: col(['doc_date', 'תאריך', 'date']), amount: col(['amount', 'סכום']),
+    currency: col(['currency', 'מטבע']), notes: col(['notes', 'הערות']), period: col(['period', 'תקופה']), hash: col(['hash']), type: col(['doc_type', 'סוג']) };
+  const out = [];
+  for (const r of values.slice(1)) {
+    const g = (k) => (c[k] == null ? '' : String(r[c[k]] ?? '').trim());
+    if (/credit|זיכוי/i.test(g('type'))) continue;
+    const vendor = g('vendor'), text = [vendor, g('notes'), g('period')].join(' ');
+    if (/\bmake\b|celonis/i.test(vendor) && !/5881669|richard main/i.test(text)) continue;   /* a client organisation's Make bill is not ishur's */
+    out.push({ date: g('date').slice(0, 10), vendor, amount: Number(String(g('amount')).replace(/[^\d.]/g, '')), currency: g('currency') || 'USD',
+      ref: g('ref') || g('hash'), desc: (g('notes') || g('period')).slice(0, 140), org: /5881669/.test(text) ? '5881669' : undefined, source: 'ledger' });
+  }
+  return out;
 }
 
 /* the daily check (cron): a recurring vendor whose charge day passed by 5+ days with no charge this month → one Slack line a month */
