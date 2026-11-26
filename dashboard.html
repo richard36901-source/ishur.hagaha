@@ -702,6 +702,27 @@
   .staff-badge{position:fixed;bottom:.8rem;inset-inline-start:.8rem;z-index:40;font-size:.78rem;font-weight:600;color:#fff;background:#8A6D2F;border-radius:8px;padding:.35rem .7rem;box-shadow:0 2px 8px rgba(0,0,0,.15)}
   html[data-theme=dark] .staff-badge{background:#C7AE7A;color:#1A201C}
   .dpop-err a,.stop-banner a,.stop-done a{color:inherit;text-decoration:underline;font-weight:600}
+  /* 26/11 track-cancel: the guests' notice — the WhatsApp bubble preview, the terms box, the state on the stop card */
+  .notice-pop{max-height:88vh;overflow-y:auto;width:min(92vw,24rem)}
+  .wa-chat{background:#EFEAE2;border-radius:8px;padding:.8rem .7rem;margin:.2rem 0 .7rem}
+  .wa-bubble{background:#fff;color:#111B21;border-radius:8px;padding:.5rem .6rem .35rem;max-width:92%;box-shadow:0 1px .5px rgba(11,20,26,.13);font-size:.86rem;line-height:1.5}
+  .wa-text{white-space:pre-wrap;word-break:break-word}
+  .wa-var{background:#FFF3C4;border-radius:4px;padding:0 .15rem}
+  .wa-foot{display:flex;justify-content:space-between;gap:.6rem;font-size:.7rem;color:#667781;margin-top:.25rem}
+  html[data-theme=dark] .wa-chat{background:#0B141A}
+  html[data-theme=dark] .wa-bubble{background:#202C33;color:#E9EDEF}
+  html[data-theme=dark] .wa-var{background:#4A4020;color:#F5E6A8}
+  html[data-theme=dark] .wa-foot{color:#8696A0}
+  .terms-box{border:1px solid var(--bdr);border-radius:8px;padding:.6rem .7rem;margin:.2rem 0 .5rem;font-size:.78rem;color:var(--ink2);line-height:1.5;background:var(--bg2)}
+  .terms-box ul{margin:.3rem 0 .35rem;padding-inline-start:1.1rem}
+  .terms-box a{color:var(--green2);text-decoration:underline}
+  .dpop label.terms-ok{display:flex;gap:.45rem;align-items:flex-start;font-size:.82rem;color:var(--ink);margin:.2rem 0 .6rem;cursor:pointer}
+  .terms-ok input{width:1.05rem;height:1.05rem;margin:.1rem 0 0;flex:none;accent-color:var(--green)}
+  .notice-choice{display:flex;flex-direction:column;gap:.5rem;margin-top:.5rem}
+  .notice-choice button{width:100%;padding:.65rem .8rem;border-radius:8px;font:inherit;font-size:.88rem;cursor:pointer}
+  .notice-state{margin-top:.8rem;padding:.7rem .8rem;border:1px solid var(--bdr);border-radius:8px;font-size:.86rem;color:var(--ink2);line-height:1.55}
+  .notice-state.final{background:var(--err-bg);border-color:var(--err);color:var(--ink)}
+  .notice-state .dpop-row button{padding:.5rem .8rem;border-radius:8px;font:inherit;font-size:.84rem;cursor:pointer}
 </style>
 <link rel="stylesheet" href="assets/lux.css?v=19">
 <link rel="stylesheet" href="assets/picker.css?v=20">
@@ -2922,14 +2943,23 @@
     el.title = 'הפעולות שלך כאן נרשמות בשמך, לא בשם הלקוח';
   }
 
-  /* (1) the stop button */
+  /* (1) the stop button
+     26/11 track-cancel: "האירוע בוטל" / "האירוע נדחה" may schedule ONE fixed-wording notice to the invited guests
+     (POST /api/client-notice-preview → /api/client-stop → /api/client-notice; /api/client-notice-cancel before it leaves).
+     Once it started going out it is final: no cancel, no resume. */
   var STOP_REASONS = [['unhappy', 'לא מרוצה מהשירות'], ['cancelled', 'האירוע בוטל'], ['postponed', 'האירוע נדחה'], ['wrong_details', 'טעות בפרטים'], ['other', 'אחר']];
-  var STOP_WORDS = { 'עצירה': 'stop', 'ביטול': 'cancel' };
+  var STOP_WORDS = { 'עצירה': 'stop', 'ביטול': 'cancel', 'דחייה': 'postpone' };
+  var KIND_OF = { cancelled: 'cancel', postponed: 'postpone' };
+  var WORD_OF = { cancel: 'ביטול', postpone: 'דחייה' };
+  var WEEK_HE = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
   function noteLen(v) { return String(v || '').replace(/\s+/g, ' ').trim().length; }
   function stopWhen(at) {
     var d = at ? new Date(at) : null; if (!d || isNaN(d)) return '';
     try { return new Intl.DateTimeFormat('he-IL', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(d); } catch (e) { return ''; }
   }
+  function fullDay(iso) { var p = String(iso || '').split('-'); return p.length === 3 ? p[2] + '.' + p[1] + '.' + p[0] : ''; }
+  function stopKind(st) { return st ? (st.mode === 'postpone' || st.reason === 'postponed' ? 'postpone' : st.mode === 'cancel' || st.reason === 'cancelled' ? 'cancel' : '') : ''; }
+  function noticeLive(n) { return !!n && (n.status === 'scheduled' || n.final); }
   function renderStop() {
     var c = $('stopCard'); if (!c) return;
     var st = data.stop || null;
@@ -2939,44 +2969,190 @@
     bn.hidden = !st;
     var wa = CFG.waLink('היי, עצרתי את השליחות לאירוע ורוצה לדבר על זה');
     if (st) {
-      var when = stopWhen(st.at);
-      var head = st.mode === 'cancel' ? 'קיבלנו את בקשת הביטול.' : 'כל השליחות והשיחות עצורות.';
-      bn.innerHTML = '<b>' + head + '</b> שום הודעה ושום שיחה לא יוצאות לאורחים' + (when ? ' (מ-' + esc(when) + ')' : '') + '. רוצים לחדש? <a href="' + wa + '" target="_blank" rel="noopener">דברו איתנו</a>';
+      var when = stopWhen(st.at), n = st.notice || null, fin = !!(n && n.final);
+      var head = st.mode === 'cancel' ? 'קיבלנו את בקשת הביטול.' : st.mode === 'postpone' ? 'קיבלנו את בקשת הדחייה' + (st.new_date ? ' ל-' + esc(fullDay(st.new_date)) : '') + '.' : 'כל השליחות והשיחות עצורות.';
+      bn.innerHTML = '<b>' + head + '</b> שום הודעה ושום שיחה לא יוצאות לאורחים' + (when ? ' (מ-' + esc(when) + ')' : '') + '.' +
+        (fin ? ' <b>' + esc(n.label_he) + '</b>' : ' רוצים לחדש? <a href="' + wa + '" target="_blank" rel="noopener">דברו איתנו</a>');
+      var nHtml = '';
+      if (n && fin) nHtml = '<div class="notice-state final" role="status"><b>' + esc(n.label_he) + '</b><br>ההודעה לאורחים יצאה, ולכן לא ניתן לחדש את השליחות לאירוע הזה.</div>';
+      else if (n && n.status === 'scheduled') nHtml = '<div class="notice-state" role="status"><b>' + esc(n.label_he) + '</b><br>' +
+        (n.waiting_template ? 'הנוסח ממתין לאישור של וואטסאפ. ההודעה תצא בחלון השליחה הראשון אחרי האישור, ולא אחרי מועד האירוע. ' : '') +
+        'עד שההודעה יוצאת אפשר לבטל אותה.<div class="dpop-row"><button type="button" class="dpop-x" id="noticeCancel">ביטול ההודעה המתוזמנת</button></div></div>';
+      else if (stopKind(st) && !eventIsOver()) nHtml = '<div class="notice-state">' + (n && n.status === 'expired' ? esc(n.label_he) + '. ' : '') +
+        '<div class="dpop-row"><button type="button" class="dpop-x" id="noticeOpen">לשלוח לאורחים הודעה ש' + (stopKind(st) === 'postpone' ? 'האירוע נדחה' : 'האירוע בוטל') + '</button></div></div>';
       $('stopBody').innerHTML = '<div class="stop-done"><b>' + head + '</b><br>' +
         'עצרנו את ההזמנות, התזכורות, השליחות הנוספות, ההודעות של יום לפני ויום האירוע, ואת השיחות. ' +
-        (st.mode === 'cancel' ? 'נחזור אליכם כדי לסגור יחד מה נאמר לאורחים. ' : 'הצוות שלנו קיבל את הבקשה ויחזור אליכם. ') +
-        'כדי לחדש את השליחות <a href="' + wa + '" target="_blank" rel="noopener">כתבו לנו בוואטסאפ</a> ונחזיר הכל לפי התכנון.</div>';
+        (fin ? '' : (st.mode === 'cancel' || st.mode === 'postpone' ? 'נחזור אליכם כדי לסגור יחד מה נאמר לאורחים. ' : 'הצוות שלנו קיבל את הבקשה ויחזור אליכם. ') +
+          'כדי לחדש את השליחות <a href="' + wa + '" target="_blank" rel="noopener">כתבו לנו בוואטסאפ</a> ונחזיר הכל לפי התכנון.') + '</div>' + nHtml;
+      var nc = $('noticeCancel'); if (nc) nc.addEventListener('click', cancelNotice);
+      var no = $('noticeOpen'); if (no) no.addEventListener('click', function () { openStop({ noticeOnly: true }); });
       return;
     }
     $('stopBody').innerHTML = '<div class="stop-row"><p>משהו השתנה? אפשר לעצור מכאן מיד את כל ההודעות והשיחות לאורחים. רק הצוות שלנו יכול לחדש אותן.</p>' +
       '<button type="button" class="stop-btn" id="stopOpen">עצירת כל השליחות</button></div>';
-    $('stopOpen').addEventListener('click', openStop);
+    $('stopOpen').addEventListener('click', function () { openStop({}); });
   }
-  function openStop() {
-    var reason = '', note = '';
+  function cancelNotice() {
+    var b = $('noticeCancel'); if (!b) return;
+    if (!window.confirm('לבטל את ההודעה המתוזמנת לאורחים? השליחות יישארו עצורות.')) return;
+    b.disabled = true; b.textContent = 'מבטלים…';
+    postJson('client-notice-cancel', { token: token }).then(function (res) {
+      if (res.status === 200 && res.body && res.body.ok) { if (data.stop) data.stop.notice = res.body.notice; try { renderStop(); } catch (e) {} $('live').textContent = 'ההודעה לאורחים בוטלה'; return; }
+      if (res.body && res.body.error === 'notice-final') { reloadData(); return; }
+      throw new Error(res.body && res.body.error === 'notice-starting' ? 'starting' : 'x');
+    })['catch'](function (e) {
+      b.disabled = false; b.textContent = 'ביטול ההודעה המתוזמנת';
+      var ns = b.closest('.notice-state'), pe = ns && ns.querySelector('.dpop-err');
+      if (ns && !pe) { pe = document.createElement('p'); pe.className = 'dpop-err'; pe.setAttribute('role', 'alert'); ns.appendChild(pe); }
+      var msg = e && e.message === 'starting' ? 'ההודעה כבר בדרך לצאת, ולכן אי אפשר לבטל אותה עכשיו.' : 'לא הצלחנו לבטל מכאן ברגע זה.';
+      if (pe) pe.innerHTML = msg + ' <a href="' + CFG.waLink('היי, אני רוצה לבטל את ההודעה לאורחים') + '" target="_blank" rel="noopener">כתבו לנו בוואטסאפ</a>';
+      $('live').textContent = msg;
+    });
+  }
+  function openStop(opts) {
+    opts = opts || {};
+    var st0 = data.stop || null;
+    var reason = st0 ? st0.reason : '', note = '', newDate = st0 && st0.new_date ? st0.new_date : '';
+    var pv = null, pick = { day: '', hm: '' };
     var bg = document.createElement('div'); bg.className = 'dpop-bg'; bg.id = 'stopBg';
-    var box = document.createElement('div'); box.className = 'dpop'; box.id = 'stopPop';
+    var box = document.createElement('div'); box.className = 'dpop notice-pop'; box.id = 'stopPop';
     box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'stopT');
-    function close() { bg.remove(); box.remove(); document.removeEventListener('keydown', onKey, true); var o = $('stopOpen'); if (o) o.focus(); }
+    function close() { bg.remove(); box.remove(); document.removeEventListener('keydown', onKey, true); var o = $('stopOpen') || $('noticeOpen'); if (o) o.focus(); }
     function onKey(e) { if (e.key === 'Escape') close(); }
+    function kind() { return KIND_OF[reason] || ''; }
+    function tomorrow() { var d = new Date(Date.now() + 864e5); return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(d); }
+    function newDateOk(d) { return /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= tomorrow() && new Date(d + 'T12:00:00Z').getUTCDay() !== 6; }
+    function termsHtml(lines, url) {
+      return '<div class="terms-box"><b>תנאי הביטול</b><ul>' + (lines || []).map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>' +
+        '<a href="' + esc(url || 'terms.html#payment') + '" target="_blank" rel="noopener">לתקנון המלא</a></div>' +
+        '<label class="terms-ok"><input type="checkbox" id="termsOk"> קראתי ואני מסכים/ה לתנאי הביטול</label>';
+    }
+    var FALLBACK_TERMS = ['ביטול, דחייה או שינוי של האירוע אינם מזכים בהחזר (סעיף 2 בתקנון).', 'הודעה שכבר יצאה אינה ניתנת לביטול או לשינוי (סעיף 4).'];
     function step1() {
       box.innerHTML = '<h3 id="stopT">עצירת כל השליחות</h3>' +
         '<p class="cur">ספרו לנו מה קרה, כדי שנוכל לחזור אליכם עם הדבר הנכון.</p>' +
         '<label for="stopWhy">הסיבה</label><select id="stopWhy"><option value="">בחרו סיבה</option>' +
         STOP_REASONS.map(function (r) { return '<option value="' + r[0] + '"' + (r[0] === reason ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select>' +
+        '<div id="newDateWrap" hidden><label for="stopNewDate">התאריך החדש של האירוע</label><input type="date" id="stopNewDate" min="' + tomorrow() + '" value="' + esc(newDate) + '"></div>' +
         '<label for="stopNote">הסבר קצר (לפחות 20 תווים)</label><textarea id="stopNote" maxlength="1000">' + esc(note) + '</textarea>' +
         '<p class="cnt" id="stopCnt" aria-live="polite"></p>' +
         '<div class="dpop-row"><button type="button" class="dpop-ok" id="stopNext" disabled>המשך</button><button type="button" class="dpop-x" data-x>חזרה</button></div>';
-      var sel = box.querySelector('#stopWhy'), ta = box.querySelector('#stopNote'), nx = box.querySelector('#stopNext'), cnt = box.querySelector('#stopCnt');
+      var sel = box.querySelector('#stopWhy'), ta = box.querySelector('#stopNote'), nx = box.querySelector('#stopNext'), cnt = box.querySelector('#stopCnt'), nd = box.querySelector('#stopNewDate'), ndw = box.querySelector('#newDateWrap');
       function check() {
-        reason = sel.value; note = ta.value; var n = noteLen(note);
-        cnt.textContent = n < 20 ? 'עוד ' + (20 - n) + ' תווים' : '';
-        nx.disabled = !reason || n < 20;
+        reason = sel.value; note = ta.value; newDate = nd.value; var n = noteLen(note);
+        ndw.hidden = reason !== 'postponed';
+        cnt.textContent = n < 20 ? 'עוד ' + (20 - n) + ' תווים' : (reason === 'postponed' && newDate && !newDateOk(newDate) ? 'בחרו תאריך עתידי שאינו שבת' : '');
+        nx.disabled = !reason || n < 20 || (reason === 'postponed' && !newDateOk(newDate));
       }
-      sel.addEventListener('change', check); ta.addEventListener('input', check); check();
-      nx.addEventListener('click', function () { if (!nx.disabled) step2(); });
+      sel.addEventListener('change', check); ta.addEventListener('input', check); nd.addEventListener('input', check); nd.addEventListener('change', check); check();
+      nx.addEventListener('click', function () { if (nx.disabled) return; if (kind() && !demo) loadPreview(); else step2(); });
       box.querySelector('[data-x]').addEventListener('click', close);
       sel.focus();
+    }
+    /* the package / the list decide whether the guests can be told */
+    function loadPreview() {
+      box.innerHTML = '<h3 id="stopT">רגע…</h3><p class="cur">בודקים מה אפשר לעשות לאורחים.</p>';
+      postJson('client-notice-preview', { token: token, kind: kind(), new_date: kind() === 'postpone' ? newDate : undefined }).then(function (res) {
+        pv = res.status === 200 && res.body && res.body.ok ? res.body : null;
+        if (pv && pv.eligible && pv.invited_n > 0 && pv.slots && pv.slots.length) stepAsk(); else stepNoNotice(pv);
+      })['catch'](function () { pv = null; stepNoNotice(null); });
+    }
+    function stepAsk() {
+      var what = kind() === 'postpone' ? 'נדחה' : 'בוטל';
+      box.innerHTML = '<h3 id="stopT">לשלוח לאורחים הודעה שהאירוע ' + what + '?</h3>' +
+        '<p class="cur">ההודעה תצא ל-' + pv.invited_n + ' מוזמנים שכבר קיבלו הזמנה, במועד שתבחרו. הנוסח קבוע ותראו אותו לפני האישור.</p>' +
+        '<div class="notice-choice"><button type="button" class="dpop-ok" id="nYes">כן, לבחור מתי לשלוח</button>' +
+        '<button type="button" class="dpop-x" id="nNo">' + (opts.noticeOnly ? 'לא עכשיו' : (kind() === 'postpone' ? 'לדחות' : 'לבטל') + ' בלי לשלוח לאורחים') + '</button>' +
+        '<button type="button" class="dpop-x" data-back>חזרה</button></div>';
+      box.querySelector('#nYes').addEventListener('click', stepWhen);
+      box.querySelector('#nNo').addEventListener('click', function () { if (opts.noticeOnly) close(); else stepNoNotice(pv); });
+      box.querySelector('[data-back]').addEventListener('click', function () { if (opts.noticeOnly) close(); else step1(); });
+      box.querySelector('#nYes').focus();
+    }
+    function stepWhen() {
+      var days = pv.slots;
+      if (!pick.day || !days.some(function (d) { return d.day === pick.day; })) pick.day = days[0].day;
+      function hoursOf(day) { var x = days.filter(function (d) { return d.day === day; })[0]; return x ? x.hours : []; }
+      box.innerHTML = '<h3 id="stopT">מתי לשלוח לאורחים?</h3>' +
+        '<p class="cur">בימים א׳–ה׳ בין 09:00 ל-19:00, בשישי עד 13:00, לא בשבת ולא אחרי מועד האירוע.</p>' +
+        '<label for="nDay">יום</label><select id="nDay">' + days.map(function (d) { return '<option value="' + d.day + '"' + (d.day === pick.day ? ' selected' : '') + '>יום ' + WEEK_HE[new Date(d.day + 'T12:00:00Z').getUTCDay()] + ' · ' + esc(d.day_he) + '</option>'; }).join('') + '</select>' +
+        '<label for="nHm">שעה</label><select id="nHm"></select>' +
+        '<div class="dpop-row"><button type="button" class="dpop-ok" id="nNext">המשך</button><button type="button" class="dpop-x" data-back>חזרה</button></div>';
+      var ds = box.querySelector('#nDay'), hs = box.querySelector('#nHm');
+      function fillHours() { var h = hoursOf(ds.value); if (h.indexOf(pick.hm) < 0) pick.hm = h[0] || ''; hs.innerHTML = h.map(function (x) { return '<option' + (x === pick.hm ? ' selected' : '') + '>' + x + '</option>'; }).join(''); }
+      ds.addEventListener('change', function () { pick.day = ds.value; fillHours(); });
+      hs.addEventListener('change', function () { pick.hm = hs.value; });
+      fillHours();
+      box.querySelector('#nNext').addEventListener('click', function () { pick.day = ds.value; pick.hm = hs.value; if (pick.day && pick.hm) stepPreview(); });
+      box.querySelector('[data-back]').addEventListener('click', stepAsk);
+      ds.focus();
+    }
+    function stepPreview() {
+      var bubble = esc(pv.text).replace('‹שם האורח›', '<span class="wa-var">‹שם האורח›</span>');
+      box.innerHTML = '<h3 id="stopT">כך האורחים יקבלו את ההודעה</h3>' +
+        '<div class="wa-chat" aria-label="תצוגה מקדימה של ההודעה"><div class="wa-bubble"><div class="wa-text">' + bubble + '</div>' +
+        '<div class="wa-foot">' + esc(pv.footer || '') + '<span>' + esc(pick.hm) + '</span></div></div></div>' +
+        '<p class="cur">הנוסח קבוע ואי אפשר לערוך אותו. מוזמן בלי שם ברשימה יקבל "שלום," בלי שם.<br>' +
+        'יוצאת ביום ' + WEEK_HE[new Date(pick.day + 'T12:00:00Z').getUTCDay()] + ' ' + esc(fullDay(pick.day)) + ' בשעה ' + esc(pick.hm) + ' ל-' + pv.invited_n + ' מוזמנים, בקצב השליחה הרגיל.' +
+        (pv.approved === false ? '<br>הנוסח עדיין ממתין לאישור של וואטסאפ. אם האישור יגיע אחרי המועד שבחרתם, ההודעה תצא בחלון השליחה הבא, ולא אחרי מועד האירוע.' : '') + '</p>' +
+        termsHtml(pv.terms && pv.terms.lines, pv.terms && pv.terms.url) +
+        '<label for="nWord">כדי לאשר הקלידו <b>שלח</b></label><input type="text" id="nWord" autocomplete="off" placeholder="שלח">' +
+        '<p class="cur">' + (opts.noticeOnly ? '' : 'באישור כל השליחות והשיחות נעצרות מיד. ') + 'מהרגע שההודעה מתחילה לצאת אי אפשר לבטל אותה ואי אפשר לחדש את השליחות.</p>' +
+        '<p class="dpop-err" id="stopErr" role="alert"></p>' +
+        '<div class="dpop-row"><button type="button" class="stop-ok" id="nGo" disabled>אישור ותזמון</button><button type="button" class="dpop-x" data-back>חזרה</button></div>';
+      var w = box.querySelector('#nWord'), tk = box.querySelector('#termsOk'), go = box.querySelector('#nGo'), er = box.querySelector('#stopErr');
+      function check() { go.disabled = !(tk.checked && w.value.trim() === 'שלח'); }
+      w.addEventListener('input', check); tk.addEventListener('change', check);
+      box.querySelector('[data-back]').addEventListener('click', stepWhen);
+      go.addEventListener('click', function () {
+        if (go.disabled) return;
+        go.disabled = true; go.textContent = 'רגע…'; er.textContent = '';
+        var k = kind();
+        var first = data.stop ? Promise.resolve({ status: 200, body: { ok: true, stop: data.stop } })
+          : postJson('client-stop', { token: token, reason: reason, note: note, confirm: WORD_OF[k], new_date: k === 'postpone' ? newDate : undefined, terms: true });
+        first.then(function (res) {
+          if (!(res.status === 200 && res.body && res.body.ok && res.body.stop)) throw new Error('stop');
+          data.stop = res.body.stop;
+          return postJson('client-notice', { token: token, kind: k, new_date: k === 'postpone' ? (newDate || data.stop.new_date) : undefined, day: pick.day, hm: pick.hm, confirm: 'שלח', terms: true }).then(function (r2) {
+            if (r2.status === 200 && r2.body && r2.body.ok) { data.stop.notice = r2.body.notice; stopped(data.stop, 'ההודעה לאורחים תוזמנה'); reloadData(); return; }
+            /* the stop is saved; only the notice did not go in — say so in the dialog (visible), keep it open to retry */
+            try { renderStop(); } catch (e) {} try { renderSends(); } catch (e) {}
+            var why2 = r2.body && r2.body.error;
+            go.disabled = false; go.textContent = 'אישור ותזמון';
+            er.innerHTML = '<b>השליחות נעצרו.</b> ' + (why2 === 'not-future' || why2 === 'quiet-hours' || why2 === 'friday-hours' || why2 === 'after-event' || why2 === 'shabbat'
+              ? 'המועד שבחרתם כבר לא פנוי. חזרו ובחרו מועד אחר.'
+              : 'את ההודעה לאורחים לא הצלחנו לתזמן כרגע. אפשר לנסות שוב, או <a href="' + CFG.waLink('היי, עצרתי את השליחות ורוצה לשלוח לאורחים הודעה') + '" target="_blank" rel="noopener">לכתוב לנו בוואטסאפ</a>.');
+            reloadData();
+          });
+        })['catch'](function () {
+          go.disabled = false; go.textContent = 'אישור ותזמון';
+          er.innerHTML = 'לא הצלחנו לשמור מכאן ברגע זה. <a href="' + CFG.waLink('היי, אני רוצה לעצור את השליחות ולהודיע לאורחים') + '" target="_blank" rel="noopener">כתבו לנו בוואטסאפ</a> ונטפל מיד.';
+        });
+      });
+      tk.focus();
+    }
+    /* stop without telling the guests (the package does not include it, nobody was invited yet, or the client chose so) */
+    function stepNoNotice(p) {
+      if (opts.noticeOnly) {
+        box.innerHTML = '<h3 id="stopT">הודעה לאורחים</h3><p class="cur">' + (p && !p.eligible ? 'הודעה לאורחים על ביטול או דחייה כלולה בחבילת הכל כלול או כתוספת.' : p && !p.invited_n ? 'עוד לא יצאו הזמנות, אין למי להודיע.' : 'לא הצלחנו לבדוק את זה כרגע.') +
+          ' <a href="' + CFG.waLink('היי, אני רוצה לשלוח לאורחים הודעה על ביטול או דחייה') + '" target="_blank" rel="noopener">דברו איתנו</a></p>' +
+          '<div class="dpop-row"><button type="button" class="dpop-x" data-x>סגירה</button></div>';
+        box.querySelector('[data-x]').addEventListener('click', close); return;
+      }
+      var k = kind(), word = WORD_OF[k];
+      var why = !p ? '' : !p.eligible ? 'הודעה לאורחים על ' + (k === 'postpone' ? 'הדחייה' : 'הביטול') + ' כלולה בחבילת הכל כלול או כתוספת. רוצים אותה? <a href="' + CFG.waLink('היי, אני רוצה לשלוח לאורחים הודעה על ' + (k === 'postpone' ? 'דחייה' : 'ביטול')) + '" target="_blank" rel="noopener">דברו איתנו</a>. ' : !p.invited_n ? 'עוד לא יצאו הזמנות, ולכן אין צורך להודיע לאורחים. ' : 'לאורחים לא תצא הודעה. ';
+      box.innerHTML = '<h3 id="stopT">' + (k === 'postpone' ? 'לדחות' : 'לבטל') + ' בלי לשלוח לאורחים?</h3>' +
+        '<p class="cur">' + why + 'כל ההודעות והשיחות נעצרות מיד, ורק הצוות שלנו יכול לחדש אותן.</p>' +
+        termsHtml(p && p.terms ? p.terms.lines : FALLBACK_TERMS, p && p.terms ? p.terms.url : '') +
+        '<label for="stopWord">כדי לאשר הקלידו <b>' + word + '</b></label><input type="text" id="stopWord" autocomplete="off" placeholder="' + word + '">' +
+        '<p class="dpop-err" id="stopErr" role="alert"></p>' +
+        '<div class="dpop-row"><button type="button" class="stop-ok" id="stopGo" disabled>אישור</button><button type="button" class="dpop-x" data-back>חזרה</button></div>';
+      var w = box.querySelector('#stopWord'), tk = box.querySelector('#termsOk'), go = box.querySelector('#stopGo');
+      function check() { go.disabled = !(tk.checked && w.value.trim() === word); }
+      w.addEventListener('input', check); tk.addEventListener('change', check);
+      box.querySelector('[data-back]').addEventListener('click', function () { if (p && p.eligible && p.invited_n) stepAsk(); else step1(); });
+      go.addEventListener('click', function () { if (!go.disabled) sendStop(word, go, true); });
+      tk.focus();
     }
     function step2() {
       box.innerHTML = '<h3 id="stopT">לאשר את העצירה?</h3>' +
@@ -2984,36 +3160,38 @@
         '<input type="text" id="stopWord" autocomplete="off" aria-label="מילת האישור" placeholder="עצירה או ביטול">' +
         '<p class="dpop-err" id="stopErr" role="alert"></p>' +
         '<div class="dpop-row"><button type="button" class="stop-ok" id="stopGo" disabled>אישור</button><button type="button" class="dpop-x" data-back>חזרה</button></div>';
-      var w = box.querySelector('#stopWord'), go = box.querySelector('#stopGo'), er = box.querySelector('#stopErr');
-      w.addEventListener('input', function () { go.disabled = !STOP_WORDS[w.value.trim()]; go.textContent = STOP_WORDS[w.value.trim()] === 'cancel' ? 'אישור ביטול' : 'אישור עצירה'; });
+      var w = box.querySelector('#stopWord'), go = box.querySelector('#stopGo');
+      w.addEventListener('input', function () { var m = STOP_WORDS[w.value.trim()]; go.disabled = !m || m === 'postpone'; go.textContent = m === 'cancel' ? 'אישור ביטול' : 'אישור עצירה'; });
       box.querySelector('[data-back]').addEventListener('click', step1);
-      go.addEventListener('click', function () {
-        var word = w.value.trim(); if (!STOP_WORDS[word]) return;
-        go.disabled = true; go.textContent = 'עוצרים…'; er.textContent = '';
-        if (demo) { setTimeout(function () { stopped({ mode: STOP_WORDS[word], at: new Date().toISOString(), reason: reason }); }, 300); return; }
-        postJson('client-stop', { token: token, reason: reason, note: note, confirm: word }).then(function (res) {
-          if (res.status === 200 && res.body && res.body.ok && res.body.stop) { stopped(res.body.stop); reloadData(); return; }
-          throw new Error('x');
-        })['catch'](function () {
-          go.disabled = false; go.textContent = 'אישור';
-          er.innerHTML = 'לא הצלחנו לעצור מכאן ברגע זה. <a href="' + CFG.waLink('היי, אני רוצה לעצור את כל השליחות לאירוע שלי') + '" target="_blank" rel="noopener">כתבו לנו בוואטסאפ</a> ונעצור מיד.';
-        });
-      });
+      go.addEventListener('click', function () { var word = w.value.trim(); if (STOP_WORDS[word] && STOP_WORDS[word] !== 'postpone') sendStop(word, go, false); });
       w.focus();
+    }
+    function sendStop(word, go, terms) {
+      var er = box.querySelector('#stopErr');
+      go.disabled = true; go.textContent = 'עוצרים…'; er.textContent = '';
+      if (demo) { setTimeout(function () { stopped({ mode: STOP_WORDS[word], at: new Date().toISOString(), reason: reason, new_date: STOP_WORDS[word] === 'postpone' ? newDate : undefined }); }, 300); return; }
+      postJson('client-stop', { token: token, reason: reason, note: note, confirm: word, new_date: STOP_WORDS[word] === 'postpone' ? newDate : undefined, terms: terms || undefined }).then(function (res) {
+        if (res.status === 200 && res.body && res.body.ok && res.body.stop) { stopped(res.body.stop); reloadData(); return; }
+        throw new Error('x');
+      })['catch'](function () {
+        go.disabled = false; go.textContent = 'אישור';
+        er.innerHTML = 'לא הצלחנו לעצור מכאן ברגע זה. <a href="' + CFG.waLink('היי, אני רוצה לעצור את כל השליחות לאירוע שלי') + '" target="_blank" rel="noopener">כתבו לנו בוואטסאפ</a> ונעצור מיד.';
+      });
     }
     /* the stop is saved: repaint only what it changes (a full render could trip on something unrelated and
        tell the client it failed when it did not) */
-    function stopped(st) {
+    function stopped(st, msg) {
       data.stop = st; close();
       try { renderStop(); } catch (e) {}
       try { renderSends(); } catch (e) {}
-      $('live').textContent = 'השליחות נעצרו';
+      $('live').textContent = msg || 'השליחות נעצרו';
       var bn = $('stopBanner'); if (bn) bn.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }
     bg.addEventListener('click', close);
     document.addEventListener('keydown', onKey, true);
     document.body.appendChild(bg); document.body.appendChild(box);
-    step1();
+    if (opts.noticeOnly && st0) { reason = st0.reason === 'postponed' || st0.mode === 'postpone' ? 'postponed' : 'cancelled'; loadPreview(); }
+    else step1();
   }
 
   function renderInvoice() {
@@ -3220,7 +3398,7 @@
         if (!j || !j.ok) {
           var why = j && (j.why || j.error) || '';
           var err = box.querySelector('#dpopErr');
-          if (err) err.textContent = why === 'needs-addon' ? 'זה לא כלול בחבילה. אפשר להוסיף מהתוספות למטה.' : why === 'shabbat' ? 'לא בשבת. בחרו יום אחר.' : why === 'bad-date' ? 'בחרו תאריך עתידי.' : 'לא הצלחנו לעדכן, נסו שוב בעוד רגע.';
+          if (err) err.textContent = why === 'client-stopped' ? 'השליחות עצורות. ביטול או דחייה עוברים עכשיו דרך כרטיס העצירה.' : why === 'needs-addon' ? 'זה לא כלול בחבילה. אפשר להוסיף מהתוספות למטה.' : why === 'shabbat' ? 'לא בשבת. בחרו יום אחר.' : why === 'bad-date' ? 'בחרו תאריך עתידי.' : 'לא הצלחנו לעדכן, נסו שוב בעוד רגע.';
           if (btn) { btn.disabled = false; btn.textContent = 'אישור'; }
           return;
         }

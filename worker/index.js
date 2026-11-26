@@ -125,6 +125,7 @@ import { withCfg, paceSends, paceSendsMax, dailyCallCap } from './cfg.js';   /* 
 import { JOB_TO_ID, AUTOMATIONS } from './automations-registry.js';
 import { readSnapshot, snapInfo, snapWhy, sheetWrite, drainSheetQueue, noteSheetWrite, noteHookWrite, markSnapDirty, makeStatus } from './snapshot.js';   /* 04/11 Make burn */
 import { handleClientStop, handleClientStopLift, clientStopOf, publicStop } from './client-stop.js';
+import { handleNoticePreview, handleNoticeSchedule, handleNoticeCancel, runGuestNotices, NOTICE_TEMPLATES, publicNotice, isPending } from './guest-notice.js';   /* 26/11 track-cancel */
 import { actorOf, actorLabel, boardActor } from './actor.js';   /* 25/11 track-board: who did it on the client board (team vs client, PIN vs link) */   /* 25/11 track-board: the client's red stop button */
 import { normAudience, audienceIncludes, parseAddon, dateGuard, ilHM, addonDialOk, addonDayReady, handleCallsAddonDate, deliveredCount, bumpDelivered, firstSentAt } from './send-plan.js';   /* 25/11 track-board: audience + day of an added round, the board's state line */
 
@@ -159,6 +160,8 @@ const TMPL_CATEGORY = {
   ishur_shulchan_matana: 'utility', ishur_yom_haerua_matana: 'utility', ishur_toda_matana: 'marketing', ishur_matana: 'marketing', ishur_toda_matana2: 'utility', ishur_matana2: 'utility',
   /* 03/11 the one event-day message (eventday.js) */
   ishur_yom_combo_t: 'utility', ishur_yom_combo_g: 'utility', ishur_yom_combo_tg: 'utility',
+  /* 26/11 track-cancel: the client's cancel / postpone notice (guest-notice.js), drafted UTILITY — not yet submitted */
+  ishur_event_cancelled: 'utility', ishur_event_cancelled_nn: 'utility', ishur_event_postponed: 'utility', ishur_event_postponed_nn: 'utility',
   ishur_kod: 'auth',
 };
 const CAT_COST = { utility: 0.02, marketing: 0.12, auth: 0.05 };
@@ -7843,6 +7846,22 @@ async function pacerCalls(env, step, out) {
   }
 }
 
+/* 26/11 track-cancel: guest-notice.js deps (routes + the pacer step) */
+function guestNoticeDeps(env) {
+  return { okJson, deny, tokenRecord, overBudget, isAdmin: async (e, k) => isAdmin(e, k), logEvent, slackSend: (e, t, o) => slackSend(e, t, o),
+    now: () => ({ day: ilDate(), hm: ilHM() }), noContact: isNoContactDay, sendWindowState, normPhone, phoneBlocked, wrongNum,
+    templateApproved, templateBody: async (e, n) => (await templateDetails(e, n)).body, guestCapacity,
+    sendTemplate, noteGuestSend, addEvCost, msgCost,
+    eventFacts: async (e, token) => {
+      const raw = await snapshotCached(e, 'send').catch(() => null);
+      const ev = raw ? eventRowOf(raw, token) : null;
+      if (!ev) return null;
+      const [ac, ap, s1, s2, s3] = await Promise.all([e.RATE.get('msgaddon:' + token + ':cancel').catch(() => null), e.RATE.get('msgaddon:' + token + ':postpone').catch(() => null),
+        kvNames(e, `wsent:${token}:1:`), kvNames(e, `wsent:${token}:2:`), kvNames(e, `wsent:${token}:3:`)]);
+      return { ev, gRows: (raw.guests && raw.guests.values) || [], plan: planKeyOf(ev), addon: { cancel: !!ac, postpone: !!ap },
+        eventName: guestEventName(ev, { article: true }), origDate: String(ev[6] || '').trim().slice(0, 10), sentPhones: new Set([...s1, ...s2, ...s3]) };
+    } };
+}
 async function runPacer(env, run = null, { part = 'all' } = {}) {
   if (!env.RATE) return { ok: false, why: 'no-kv' };
   /* 03/11 ops center kill switch: nothing below runs, not even the Slack flush */
@@ -7924,6 +7943,9 @@ async function runPacer(env, run = null, { part = 'all' } = {}) {
   /* messages first: they are cheaper and they warm the 24h window a call
      lands in more gracefully than a cold ring does */
   const sendWin = sendWindowState();
+  /* 26/11 track-cancel: a client's scheduled cancel / postpone notice to the guests (guest-notice.js) — before the
+     waves, inside the window, the cap and this tick's pace; it ignores hold: on purpose (the stop holds everything else) */
+  if (sendWin.open && !(await isOff(env, 'guest_notice'))) out.notices = await step('guest_notice', () => runGuestNotices(env, { ...guestNoticeDeps(env), pace: Math.min(25, paceSends(env, PACE_SENDS)) })   /* 25 like the sub-event slice: the main pass must not run long */).catch(e => ({ ok: false, error: String((e && e.message) || e) }));
   /* 22/10 Richard: guests whose invitation failed (130472/131049/131026, not
      yet 3 strikes) are retried automatically once per send day; before this
      it only happened when someone ran /api/wave-retry by hand. */
@@ -13274,6 +13296,12 @@ const WORKER = {
     if (url.pathname === '/api/client-stop-lift' && request.method === 'POST') {
       return handleClientStopLift(request, env, origin, { okJson, deny, isAdmin, logEvent, slackSend });
     }
+    /* 26/11 track-cancel: the guests' cancel / postpone notice (guest-notice.js) */
+    if (url.pathname === '/api/client-notice-preview' && request.method === 'POST') return handleNoticePreview(request, env, origin, guestNoticeDeps(env));
+    if (url.pathname === '/api/client-notice' && request.method === 'POST') {
+      return handleNoticeSchedule(request, env, origin, { ...guestNoticeDeps(env), who: async (rq, body) => actorLabel(await actorOf(env, rq, body, actorDeps())) });
+    }
+    if (url.pathname === '/api/client-notice-cancel' && request.method === 'POST') return handleNoticeCancel(request, env, origin, guestNoticeDeps(env));
     if (url.pathname === '/api/calls-addon-date' && request.method === 'POST') {
       return handleCallsAddonDate(request, env, origin, { okJson, deny, tokenRecord, overBudget, logEvent, clientStopOf, ilDate,
         eventDate: async t => { const raw = await snapshotCached(env, 'guest').catch(() => null); const r = raw ? eventRowOf(raw, t) : null; return r ? String(r[6] || '').trim() : ''; } });
@@ -15180,6 +15208,8 @@ const WORKER = {
       if (await overBudget(env, 'rl:evchange:' + token, 10, 3600)) return deny(429, 'slow-down', origin);
       const action = String(b.action || '');
       if (!['cancel', 'restore', 'postpone'].includes(action)) return deny(400, 'bad-action', origin);
+      /* 26/11 track-cancel: while the client's stop stands, the guests hear only through its own notice (no second, older message) */
+      if (await clientStopOf(env, token)) return deny(409, 'client-stopped', origin);
       const raw = await readSnapshot(env, 'write');
       if (!raw) return deny(502, 'reader-failed', origin);
       const evRows = (raw.events && raw.events.values) || [];
@@ -15717,7 +15747,9 @@ const WORKER = {
           if (ca) { let at = ca; try { const o = JSON.parse(ca); if (o && o.at) at = o.at; } catch {} const t = Date.parse(String(at)); if (t) sentWaves.callsAddonAt = ilDate(new Date(t));
             /* 25/11 track-board: a day the team or the client set is the round's day; "הלקוח יחליט" with none yet = pick */
             const cap0 = parseAddon(ca); if (cap0 && cap0.start) { sentWaves.callsAddonAt = cap0.start; sentWaves.callsAddonStart = cap0.start; } if (cap0 && cap0.client_decides && !cap0.start) { sentWaves.callsAddonPick = true; sentWaves.callsAddonAt = ''; } } }
-        sentWaves.clientStop = publicStop(await clientStopOf(env, token));
+        { const csRec = await clientStopOf(env, token); sentWaves.clientStop = publicStop(csRec);
+          /* 26/11 track-cancel: a scheduled guests' notice says "ממתין לאישור הנוסח" until Meta approved both twins */
+          if (csRec && csRec.notice && isPending(csRec.notice)) { const T = NOTICE_TEMPLATES[csRec.notice.kind]; if (T) { const ap = (await Promise.all([T.name, T.nn].map(x => templateApproved(env, x).catch(() => false)))).every(Boolean); sentWaves.clientStop.notice = publicNotice(csRec.notice, { approved: ap }); } } }
         /* did the event-day message go out to anybody */
         try {
           const [a, b2] = await Promise.all([env.RATE.list({ prefix: `s5d:${token}:`, limit: 1 }), env.RATE.list({ prefix: `s5t:${token}:`, limit: 1 })]);

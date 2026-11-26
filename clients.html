@@ -459,7 +459,9 @@
           (fl.sent ? '<span class="tag on">הזמנות יצאו</span>' : fl.sending ? '<span class="tag on">הזמנות יוצאות</span>' : '<span class="tag">טרם נשלח</span>') +
           (fl.video ? '<span class="tag on">וידאו</span>' : '') +
           (fl.addon ? '<span class="tag">+' + fl.addon + ' מוזמנים</span>' : '') +
-          (fl.extrasend ? '<span class="tag">שליחה נוספת</span>' : '') + (fl.client_stop ? '<span class="tag" style="background:#FBEAE6;color:#7A2E22">⛔ הלקוח עצר' + (fl.client_stop.mode === 'cancel' ? ' (ביקש ביטול)' : '') + '</span>' : '') +
+          (fl.extrasend ? '<span class="tag">שליחה נוספת</span>' : '') + (fl.client_stop ? '<span class="tag" style="background:#FBEAE6;color:#7A2E22">⛔ הלקוח עצר' + (fl.client_stop.mode === 'cancel' ? ' (ביקש ביטול)' : fl.client_stop.mode === 'postpone' ? ' (ביקש דחייה' + (fl.client_stop.new_date ? ' ל-' + esc(fl.client_stop.new_date.split('-').reverse().join('.')) : '') + ')' : '') + '</span>' : '') +
+          /* 26/11 track-cancel: the guests' notice the client scheduled — scheduled / waiting for Meta / sent (final) */
+          (fl.client_stop && fl.client_stop.notice && fl.client_stop.notice.label_he && fl.client_stop.notice.status !== 'cancelled' ? '<span class="tag" style="background:' + (fl.client_stop.notice.final ? '#FBEAE6;color:#7A2E22' : '#FFF4DB;color:#6B4A00') + '">📣 ' + esc(fl.client_stop.notice.label_he) + '</span>' : '') +
           (fl.calls ? '<span class="tag">סבב שיחות</span>' : '') +
           (e.cancelled ? '<span class="tag warn">בוטל</span>' : '') +
           (fl.hold ? '<span class="tag warn">' + (fl.hold_till ? 'נדחה עד ' + esc(String(fl.hold_till).slice(8, 10) + '/' + String(fl.hold_till).slice(5, 7)) : 'מושהה · אין שליחות') + '</span>' : '') +
@@ -627,7 +629,8 @@
       '<div class="sec"><h3>רשימה ומצב</h3><div class="acts">' +
         '<button class="btn" data-act="reset">איפוס רשימה להעלאה מחדש</button>' +
         '<button class="btn" data-act="active">' + (fl.active ? 'סמן לא פעיל' : 'סמן פעיל') + '</button>' +
-        (fl.client_stop ? '<button class="btn d" data-act="client-stop-lift">שחרור עצירת לקוח</button>' : '<button class="btn" data-act="freeze">' + (fl.hold ? 'שחרור הקפאת שליחות' : 'הקפאת שליחות') + '</button>') +
+        (fl.client_stop ? ((fl.client_stop.notice && fl.client_stop.notice.status === 'scheduled' && !fl.client_stop.notice.final ? '<button class="btn" data-act="notice-cancel">ביטול ההודעה לאורחים</button>' : '') +
+          (fl.client_stop.notice && fl.client_stop.notice.final ? '<button class="btn" disabled title="ההודעה לאורחים יצאה · לא ניתן לחדש שליחות">שחרור לא אפשרי · ההודעה יצאה</button>' : '<button class="btn d" data-act="client-stop-lift">שחרור עצירת לקוח</button>')) : '<button class="btn" data-act="freeze">' + (fl.hold ? 'שחרור הקפאת שליחות' : 'הקפאת שליחות') + '</button>') +
         '<button class="btn d" data-act="clear-sends">ביטול מועדי שליחה</button>' +
         '<button class="btn' + (fl.hold ? '' : ' d') + '" data-act="hold">' + (fl.hold ? 'חידוש הלקוח' : 'ביטול לקוח') + '</button></div></div>' +
       /* 26/11 Richard: "לשלוח עם שם האורח" for every message to this event's guests (Worker /api/guest-name, guest-name.js) */
@@ -701,8 +704,19 @@
     } else if (act === 'client-stop-lift') {
       /* 25/11 track-board: only the team lifts the client's stop — sends, calls and the board state all come back */
       var cs = fl.client_stop || {};
-      if (!(await askConfirm('הלקוח עצר את השליחות' + (cs.reason_he ? ' (' + cs.reason_he + ')' : '') + '. אחרי השחרור ההודעות והשיחות חוזרות לפי התכנון. כדאי לשחרר רק אחרי שיחה עם הלקוח.', { title: 'לשחרר את עצירת הלקוח?', ok: 'כן, לשחרר', danger: true }))) { b.disabled = false; return; }
-      p = api('client-stop-lift', { token: t }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { delete fl.client_stop; flags[t] = Object.assign(fl, { hold: (j.still || []).indexOf('hold') >= 0 }); toast((j.still || []).length ? 'עצירת הלקוח שוחררה. ההקפאה שהצוות שם לפני כן נשארת' : 'העצירה שוחררה, השליחות חוזרות'); render(); } else toast('לא הצליח'); });
+      /* 26/11 track-cancel: the guests were told → never; a scheduled notice is cancelled together with the lift, on purpose */
+      if (cs.notice && cs.notice.final) { toast('ההודעה לאורחים יצאה · לא ניתן לחדש שליחות'); b.disabled = false; return; }
+      var withNotice = !!(cs.notice && cs.notice.status === 'scheduled');
+      if (!(await askConfirm('הלקוח עצר את השליחות' + (cs.reason_he ? ' (' + cs.reason_he + ')' : '') + '. ' + (withNotice ? 'ההודעה לאורחים שהלקוח תזמן (' + (cs.notice.day_he || '') + ' ' + (cs.notice.hm || '') + ') תבוטל. ' : '') + 'אחרי השחרור ההודעות והשיחות חוזרות לפי התכנון. כדאי לשחרר רק אחרי שיחה עם הלקוח.', { title: 'לשחרר את עצירת הלקוח?', ok: withNotice ? 'כן, לבטל את ההודעה ולשחרר' : 'כן, לשחרר', danger: true }))) { b.disabled = false; return; }
+      p = (withNotice ? api('client-stop-lift', { token: t, cancel_notice: true }) : api('client-stop-lift', { token: t })).then(function (r) { return r.json(); }).then(function (j) { if (!j.ok && /^notice-/.test(j.error || '')) { toast(j.error === 'notice-sent' ? 'ההודעה לאורחים כבר יצאה · לא ניתן לחדש' : j.error === 'notice-starting' ? 'ההודעה יוצאת בדקות הקרובות · לא ניתן לבטל עכשיו' : 'יש הודעה מתוזמנת, רעננו ונסו שוב'); return api('client-flags', { tokens: [t] }).then(function (r) { return r.json(); }).then(function (f) { flags[t] = (f.flags || {})[t] || fl; render(); }); } if (j.ok) { delete fl.client_stop; flags[t] = Object.assign(fl, { hold: (j.still || []).indexOf('hold') >= 0 }); toast((j.still || []).length ? 'עצירת הלקוח שוחררה. ההקפאה שהצוות שם לפני כן נשארת' : 'העצירה שוחררה, השליחות חוזרות'); render(); } else toast('לא הצליח'); });
+    } else if (act === 'notice-cancel') {
+      /* 26/11 track-cancel: the team cancels the client's scheduled guests' notice before it leaves; the stop stays */
+      var csn = (fl.client_stop || {}).notice || {};
+      if (!(await askConfirm('ההודעה לאורחים שהלקוח תזמן ל-' + (csn.day_he || '') + ' ' + (csn.hm || '') + ' לא תצא. השליחות נשארות עצורות.', { title: 'לבטל את ההודעה לאורחים?', ok: 'כן, לבטל את ההודעה', danger: true }))) { b.disabled = false; return; }
+      p = api('client-notice-cancel', { token: t }).then(function (r) { return r.json(); }).then(function (j) {
+        toast(j.ok ? 'ההודעה לאורחים בוטלה' : j.error === 'notice-final' ? 'ההודעה כבר התחילה לצאת · לא ניתן לבטל' : j.error === 'notice-starting' ? 'ההודעה יוצאת בדקות הקרובות · לא ניתן לבטל עכשיו' : 'לא הצליח');
+        return api('client-flags', { tokens: [t] }).then(function (r) { return r.json(); }).then(function (f) { flags[t] = (f.flags || {})[t] || fl; render(); });
+      });
     } else if ((act === 'extrasend' || act === 'calls') && window.IshurAddRound) {
       /* 25/11 track-board: when (today-or-later / the client decides) and for whom, asked right away */
       var plan = await IshurAddRound.ask({ kind: act, name: e.name || '' });

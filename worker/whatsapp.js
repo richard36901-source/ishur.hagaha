@@ -314,7 +314,7 @@ export function convPutOpts(c) {
    ishur_tzikoret_kovetz as guest-only; the actual code sends it with
    sendClient() to a CLIENT who paid but hasn't uploaded their guest list
    (index.js ~3069, ~3164) — categorized here by verified real usage. */
-const GUEST_ONLY_TEMPLATE_RE = /^hazmana_|^ishur_hazmana|^ishur_yom_lifnei|^ishur_shulchan|^ishur_toda_orach|^ishur_toda_matana|^ishur_matana|^ishur_yom_haerua_matana|^ishur_bitul\b|^ishur_dchiya\b/i;
+const GUEST_ONLY_TEMPLATE_RE = /^hazmana_|^ishur_hazmana|^ishur_yom_lifnei|^ishur_shulchan|^ishur_toda_orach|^ishur_toda_matana|^ishur_matana|^ishur_yom_haerua_matana|^ishur_bitul\b|^ishur_dchiya\b|^ishur_event_(cancelled|postponed)/i;
 const CLIENT_ONLY_TEMPLATE_RE = /^noa_tried_reach\b|^ishur_lo_siyem|^ishur_kod\b|^ishur_heshbonit\b|^ishur_tashlum\b|^ishur_shidrug|^ishur_doch\b|^ishur_syum\b|^ishur_tzikoret_kovetz\b/i;
 /* 25/11 inbox template picker: the same rule post() enforces, asked before offering a template */
 export function templateAllowedOn(name, channel) {
