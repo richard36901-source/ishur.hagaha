@@ -23,7 +23,7 @@
   /* 26/11 Richard: two boxes with swipe + dots — "add to home screen" (when the browser can) and our App Store app.
      Both stay for now; the home-screen box goes once the app covers everything. */
   var APP_URL = 'https://apps.apple.com/il/app/id6837931770';
-  var BADGE = 'https://tools.applemarketingtools.com/api/badges/download-on-the-app-store/black/he-il?size=250x83';
+  var BADGE = 'https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/he-il';
   var CSS = '.pw-car{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;direction:rtl}.pw-car::-webkit-scrollbar{display:none}' +
     '.pw-sl{flex:0 0 100%;scroll-snap-align:start;box-sizing:border-box}.pw-dots{display:flex;justify-content:center;gap:6px;margin-top:.7rem}' +
     '.pw-dot{width:7px;height:7px;border-radius:4px;border:none;padding:0;background:var(--bdr,#ccc);cursor:pointer;transition:width .2s}.pw-dot.on{width:18px;background:var(--green2,#0F4C35)}' +
