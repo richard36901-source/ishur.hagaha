@@ -19,6 +19,7 @@ import { rangeOf, bucketOf, clientHoursOpen } from './crm.js';
 import { HOSTESS_PRICE, DESIGN_PRICE } from './paylink.js';
 import { makeStore } from './store.js';
 import { computeTemplateStats, compactRecord } from './template-stats.js';
+import { loadVexp, loadShare, monthFixedItems, callTopups, rowIls, isCallVendor } from './vendorexp.js';   /* 26/11 the real vendor charges */
 
 export const USD_ILS = 3.7;                      /* same flat rate as index.js / admin.html */
 export const SHALEV_CAMPAIGN = '120250670197650731';
@@ -476,7 +477,9 @@ export async function buildIncomeDays(env, d, { raw, days = 45, fresh = false } 
   const entries = mergeGrowTx(revenueEntries(pay.items, eventsForMoney(raw, d), { parsePaidDesc: d.parsePaidDesc || (() => null) }), growtx, { parsePaidDesc: d.parsePaidDesc || (() => null) });
   const fee = await loadFeeCfg(env);
   const fixedRec = await loadFixed(env, today.slice(0, 7));
-  const fixed = {}; for (const m of monthsBetween(far, today)) fixed[m] = fixedForMonth(fixedRec, m).items.filter((x) => !x.unknown && x.ils > 0).map((x) => ({ name: x.name, ils: x.ils, day: x.day || 10 }));
+  const vxMonths = monthsBetween(far, today), [vx, share] = await Promise.all([loadVexp(env, vxMonths), loadShare(env)]);
+  /* 26/11: a recurring row gives way to that vendor's real charges (on their own days); call top-ups are in the series, not here */
+  const fixed = {}; for (const m of vxMonths) fixed[m] = monthFixedItems(fixedForMonth(fixedRec, m).items.filter((x) => !x.unknown && x.ils > 0).map((x) => ({ name: x.name, ils: x.ils, day: x.day || 10, approx: m === today.slice(0, 7) ? true : undefined })), vx[m], share).filter((x) => x.ils > 0);
   /* `oldest` = how far back the payment log was really read (it is read newest first, so a cut read loses the oldest days) */
   const data = { income: incomeDays(entries, fee), fixed, vat_rate: VAT_RATE, fee_cfg: fee.cfg, truncated: !!pay.truncated, oldest: pay.oldest_ts || null, gaps: pay.gaps || [] };
   if (env.RATE) await env.RATE.put('incdays', JSON.stringify({ at: Date.now(), data }), { expirationTtl: 3600 }).catch(() => {});
@@ -513,8 +516,11 @@ export async function buildFinance(env, d, { range = '90d', fresh = false, balan
       if (a.status === 'paid') paidOut += p; else owed += p;
     }
     const revM = {}; for (const e of entries) for (const l of e.lines) revM[e.day.slice(0, 7)] = (revM[e.day.slice(0, 7)] || 0) + l.ils;
-    const months = monthsBetween(r.from, today).map(m => {
-      const fxm = fixedForMonth(fixedRec, m, jp(fixedcost['fixedcost:' + m] ?? fixedcost[m]) || []), fx = fxm.items;
+    const finMonths = monthsBetween(r.from, today), [vx, share] = await Promise.all([loadVexp(env, finMonths), loadShare(env)]);
+    for (const m of finMonths) { const t = callTopups(vx[m], share); if (t) M(m).calls = Object.values(t).reduce((a, c) => a + c / 100 * USD_ILS, 0); }   /* 26/11: top-ups replace the per-call usage */
+    const months = finMonths.map(m => {
+      const fxm0 = fixedForMonth(fixedRec, m, jp(fixedcost['fixedcost:' + m] ?? fixedcost[m]) || []);
+      const fx = monthFixedItems(fxm0.items, vx[m], share), fxm = { items: fx, total: Math.round(fx.reduce((t, x) => t + (Number(x.ils) || 0), 0) * 100) / 100 };
       const man = jp(costman['costman:' + m] ?? costman[m]) || {};
       const c = mo[m] || { wa: 0, calls: 0, hostess: 0 };
       return { ...pnlMonth({ month: m, revenue: revM[m] || 0, wa: c.wa, calls: c.calls, hostess: c.hostess, ads: Number(adspend['adspend:' + m] ?? adspend[m]) || 0,

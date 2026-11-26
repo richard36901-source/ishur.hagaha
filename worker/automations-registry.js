@@ -296,6 +296,12 @@ export const AUTOMATIONS = [
     audience: 'סלאק', kv_markers: { global: ['slackdigest:sent:<יום>', 'slackstate:<key>', 'slackclosed:<יום>', 'slackinfo:<יום>', 'slackq:list'] },
     source: S(6457, "await step('slack_digest', () => slackDigest(env"), evidence: [E(192, 'export async function slackDigest', 'הסיכום: פתוחים · נפתר בלילה · מידע · תור הלילה · תוכנית היום', 'worker/slack-gate.js'), E(123, 'export async function gate', 'השער: OPEN / WORSE / CLOSE, אחרת שקט', 'worker/slack-gate.js')] },
 
+  /* 26/11 the real vendor charges (vendorexp.js): a monthly vendor with no receipt 5+ days after its day → Slack */
+  { id: 'vexp_missing', name_he: 'הוצאות · חיוב חודשי שלא הגיע (סלאק)', layer: 2, from: ['d_pacer'], kind: 'slack', added: '2026-11-26',
+    conditions: ['פעם ביום, הפעימה הראשונה אחרי 09:00', 'ספק קבוע (Make, Monday, Cloudflare, Anthropic) שעברו 5 ימים מיום החיוב שלו ואין לו קבלה ב-vexp:<חודש>', 'הודעה אחת לחודש לכל רשימה (vexpmiss:)'],
+    audience: 'סלאק', kv_markers: { global: ['vexp:<YYYY-MM>', 'vexpmiss:<חודש>:<ספקים>', 'cfg:vexp_share', 'cfg:vexp_ingest'] },
+    source: S(7929, "await step('vexp_missing'"), evidence: [E(152, 'export function missingCharges', 'מי חסר', 'worker/vendorexp.js')] },
+
   /* 04/11 the סקירה "מתוכנן מול בוצע" (Richard: "תמונה מלאה בסקירה"): composed once per tick, served from KV */
   { id: 'plan_precompute', name_he: 'סקירה · מתוכנן מול בוצע (חישוב מראש כל 10 דקות)', layer: 2, from: ['d_pacer'], kind: 'internal', added: '2026-11-04',
     conditions: ['כל פעימה, אחרון בפעימה (לא מעכב שליחות וחיוגים)', 'לוח השליחה (סימוני אורחים) נבנה מחדש רק כשהמטמון שלו מעל 30 דקות', 'ימים שעברו נשמרים פעם אחת (plan:day:<יום>)'],
