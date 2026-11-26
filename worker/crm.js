@@ -280,6 +280,17 @@ export async function fetchMondayLeads(env, gql = mondayGql) {
   return { ok: true, items };
 }
 
+/* 26/11 Richard: the admin tile "לידים חדשים" = leads whose monday status is exactly "חדש" (cached 10 minutes; null when monday is unreachable) */
+export function countMondayNew(items) { return (items || []).filter(it => clean(((it.column_values || []).find(c => c.id === MCOL.status) || {}).text, 40) === 'חדש').length; }
+export async function mondayNewLeads(env, gql = mondayGql) {
+  if (env.RATE) { const c = jparse(await env.RATE.get('mondaynew').catch(() => null)); if (c && Date.now() - c.at < 600e3) return c.n; }
+  const r = await fetchMondayLeads(env, gql).catch(() => ({ ok: false }));
+  if (!r.ok) return null;
+  const n = countMondayNew(r.items);
+  if (env.RATE) await env.RATE.put('mondaynew', JSON.stringify({ at: Date.now(), n }), { expirationTtl: 3600 }).catch(() => {});
+  return n;
+}
+
 const NOTE_CHUNK = 20, NOTE_PAUSE_MS = 250;
 export async function importLeads(env, d, { dry = false, sources = ['kv', 'leadx', 'meta', 'monday'], store = makeStore(env), cursor = '', limit = 250 } = {}) {
   const res = { ok: true, dry, store: store.kind, sources: {}, created: 0, updated: 0, notes_added: 0, skipped_clients: 0, errors: [] };

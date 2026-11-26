@@ -214,3 +214,15 @@ test('mergeGrowTx: Grow\'s screen fills the months the log misses, replaces the 
   assert.equal(out.filter((e) => e.ref === '533783571').length, 1);
   assert.equal(out.find((e) => e.tok8 === 'ffb78392').source, 'sheet');
 });
+
+test('classifyPay: AutoScale payments through the same Grow account are not ishur revenue (26/11)', () => {
+  assert.equal(classifyPay(pay('תמיכה חודשית', 295), { parsePaidDesc }), null);
+  assert.equal(revenueEntries([pay('תמיכה חודשית', 295, { ref: 'x1' }), pay('200 רשומות פרמיום', 279, { ref: 'x2' })], [], { parsePaidDesc }).length, 1);
+  assert.equal(classifyPay(pay('200 רשומות פרמיום', 279), { parsePaidDesc }).lines[0].ils, 279);
+});
+
+test('countMondayNew: only the monday status "חדש" counts (26/11)', async () => {
+  const { countMondayNew } = await import('../crm.js');
+  const it = s => ({ column_values: [{ id: 'status', text: s }] });
+  assert.equal(countMondayNew([it('חדש'), it('לא ענה'), it('סגר'), it('חדש'), it('')]), 2);
+});

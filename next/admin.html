@@ -622,7 +622,7 @@
   <h2 style="margin-top:1.4rem">סיכום מצטבר</h2>
   <div class="kpis">
     <div class="kpi money"><b id="k-rev">–</b><span>הכנסות ₪</span></div>
-    <div class="kpi"><b id="k-leads">–</b><span>לידים פתוחים</span></div>
+    <div class="kpi"><b id="k-leads">–</b><span>לידים חדשים</span></div>
     <div class="kpi"><b id="k-conv">–</b><span>% המרה</span></div>
     <div class="kpi"><b id="k-events">–</b><span>אירועים בתשלום</span></div>
     <div class="kpi"><b id="k-guests">–</b><span>אורחים במערכת</span></div>
@@ -1491,7 +1491,7 @@
       if (!d) return;
       $('gate').hidden = true; $('main').hidden = false;
       $('k-rev').textContent = (d.money.revenue_ils || 0).toLocaleString('he-IL');
-      $('k-leads').textContent = d.funnel.leads;
+      $('k-leads').textContent = d.funnel.leads_new != null ? d.funnel.leads_new : '–';
       $('k-conv').textContent = d.funnel.conversion + '%';
       $('k-events').textContent = d.funnel.paid_events;
       bizPaid = d.funnel.paid_events;
